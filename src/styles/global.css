@@ -1,0 +1,143 @@
+/* ============================================================
+   PATH — Design Tokens
+   Built around primary color #4F2683 (royal purple)
+   ============================================================ */
+
+:root {
+  /* Primary palette */
+  --color-primary: #4F2683;
+  --color-primary-hover: #6B3FA0;
+  --color-primary-active: #3A1C61;
+
+  /* Lighter tints (per request — pushed lighter) */
+  --color-primary-tint: #B89FD1;
+  --color-primary-tint-soft: #E8DEF2;
+  --color-primary-tint-ghost: #F5F0FA;
+
+  /* Neutrals */
+  --color-text: #1F1F1F;
+  --color-text-muted: #5C5C5C;
+  --color-text-subtle: #888888;
+  --color-bg: #FFFFFF;
+  --color-bg-alt: #FAFAF9;
+  --color-border: #E5E5E5;
+  --color-border-strong: #CFCFCF;
+
+  /* Semantic colors (for charts/states later) */
+  --color-accent-warm: #C97B4F;   /* complement for somatic vs non-somatic */
+  --color-success: #2E7D5B;
+  --color-warning: #B8860B;
+  --color-danger: #B43A3A;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  --font-size-base: 16px;
+  --line-height-base: 1.55;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radii & elevation */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 12px rgba(79, 38, 131, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  /* Layout */
+  --content-width-narrow: 720px;
+  --content-width-wide: 960px;
+}
+
+/* ----- Reset / base ----- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  color: var(--color-text);
+  line-height: 1.25;
+  margin-top: 0;
+}
+
+h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.005em; }
+h3 { font-size: 1.15rem; font-weight: 600; }
+
+p { margin-top: 0; }
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+a:hover { border-bottom-color: var(--color-primary); }
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+/* ----- Utility: page container ----- */
+.container {
+  width: 100%;
+  max-width: var(--content-width-narrow);
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+
+.container--wide {
+  max-width: var(--content-width-wide);
+}
+
+/* ----- Button system ----- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-5);
+  font-weight: 500;
+  font-size: 0.95rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  color: white;
+}
+.btn--primary:hover { background: var(--color-primary-hover); }
+.btn--primary:active { background: var(--color-primary-active); }
+
+.btn--secondary {
+  background: var(--color-primary-tint-ghost);
+  color: var(--color-primary);
+  border-color: var(--color-primary-tint);
+}
+.btn--secondary:hover {
+  background: var(--color-primary-tint-soft);
+}
