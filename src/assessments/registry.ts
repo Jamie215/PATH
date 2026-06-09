@@ -31,7 +31,7 @@ export const assessments: AssessmentSummary[] = [
     description:
       'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
     icon: 'body_system',
-    status: 'planned',
+    status: 'available',
     estimatedMinutes: 5,
   },
   {

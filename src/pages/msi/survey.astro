@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import MSISurvey from '../../components/MSISurvey.svelte';
+---
+<Base title="MSI · Survey" description="Multi-Dimensional Symptom Index — survey">
+  <h1 class="survey-heading">Symptom assessment</h1>
+  <MSISurvey client:only="svelte" />
+</Base>
+
+<style>
+  .survey-heading {
+    margin-bottom: var(--space-3);
+  }
+</style>
