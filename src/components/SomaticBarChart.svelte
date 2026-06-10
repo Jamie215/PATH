@@ -118,6 +118,7 @@
     Somatic vs Non-somatic Symptoms % Score
   </figcaption>
   <div class="chart-figure__canvas">
+    <canvas bind:this={canvas} id={canvasId} aria-label="Horizontal diverging bar comparing somatic and non-somatic symptom totals"
       role="img"></canvas>
   </div>
 </figure>
