@@ -16,6 +16,8 @@
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import type { MSIResult } from '../assessments/msi/scoring';
   import type { MSIRole } from '../assessments/msi/questions';
+  import SomaticBarChart from './SomaticBarChart.svelte';
+  import SymptomRadarChart from './SymptomRadarChart.svelte';
 
   let result = $state<MSIResult | null>(null);
   let role = $state<MSIRole | null>(null);
@@ -211,12 +213,13 @@
       <p class="comments-body">{result.comments}</p>
     </section>
 
-    <!-- Charts placeholder — M5 will fill this in -->
-    <section class="charts-placeholder" aria-labelledby="charts-heading">
+    <!-- Charts -->
+    <section class="charts" aria-labelledby="charts-heading">
       <h2 id="charts-heading" class="section-heading">Charts</h2>
-      <p class="placeholder-note">
-        Symptom radar and somatic / non-somatic comparison charts will appear here.
-      </p>
+      <div class="charts__grid">
+        <SomaticBarChart somatic={result.somatic} nonsomatic={result.nonsomatic} />
+        <SymptomRadarChart labels={result.labels} values={result.vals} />
+      </div>
     </section>
 
     <!-- Actions -->
@@ -410,16 +413,19 @@
     white-space: pre-wrap;
   }
 
-  /* ----- Charts placeholder ----- */
-  .placeholder-note {
-    padding: var(--space-5);
-    background: var(--color-primary-tint-ghost);
-    border: 1px dashed var(--color-primary-tint);
-    border-radius: var(--radius-md);
-    color: var(--color-text-muted);
-    margin: 0;
-    text-align: center;
-    font-size: 0.92rem;
+  /* ----- Charts ----- */
+  .charts__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  @media (min-width: 800px) {
+    .charts__grid {
+      /* Somatic bar : radar = 2 : 3 */
+      grid-template-columns: 2fr 3fr;
+      align-items: stretch;
+    }
   }
 
   /* ----- Actions ----- */
