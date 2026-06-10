@@ -16,9 +16,10 @@
   interface Props {
     somatic: number;
     nonsomatic: number;
+    canvasId?: string;
   }
 
-  let { somatic, nonsomatic }: Props = $props();
+  let { somatic, nonsomatic, canvasId }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let chart: Chart | null = null;
@@ -117,7 +118,6 @@
     Somatic vs Non-somatic Symptoms % Score
   </figcaption>
   <div class="chart-figure__canvas">
-    <canvas bind:this={canvas} aria-label="Horizontal diverging bar comparing somatic and non-somatic symptom totals"
       role="img"></canvas>
   </div>
 </figure>

@@ -12,9 +12,10 @@
   interface Props {
     labels: string[];
     values: number[];
+    canvasId?: string;
   }
 
-  let { labels, values }: Props = $props();
+  let { labels, values, canvasId }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let chart: Chart | null = null;
@@ -135,6 +136,7 @@
   <div class="chart-figure__canvas">
     <canvas
       bind:this={canvas}
+      id={canvasId}
       aria-label="Radar chart showing severity scores for each of the ten MSI symptoms"
       role="img"
     ></canvas>

@@ -17,6 +17,7 @@
     "@astrojs/svelte": "^7.1.0",
     "astro": "^5.16.0",
     "chart.js": "^4.5.1",
+    "pdf-lib": "^1.17.1",
     "svelte": "^5.39.0"
   },
   "devDependencies": {

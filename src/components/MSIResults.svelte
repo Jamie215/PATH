@@ -28,6 +28,13 @@
   let nameInput = $state('');
   let displayedName = $state('');
 
+  // PDF download state — busy flag prevents double-clicks during generation.
+  let pdfBusy = $state(false);
+  let pdfError = $state<string | null>(null);
+
+  const BAR_CANVAS_ID = 'msi-pdf-bar-chart';
+  const RADAR_CANVAS_ID = 'msi-pdf-radar-chart';
+
   onMount(() => {
     result = storeGet<MSIResult>('msi:result');
     role = storeGet<MSIRole>('msi:role');
@@ -52,6 +59,51 @@
     if (e.key === 'Enter') {
       e.preventDefault();
       saveName();
+    }
+  }
+
+  /**
+   * Generate the PDF report and trigger a download. The pdf-lib module
+   * is lazy-imported so the ~600KB dependency only loads when the user
+   * actually requests a download.
+   */
+  async function downloadPDF(): Promise<void> {
+    if (!result || !role) return;
+    pdfBusy = true;
+    pdfError = null;
+    try {
+      const barCanvas = document.getElementById(BAR_CANVAS_ID) as HTMLCanvasElement | null;
+      const radarCanvas = document.getElementById(RADAR_CANVAS_ID) as HTMLCanvasElement | null;
+      if (!barCanvas || !radarCanvas) {
+        throw new Error('Could not find chart canvases on the page.');
+      }
+
+      const somaticBar = barCanvas.toDataURL('image/png');
+      const radar = radarCanvas.toDataURL('image/png');
+
+      // Lazy-load pdf-lib only at download time.
+      const { generateMSIReport, buildFilename } = await import('../lib/msi-pdf');
+      const bytes = await generateMSIReport({
+        result,
+        role,
+        patientName: displayedName || nameInput.trim(),
+        chartImages: { somaticBar, radar },
+      });
+
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = buildFilename(displayedName || nameInput.trim());
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Defer revocation so the browser has time to start the download
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      pdfError = err instanceof Error ? err.message : 'Could not generate the PDF.';
+    } finally {
+      pdfBusy = false;
     }
   }
 
@@ -217,16 +269,35 @@
     <section class="charts" aria-labelledby="charts-heading">
       <h2 id="charts-heading" class="section-heading">Charts</h2>
       <div class="charts__grid">
-        <SomaticBarChart somatic={result.somatic} nonsomatic={result.nonsomatic} />
-        <SymptomRadarChart labels={result.labels} values={result.vals} />
+        <SomaticBarChart
+          somatic={result.somatic}
+          nonsomatic={result.nonsomatic}
+          canvasId={BAR_CANVAS_ID}
+        />
+        <SymptomRadarChart
+          labels={result.labels}
+          values={result.vals}
+          canvasId={RADAR_CANVAS_ID}
+        />
       </div>
     </section>
 
     <!-- Actions -->
     <div class="actions">
+      <button
+        type="button"
+        class="btn btn--primary actions__pdf"
+        onclick={downloadPDF}
+        disabled={pdfBusy}
+      >
+        {pdfBusy ? 'Generating PDF…' : 'Download as PDF'}
+      </button>
       <a href="/msi/" class="btn btn--secondary">Take MSI again</a>
       <a href="/" class="btn btn--secondary">Return to hub</a>
     </div>
+    {#if pdfError}
+      <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>
+    {/if}
   </div>
 {/if}
 
@@ -435,6 +506,21 @@
     flex-wrap: wrap;
     padding-top: var(--space-4);
     border-top: 1px solid var(--color-border);
+  }
+
+  .actions__pdf {
+    min-width: 180px;
+  }
+
+  .actions__pdf:disabled {
+    cursor: progress;
+    opacity: 0.7;
+  }
+
+  .pdf-error {
+    color: var(--color-danger);
+    font-size: 0.88rem;
+    margin: var(--space-3) 0 0 0;
   }
 
   /* ----- Responsive ----- */
