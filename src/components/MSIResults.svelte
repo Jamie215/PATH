@@ -14,6 +14,7 @@
    */
   import { onMount } from 'svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { MSIResult } from '../assessments/msi/scoring';
   import type { MSIRole } from '../assessments/msi/questions';
   import SomaticBarChart from './SomaticBarChart.svelte';
@@ -22,6 +23,7 @@
   let result = $state<MSIResult | null>(null);
   let role = $state<MSIRole | null>(null);
   let loaded = $state(false);
+  let parentContext = $state<Assessmentcontext | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName which
   // is what appears in the heading (and later in the PDF).
@@ -38,6 +40,7 @@
   onMount(() => {
     result = storeGet<MSIResult>('msi:result');
     role = storeGet<MSIRole>('msi:role');
+    parentContext = getAssessmentContext();
     const savedName = storeGet<string>('msi:patientName');
     if (savedName) {
       nameInput = savedName;
@@ -292,8 +295,11 @@
       >
         {pdfBusy ? 'Generating PDF…' : 'Download as PDF'}
       </button>
-      <a href="/msi/" class="btn btn--secondary">Take MSI again</a>
-      <a href="/" class="btn btn--secondary">Return to hub</a>
+      {#if parentContext}
+        <a href={parentContext.returnUrl} class="btn btn--secondary">Contine with {parentContext.title}</a>
+      {:else}
+        <a href="/" class="btn btn--secondary">Return to Home</a>
+      {/if}
     </div>
     {#if pdfError}
       <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>
