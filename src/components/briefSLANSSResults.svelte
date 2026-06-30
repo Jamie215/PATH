@@ -63,7 +63,7 @@
     pdfError = null;
     try {
       // Lazy-load pdf-lib only at download time.
-      const { generateBriefSLANSSReport, buildFilename } = await import('../lib/briefSLANSS-pdf');
+      const { generateBriefSLANSSReport, buildFilename } = await import('../lib/briefslanss-pdf');
       const bytes = await generateBriefSLANSSReport({
         result,
         patientName: displayedName || nameInput.trim(),

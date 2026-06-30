@@ -83,7 +83,7 @@
       const radar = radarCanvas.toDataURL('image/png');
 
       // Lazy-load pdf-lib only at download time.
-      const { generateMSIReport, buildFilename } = await import('../lib/MSI-pdf');
+      const { generateMSIReport, buildFilename } = await import('../lib/msi-pdf');
       const bytes = await generateMSIReport({
         result,
         role,
