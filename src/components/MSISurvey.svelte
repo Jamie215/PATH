@@ -17,7 +17,7 @@
     FREQUENCY_OPTIONS,
     INTERFERENCE_OPTIONS,
     type MSIRole,
-  } from '../assessments/msi/questions';
+  } from '../assessments/MSI/questions';
   import { score, type MSIResponse } from '../assessments/msi/scoring';
   import { get as storeGet, set as storeSet } from '../lib/storage';
 

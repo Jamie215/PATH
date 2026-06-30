@@ -1,45 +1,35 @@
 /**
- * MSI PDF report generator.
+ * briefSLANSS PDF report generator.
  *
  * Produces a clean, text-based PDF using pdf-lib. All text remains
- * selectable and searchable in the output; charts are embedded as
- * PNG rasterizations of the existing Chart.js canvases.
+ * selectable and searchable in the output.
  *
  * Page layout uses pdf-lib's native coordinate system (origin at
  * bottom-left). Content is laid out top-to-bottom by tracking a
  * `y` cursor and advancing downward as elements are drawn.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
-import type { MSIResult } from '../assessments/MSI/scoring';
-import type { MSIRole } from '../assessments/MSI/questions';
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import type { briefSLANSSResult } from '../assessments/briefslanss/scoring';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export interface PDFInput {
-  result: MSIResult;
-  role: MSIRole;
+  result: briefSLANSSResult;
   patientName: string;
-  chartImages: {
-    somaticBar: string; // data URL
-    radar: string; // data URL
-  };
 }
 
-export async function generateMSIReport(input: PDFInput): Promise<Uint8Array> {
+export async function generateBriefSLANSSReport(input: PDFInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle('MSI Results');
-  doc.setSubject('Multi-Dimensional Symptom Index — clinical results');
+  doc.setTitle('briefSLANSS Results');
+  doc.setSubject('briefSLANSS — clinical screening results');
   doc.setProducer('PATH — Pain Assessment Tools Hub');
   doc.setCreator('PATH');
   doc.setCreationDate(new Date());
 
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-
-  const barImg = await embedPng(doc, input.chartImages.somaticBar);
-  const radarImg = await embedPng(doc, input.chartImages.radar);
 
   const ctx: Ctx = {
     doc,
@@ -52,12 +42,9 @@ export async function generateMSIReport(input: PDFInput): Promise<Uint8Array> {
 
   drawHeader(ctx);
   drawTitle(ctx, input.patientName);
-  drawSummaryScores(ctx, input.result);
-  if (input.role === 'professional') {
-    drawScreening(ctx, input.result);
-  }
+  drawScoreCard(ctx, input.result);
+  drawInterpretationNote(ctx);
   drawComments(ctx, input.result.comments);
-  drawCharts(ctx, barImg, radarImg);
 
   // Stamp every page's footer once we know the total page count
   const total = ctx.doc.getPageCount();
@@ -76,7 +63,7 @@ export function buildFilename(patientName: string): string {
     .replace(/[^a-zA-Z0-9-]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 40);
-  return safe ? `MSI_Results_${safe}_${today}.pdf` : `MSI_Results_${today}.pdf`;
+  return safe ? `briefSLANSS_Results_${safe}_${today}.pdf` : `briefSLANSS_Results_${today}.pdf`;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +77,8 @@ const MARGIN_BOTTOM = 60;
 const MARGIN_X = 50;
 const CONTENT_W = PAGE_W - 2 * MARGIN_X;
 
+const NEUROPATHIC_THRESHOLD = 10; // matches scoring.ts; verify with PI
+
 const COLOR_PRIMARY = rgb(0.31, 0.149, 0.514); // #4F2683
 const COLOR_TEXT = rgb(0.122, 0.122, 0.122);   // #1F1F1F
 const COLOR_MUTED = rgb(0.361, 0.361, 0.361);  // #5C5C5C
@@ -97,9 +86,10 @@ const COLOR_SUBTLE = rgb(0.533, 0.533, 0.533); // #888
 const COLOR_BORDER = rgb(0.898, 0.898, 0.898); // #E5E5E5
 const COLOR_TINT = rgb(0.961, 0.941, 0.980);   // #F5F0FA
 
-const COLOR_SUCCESS = rgb(0.18, 0.49, 0.357);  // #2E7D5B
-const COLOR_DANGER = rgb(0.706, 0.227, 0.227); // #B43A3A
-const COLOR_WARNING = rgb(0.722, 0.525, 0.043); // #B8860B
+const COLOR_AMBER_BORDER = rgb(0.706, 0.325, 0.035); // #B45309
+const COLOR_AMBER_BG = rgb(1.0, 0.984, 0.922);        // #FFFBEB
+const COLOR_AMBER_PILL_BG = rgb(0.992, 0.902, 0.541); // #FDE68A
+const COLOR_AMBER_PILL_TEXT = rgb(0.471, 0.208, 0.059); // #78350F
 
 interface Ctx {
   doc: PDFDocument;
@@ -185,15 +175,6 @@ function wrapText(text: string, maxWidth: number, font: PDFFont, size: number): 
 }
 
 // ---------------------------------------------------------------------------
-// PNG embedding
-// ---------------------------------------------------------------------------
-
-async function embedPng(doc: PDFDocument, dataUrl: string): Promise<PDFImage> {
-  const bytes = await fetch(dataUrl).then((r) => r.arrayBuffer());
-  return doc.embedPng(bytes);
-}
-
-// ---------------------------------------------------------------------------
 // Section drawers
 // ---------------------------------------------------------------------------
 
@@ -240,9 +221,12 @@ function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, total: number
 }
 
 function drawTitle(ctx: Ctx, patientName: string): void {
-  drawText(ctx, 'Multi-Dimensional Symptom Index', { bold: true, size: 18, color: COLOR_TEXT });
+  drawText(ctx, 'briefSLANSS', { bold: true, size: 18, color: COLOR_TEXT });
   moveDown(ctx, 22);
-  drawText(ctx, 'Results report', { size: 11, color: COLOR_MUTED });
+  drawText(ctx, 'Brief neuropathic symptoms and signs — results report', {
+    size: 11,
+    color: COLOR_MUTED,
+  });
   moveDown(ctx, 22);
 
   if (patientName) {
@@ -261,111 +245,94 @@ function drawSectionHeading(ctx: Ctx, title: string): void {
   moveDown(ctx, 16);
 }
 
-function drawSummaryScores(ctx: Ctx, result: MSIResult): void {
-  drawSectionHeading(ctx, 'Summary scores');
+/**
+ * Score card — mirrors the on-screen treatment from briefSLANSSResults.svelte:
+ * a tinted box with a colored left border, a large numeric score, and a
+ * verdict pill. Purple/normal vs amber/elevated based on threshold.
+ */
+function drawScoreCard(ctx: Ctx, result: briefSLANSSResult): void {
+  drawSectionHeading(ctx, 'Score');
 
-  const TARGETS = { symp_no: 1.8, freq_mean: 0.9, int_mean: 1.0, somatic: 7.5, nonsomatic: 6.1 };
-  const target = (current: number, threshold: number) => Math.max(0, current - threshold);
-  const fmtInt = (n: number) => Math.round(n).toString();
-  const fmt1 = (n: number) => n.toFixed(1);
-  const pct = (v: number, max: number) => `${Math.round((v / max) * 100)}%`;
+  const elevated = result.total_score >= NEUROPATHIC_THRESHOLD;
+  const borderColor = elevated ? COLOR_AMBER_BORDER : COLOR_PRIMARY;
+  const bgColor = elevated ? COLOR_AMBER_BG : COLOR_TINT;
+  const pillBg = elevated ? COLOR_AMBER_PILL_BG : COLOR_TINT;
+  const pillText = elevated ? COLOR_AMBER_PILL_TEXT : COLOR_PRIMARY;
 
-  const rows: [string, string, string][] = [
-    [
-      'Number of symptoms',
-      `${result.symp_no} (${pct(result.symp_no, 10)})`,
-      fmtInt(target(result.symp_no, TARGETS.symp_no)),
-    ],
-    [
-      'Mean frequency',
-      `${fmt1(result.freq_mean)} (${pct(result.freq_mean, 3)})`,
-      fmt1(target(result.freq_mean, TARGETS.freq_mean)),
-    ],
-    [
-      'Mean bothersomeness',
-      `${fmt1(result.int_mean)} (${pct(result.int_mean, 4)})`,
-      fmt1(target(result.int_mean, TARGETS.int_mean)),
-    ],
-    [
-      'Somatic symptoms',
-      `${fmtInt(result.somatic)} (${pct(result.somatic, 60)})`,
-      fmtInt(target(result.somatic, TARGETS.somatic)),
-    ],
-    [
-      'Non-somatic symptoms',
-      `${fmtInt(result.nonsomatic)} (${pct(result.nonsomatic, 72)})`,
-      fmtInt(target(result.nonsomatic, TARGETS.nonsomatic)),
-    ],
-  ];
+  const cardH = 90;
+  ensureSpace(ctx, cardH + 12);
 
-  // Column layout: 240 / 130 / 130
-  const colX = { label: MARGIN_X, current: MARGIN_X + 240, target: MARGIN_X + 240 + 130 };
-  const rowHeight = 22;
-
-  // Header background
+  // Card background + left accent border
+  const cardTop = ctx.y;
   ctx.page.drawRectangle({
     x: MARGIN_X,
-    y: ctx.y - 8,
+    y: cardTop - cardH,
     width: CONTENT_W,
-    height: 22,
-    color: COLOR_TINT,
+    height: cardH,
+    color: bgColor,
+    borderColor: COLOR_BORDER,
+    borderWidth: 0.5,
   });
-  drawText(ctx, 'MEASURE', { x: colX.label + 8, size: 8, bold: true, color: COLOR_PRIMARY });
-  drawText(ctx, 'CURRENT', { x: colX.current + 8, size: 8, bold: true, color: COLOR_PRIMARY });
-  drawText(ctx, 'TARGET FOR MEANINGFUL CHANGE', {
-    x: colX.target + 8,
-    size: 8,
-    bold: true,
-    color: COLOR_PRIMARY,
+  ctx.page.drawRectangle({
+    x: MARGIN_X,
+    y: cardTop - cardH,
+    width: 4,
+    height: cardH,
+    color: borderColor,
   });
-  moveDown(ctx, 22);
 
-  for (const [label, current, targetVal] of rows) {
-    ensureSpace(ctx, rowHeight + 2);
-    drawText(ctx, label, { x: colX.label + 8, size: 10 });
-    drawText(ctx, current, { x: colX.current + 8, size: 10, bold: true });
-    drawText(ctx, targetVal, { x: colX.target + 8, size: 10, bold: true });
-    moveDown(ctx, 6);
-    drawRule(ctx);
-    moveDown(ctx, rowHeight - 6);
-  }
-  moveDown(ctx, 12);
+  // Score number (left)
+  const scoreText = String(result.total_score);
+  const scoreSize = 36;
+  const scoreX = MARGIN_X + 24;
+  const scoreY = cardTop - 56;
+  ctx.page.drawText(scoreText, {
+    x: scoreX,
+    y: scoreY,
+    size: scoreSize,
+    font: ctx.fontBold,
+    color: COLOR_TEXT,
+  });
+
+  // Verdict pill (right side of card)
+  const pillPaddingX = 12;
+  const pillPaddingY = 6;
+  const pillSize = 11;
+  const pillTextW = ctx.fontBold.widthOfTextAtSize(result.interpretation, pillSize);
+  const pillW = pillTextW + pillPaddingX * 2;
+  const pillH = pillSize + pillPaddingY * 2;
+  const pillX = MARGIN_X + CONTENT_W - pillW - 16;
+  const pillY = cardTop - cardH / 2 - pillH / 2;
+
+  ctx.page.drawRectangle({
+    x: pillX,
+    y: pillY,
+    width: pillW,
+    height: pillH,
+    color: pillBg,
+    borderColor: borderColor,
+    borderWidth: 0.5,
+  });
+  ctx.page.drawText(result.interpretation, {
+    x: pillX + pillPaddingX,
+    y: pillY + pillPaddingY + 2,
+    size: pillSize,
+    font: ctx.fontBold,
+    color: pillText,
+  });
+
+  moveDown(ctx, cardH + 16);
 }
 
-function drawScreening(ctx: Ctx, result: MSIResult): void {
-  drawSectionHeading(ctx, 'Screening results');
-  drawText(ctx, 'Predictive flags based on non-somatic symptom total. Indicators, not diagnoses.', {
-    size: 9,
-    color: COLOR_MUTED,
-  });
-  moveDown(ctx, 18);
-
-  const rows: [string, 'Likely' | 'Unlikely' | 'Unclear', boolean][] = [
-    ['Full recovery predicted', result.full_rec, /* positive=good */ true],
-    ['Potential Major Depressive Disorder', result.mdd, /* positive=good */ false],
-  ];
-
-  for (const [label, verdict, goodIsLikely] of rows) {
-    ensureSpace(ctx, 24);
-    drawText(ctx, label, { size: 10 });
-
-    const verdictColor =
-      verdict === 'Unclear'
-        ? COLOR_WARNING
-        : (verdict === 'Likely') === goodIsLikely
-          ? COLOR_SUCCESS
-          : COLOR_DANGER;
-    const verdictWidth = ctx.fontBold.widthOfTextAtSize(verdict, 11);
-    ctx.page.drawText(verdict, {
-      x: MARGIN_X + CONTENT_W - verdictWidth,
-      y: ctx.y,
-      size: 11,
-      font: ctx.fontBold,
-      color: verdictColor,
-    });
-    moveDown(ctx, 8);
-    drawRule(ctx);
-    moveDown(ctx, 14);
+function drawInterpretationNote(ctx: Ctx): void {
+  const note =
+    `Scores at or above ${NEUROPATHIC_THRESHOLD} suggest a predominantly neuropathic pain ` +
+    `mechanism. This is a screening result, not a diagnosis.`;
+  const lines = wrapText(note, CONTENT_W, ctx.font, 9);
+  ensureSpace(ctx, lines.length * 13 + 8);
+  for (const line of lines) {
+    drawText(ctx, line, { size: 9, color: COLOR_MUTED });
+    moveDown(ctx, 13);
   }
   moveDown(ctx, 12);
 }
@@ -390,54 +357,4 @@ function drawComments(ctx: Ctx, comments: string): void {
     moveDown(ctx, 14);
   }
   moveDown(ctx, 8);
-}
-
-function drawCharts(ctx: Ctx, barImg: PDFImage, radarImg: PDFImage): void {
-  // Charts together need ~ 480pt of vertical space. Force a new page
-  // if we don't have room (rather than half-chart at bottom of page).
-  if (ctx.y - 480 < MARGIN_BOTTOM) {
-    ctx.page = ctx.doc.addPage([PAGE_W, PAGE_H]);
-    ctx.pageNum += 1;
-    ctx.y = PAGE_H - MARGIN_TOP;
-    drawHeader(ctx, { compact: true });
-  }
-
-  drawSectionHeading(ctx, 'Charts');
-
-  // Somatic vs non-somatic bar — embed at content width, scaled.
-  const barTargetW = CONTENT_W;
-  const barAspect = barImg.height / barImg.width;
-  const barTargetH = Math.min(barTargetW * barAspect, 160);
-  moveDown(ctx, 0);
-  ctx.page.drawImage(barImg, {
-    x: MARGIN_X,
-    y: ctx.y - barTargetH,
-    width: barTargetW,
-    height: barTargetH,
-  });
-  moveDown(ctx, barTargetH + 8);
-  drawText(ctx, 'Somatic vs Non-somatic symptoms — percent of maximum', {
-    size: 9,
-    color: COLOR_MUTED,
-  });
-  moveDown(ctx, 24);
-
-  // Radar — square, centered on the page.
-  const radarTargetH = 300;
-  const radarTargetW = radarTargetH; // 1:1
-  const radarX = MARGIN_X + (CONTENT_W - radarTargetW) / 2;
-  ensureSpace(ctx, radarTargetH + 20);
-  ctx.page.drawImage(radarImg, {
-    x: radarX,
-    y: ctx.y - radarTargetH,
-    width: radarTargetW,
-    height: radarTargetH,
-  });
-  moveDown(ctx, radarTargetH + 8);
-  drawText(ctx, 'Per-symptom values (0-12 scale)', {
-    size: 9,
-    color: COLOR_MUTED,
-    x: radarX,
-  });
-  moveDown(ctx, 16);
 }

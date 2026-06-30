@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import BriefSLANSSSurvey from '../../components/briefSLANSSSurvey.svelte';
+---
+<Base title="briefSLANSS · Survey" description="briefSLANSS — survey">
+  <h1 class="survey-heading">Symptom assessment</h1>
+  <BriefSLANSSSurvey client:only="svelte" />
+</Base>
+
+<style>
+  .survey-heading {
+    margin-bottom: var(--space-3);
+  }
+</style>

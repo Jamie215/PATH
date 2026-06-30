@@ -4,8 +4,6 @@
  * Each entry corresponds to one symptom from `scoring.ts`. The frequency
  * question is always asked; the interference (bothersomeness) question
  * is asked only when frequency > 0.
- *
- * Question wording is preserved from the original PythonAnywhere survey.
  */
 import type { Symptom } from './scoring';
 

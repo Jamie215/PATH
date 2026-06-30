@@ -9,8 +9,6 @@
    *     (PROFESSIONAL VIEW ONLY)
    *   - Comments section
    *
-   * Charts (M5) and PDF download (M6) attach to this page in later
-   * milestones.
    */
   import { onMount } from 'svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
@@ -85,7 +83,7 @@
       const radar = radarCanvas.toDataURL('image/png');
 
       // Lazy-load pdf-lib only at download time.
-      const { generateMSIReport, buildFilename } = await import('../lib/msi-pdf');
+      const { generateMSIReport, buildFilename } = await import('../lib/MSI-pdf');
       const bytes = await generateMSIReport({
         result,
         role,
@@ -296,7 +294,7 @@
         {pdfBusy ? 'Generating PDF…' : 'Download as PDF'}
       </button>
       {#if parentContext}
-        <a href={parentContext.returnUrl} class="btn btn--secondary">Contine with {parentContext.title}</a>
+        <a href={parentContext.returnUrl} class="btn btn--secondary">Continue with {parentContext.title}</a>
       {:else}
         <a href="/" class="btn btn--secondary">Return to Home</a>
       {/if}

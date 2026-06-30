@@ -32,7 +32,17 @@ export const assessments: AssessmentSummary[] = [
       'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
     icon: 'body_system',
     status: 'available',
-    estimatedMinutes: 5,
+    estimatedMinutes: 10,
+  },
+  {
+    slug: 'briefslanss',
+    title: 'LANSS (Leeds Assessment of Neuropathic Symptoms and Signs) Screening (Brief ver.)',
+    shortName: 'BriefSLANSS',
+    description:
+      'A brief screening for neuropathic pain, with four symptom questions.',
+    icon: 'neurology',
+    status: 'available',
+    estimatedMinutes: 2,
   },
   {
     slug: 'pain-classification',
@@ -42,6 +52,6 @@ export const assessments: AssessmentSummary[] = [
       'Composite assessment that classifies pain presentation, with separate scoring for acute and chronic.',
     icon: 'personal_injury',
     status: 'planned',
-    estimatedMinutes: 15,
+    estimatedMinutes: 30,
   },
 ];
