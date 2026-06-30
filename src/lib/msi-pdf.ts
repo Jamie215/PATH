@@ -10,8 +10,8 @@
  * `y` cursor and advancing downward as elements are drawn.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
-import type { MSIResult } from '../assessments/MSI/scoring';
-import type { MSIRole } from '../assessments/MSI/questions';
+import type { MSIResult } from '../assessments/msi/scoring';
+import type { MSIRole } from '../assessments/msi/questions';
 
 // ---------------------------------------------------------------------------
 // Public API
