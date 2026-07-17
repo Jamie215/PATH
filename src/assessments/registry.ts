@@ -45,6 +45,16 @@ export const assessments: AssessmentSummary[] = [
     estimatedMinutes: 2,
   },
   {
+    slug: 'frebaq',
+    title: 'FreBAQ (Fremantle Back Awareness Questionnaire)',
+    shortName: 'FreBAQ',
+    description:
+      'A quantitative evaluation of area-specific self-perception.',
+    icon: 'psychology_alt',
+    status: 'available',
+    estimatedMinutes: 4,
+  },
+  {
     slug: 'pain-classification',
     title: 'Pain Classification Assessment',
     shortName: 'Pain Classification',
