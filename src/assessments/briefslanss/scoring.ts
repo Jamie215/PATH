@@ -11,7 +11,7 @@ export const SYMPTOMS = [
 export type Symptom = (typeof SYMPTOMS)[number];
 
 const SYMPTOM_SCORES: Record<Symptom, number> = {
-  numb: 5, skinDiff: 5, sensitive: 3, discomfort: 5,
+  numb: 1, skinDiff: 1, sensitive: 1, discomfort: 1,
 };
 
 /** Human-readable labels */
@@ -73,7 +73,7 @@ export function score(response: briefSLANSSResponse): briefSLANSSResult {
 
   return {
     total_score,
-    interpretation: total_score > 10 ? 'Pain is predominantly neuropathic' : 'Pain is less likely to be neuropathic', //TODO: Confirm this threshold
+    interpretation: total_score > 2 ? 'Pain is predominantly neuropathic' : 'Pain is less likely to be neuropathic', //TODO: Confirm this threshold
     comments,
   };
 }
