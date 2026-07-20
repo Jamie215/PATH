@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * FreBAQ results view.
+   * PHQ-4 results view.
    *
    * Reads the scored result from sessionStorage and displays:
    *   - Patient name field (used later for PDF generation)
@@ -10,9 +10,9 @@
   import { onMount } from 'svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
-  import type { freBAQResult } from '../assessments/frebaq/scoring';
+  import type { phq4Result } from '../assessments/phq4/scoring';
 
-  let result = $state<FreBAQ | null>(null);
+  let result = $state<phq4 | null>(null);
   let loaded = $state(false);
   let parentContext = $state<Assessmentcontext | null>(null);
 
@@ -26,23 +26,23 @@
   let pdfError = $state<string | null>(null);
 
   onMount(() => {
-    result = storeGet<freBAQResult>('frebaq:result');
+    result = storeGet<phq4Result>('phq4:result');
     parentContext = getAssessmentContext();
-    const savedName = storeGet<string>('frebaq:patientName');
+    const savedName = storeGet<string>('phq4:patientName');
     if (savedName) {
       nameInput = savedName;
       displayedName = savedName;
     }
     loaded = true;
     if (!result) {
-      window.location.replace('/frebaq/');
+      window.location.replace('/phq4/');
     }
   });
 
   function saveName(): void {
     const trimmed = nameInput.trim();
     displayedName = trimmed;
-    storeSet('frebaq:patientName', trimmed);
+    storeSet('phq4:patientName', trimmed);
   }
 
   function handleNameKey(e: KeyboardEvent): void {
@@ -63,8 +63,8 @@
     pdfError = null;
     try {
       // Lazy-load pdf-lib only at download time.
-      const { generateFreBAQReport, buildFilename } = await import('../lib/frebaq-pdf');
-      const bytes = await generateFreBAQReport({
+      const { generatePHQ4Report, buildFilename } = await import('../lib/phq4-pdf');
+      const bytes = await generatePHQ4Report({
         result,
         patientName: displayedName || nameInput.trim(),
       });
@@ -86,9 +86,17 @@
     }
   }
 
-  const NEUROPATHIC_THRESHOLD = 2; //TODO: Confirm this threshold
+  const MILD_THRESHOLD = 2;
+  const MODERATE_THRESHOLD = 5;
+  const SEVERE_THRESHOLD = 8;
+
   const verdict = $derived(
-    result && result.total_score >= NEUROPATHIC_THRESHOLD ? 'elevated' : 'normal'
+    !result 
+    ? 'unknown' 
+    : result.total_score > SEVERE_THRESHOLD ? 'severe'
+    : result.total_score > MODERATE_THRESHOLD ? 'moderate'
+    : result.total_score > MILD_THRESHOLD ? 'mild'
+    : 'none'
   );
 </script>
 
@@ -230,11 +238,21 @@
     border-radius: var(--radius-md);
   }
 
-  .score-card--normal {
+  .score-card--none {
     border-left-color: var(--color-primary);
   }
 
-  .score-card--elevated {
+  .score-card--mild {
+    border-left-color: #ffe082;   /* amber-200 */
+    background: #fffbeb;          /* amber-50  */
+  }
+
+  .score-card--moderate {
+    border-left-color: #ffca28;   /* amber-400 */
+    background: #fffbeb;          /* amber-50  */
+  }
+
+  .score-card--severe {
     border-left-color: #b45309;   /* amber-700 */
     background: #fffbeb;          /* amber-50  */
   }
@@ -274,13 +292,23 @@
     line-height: 1.3;
   }
 
-  .verdict-pill--normal {
+  .verdict-pill--none {
     background: var(--color-primary-tint-soft);
     color: var(--color-primary);
   }
 
-  .verdict-pill--elevated {
-    background: #fde68a;   /* amber-200 */
+  .verdict-pill--mild {
+    background: #ffe082;   /* amber-200 */
+    color: #78350f;        /* amber-900 */
+  }
+
+  .verdict-pill--moderate {
+    background: #ffca28;   /* amber-400 */
+    color: #78350f;        /* amber-900 */
+  }
+
+  .verdict-pill--severe {
+    background: #ffa000;   /* amber-700 */
     color: #78350f;        /* amber-900 */
   }
 
