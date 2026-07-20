@@ -1,27 +1,25 @@
 /**
- * FreBAQ scoring.
+ * PHQ-4 scoring.
  */
 
 // --- Constants ---------------------------------------------------------------
 
 export const SYMPTOMS = [
-  'notPart', 'withoutControl', 'withoutKnowingMoving', 'withoutKnowingPosition', 'cantPerceiveOutline', 'feelsLopsided'
+  'nervousOrAnxious', 'worrying', 'depressedOrHopeless', 'littleInterestOrPleasure'
 ] as const;
 
 export type Symptom = (typeof SYMPTOMS)[number];
 
 const SYMPTOM_SCORES: Record<Symptom, number> = {
-  notPart: 1, withoutControl: 1, withoutKnowingMoving: 1, withoutKnowingPosition: 1, cantPerceiveOutline: 1, feelsLopsided: 1,
+  nervousOrAnxious: 1, worrying: 1, depressedOrHopeless: 1, littleInterestOrPleasure: 1,
 };
 
 /** Human-readable labels */
 export const SYMPTOM_LABELS: Record<Symptom, string> = {
-  notPart: 'Not part of my body',
-  withoutControl: 'Move on its own',
-  withoutKnowingMoving: 'Move without knowing',
-  withoutKnowingPosition: 'Position without knowing',
-  cantPerceiveOutline: 'Cannot perceive outline',
-  feelsLopsided: 'Feels very lopsided', 
+  nervousOrAnxious: 'Nervous or anxious',
+  worrying: 'Worrying',
+  depressedOrHopeless: 'Depressed or hopeless',
+  littleInterestOrPleasure: 'Little interest or pleasure',
 };
 
 // --- Types -------------------------------------------------------------------
@@ -33,7 +31,7 @@ export type Experience = 0 | 1;
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export interface freBAQResponse {
+export interface phq4Response {
   [key: `${Symptom}_exp`]: Experience;
   other_comments?: string;
 }
@@ -42,7 +40,7 @@ export interface freBAQResponse {
  * Result shape — identical keys to the original Python return dict so it
  * remains a drop-in replacement for the existing templates.
  */
-export interface freBAQResult {
+export interface phq4Result {
   total_score: number;
   interpretation: string;
   comments: string;
@@ -57,9 +55,9 @@ function symptomScore(
 }
 
 /**
- * Score an freBAQ survey response
+ * Score an PHQ-4 survey response
  */
-export function score(response: freBAQResponse): freBAQResult {
+export function score(response: phq4Response): phq4Result {
   let total_score = 0;
 
   for (const symptom of SYMPTOMS) {

@@ -12,7 +12,7 @@
   import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { phq4Result } from '../assessments/phq4/scoring';
 
-  let result = $state<phq4 | null>(null);
+  let result = $state<PHQ4 | null>(null);
   let loaded = $state(false);
   let parentContext = $state<Assessmentcontext | null>(null);
 

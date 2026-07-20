@@ -55,6 +55,16 @@ export const assessments: AssessmentSummary[] = [
     estimatedMinutes: 4,
   },
   {
+    slug: 'phq4',
+    title: 'PHQ-4 (Patient Health Questionnaire-4)',
+    shortName: 'PHQ-4',
+    description:
+      'A brief screening for depression and anxiety.',
+    icon: 'stress_management',
+    status: 'available',
+    estimatedMinutes: 2,
+  },
+  {
     slug: 'pain-classification',
     title: 'Pain Classification Assessment',
     shortName: 'Pain Classification',

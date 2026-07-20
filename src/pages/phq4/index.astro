@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import PHQ4Survey from '../../components/PHQ4Survey.svelte';
+---
+<Base title="phq4 · Survey" description="PHQ4 — survey">
+  <h1 class="survey-heading">Symptom assessment</h1>
+  <PHQ4Survey client:only="svelte" />
+</Base>
+
+<style>
+  .survey-heading {
+    margin-bottom: var(--space-3);
+  }
+</style>

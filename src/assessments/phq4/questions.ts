@@ -1,5 +1,5 @@
 /**
- * FreBAQ survey question configuration.
+ * PHQ-4 survey question configuration.
  */
 import type { Symptom } from './scoring';
 
