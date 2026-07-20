@@ -139,14 +139,14 @@
 
     <ul class="cards">
       {#each ACUTE_CHILDREN as child (child.slug)}
-        <li class="card" class:card--done={childComplete(child)}>
-          <div class="card__row">
-            <div class="card__name">
-              <h2 class="card__title">{child.shortName}</h2>
-              <p class="card__subtitle">{child.title}</p>
-            </div>
+        <li class="assessment">
+          <div class="assessment__head">
+            <h2 class="assessment__title">{child.shortName}</h2>
+            <p class="assessment__subtitle">{child.title}</p>
+          </div>
 
-            <div class="card__manual">
+          <div class="card" class:card--done={childComplete(child)}>
+            <div class="card__fields">
               {#each child.manualFields as f (f.key)}
                 <label class="field">
                   <span class="field__label">
@@ -163,6 +163,17 @@
                   />
                 </label>
               {/each}
+
+              <label class="field field--comment">
+                <span class="field__label">Comments (optional)</span>
+                <textarea
+                  class="field__textarea"
+                  rows="2"
+                  placeholder="Any notes about this assessment…"
+                  value={comments[child.slug] ?? ''}
+                  oninput={(e) => setComment(child.slug, (e.currentTarget as HTMLTextAreaElement).value)}
+                ></textarea>
+              </label>
             </div>
 
             <div class="card__action">
@@ -170,18 +181,6 @@
                 Fill Out Questionnaire
               </button>
             </div>
-          </div>
-
-          <div class="card__comment">
-            <label class="field__label" for={`comment-${child.slug}`}>Comments (optional)</label>
-            <textarea
-              id={`comment-${child.slug}`}
-              class="card__comment-input"
-              rows="2"
-              placeholder="Any notes about this assessment…"
-              value={comments[child.slug] ?? ''}
-              oninput={(e) => setComment(child.slug, (e.currentTarget as HTMLTextAreaElement).value)}
-            ></textarea>
           </div>
         </li>
       {/each}
@@ -261,10 +260,29 @@
     margin: 0 0 var(--space-7) 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-6);
+  }
+
+  .assessment__head {
+    margin-bottom: var(--space-3);
+  }
+
+  .assessment__title {
+    font-size: 1.1rem;
+    margin: 0;
+  }
+
+  .assessment__subtitle {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: var(--space-1) 0 0 0;
   }
 
   .card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: var(--space-5);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-lg);
     padding: var(--space-5);
@@ -275,34 +293,21 @@
     border-color: var(--color-success);
   }
 
-  .card__row {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr auto;
-    align-items: center;
-    gap: var(--space-5);
-  }
-
-  .card__title {
-    font-size: 1.1rem;
-    margin: 0;
-  }
-
-  .card__subtitle {
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    margin: var(--space-1) 0 0 0;
-  }
-
-  .card__manual {
+  .card__fields {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: var(--space-4);
+    min-width: 0;
   }
 
   .field {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+  }
+
+  .field--comment {
+    width: 100%;
   }
 
   .field__label {
@@ -316,7 +321,7 @@
   }
 
   .field__input {
-    width: 7rem;
+    width: 8rem;
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-md);
@@ -325,7 +330,20 @@
     color: var(--color-text);
   }
 
-  .field__input:focus {
+  .field__textarea {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: vertical;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .field__input:focus,
+  .field__textarea:focus {
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
@@ -333,34 +351,7 @@
 
   .card__action {
     display: flex;
-    justify-content: flex-end;
-  }
-
-  .card__comment {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-4);
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--color-border);
-  }
-
-  .card__comment-input {
-    width: 100%;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.9rem;
-    resize: vertical;
-    background: var(--color-bg);
-    color: var(--color-text);
-  }
-
-  .card__comment-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
+    align-items: flex-start;
   }
 
   .btn--success {
@@ -373,12 +364,8 @@
   }
 
   @media (max-width: 640px) {
-    .card__row {
+    .card {
       grid-template-columns: 1fr;
-      align-items: stretch;
-    }
-    .card__action {
-      justify-content: stretch;
     }
     .card__action .btn {
       width: 100%;
