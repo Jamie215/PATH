@@ -15,11 +15,13 @@
    */
   import { onMount } from 'svelte';
   import { get as storeGet, set as storeSet, remove as storeRemove } from '../lib/storage';
-  import { setAssessmentContext } from '../lib/assessment-context';
+  import MSISurvey from './MSISurvey.svelte';
+  import BriefSLANSSSurvey from './BriefSLANSSSurvey.svelte';
+  import FreBAQSurvey from './FreBAQSurvey.svelte';
+  import PHQ4Survey from './PHQ4Survey.svelte';
   import {
     ACUTE_CHILDREN,
     KEYS,
-    RETURN_URL,
     type Role,
     type ChildAssessment,
   } from '../assessments/pain-classification/config';
@@ -30,7 +32,9 @@
   // Per-child working values for manual entry, plus which card is expanded.
   let manual = $state<Record<string, Record<string, number>>>({});
   let expanded = $state<string | null>(null);
-  // Bumped after a save/launch to recompute derived status from storage.
+  // The child whose questionnaire is currently open in the modal, if any.
+  let modalChild = $state<ChildAssessment | null>(null);
+  // Bumped after a save/completion to recompute derived status from storage.
   let tick = $state(0);
 
   onMount(() => {
@@ -93,18 +97,34 @@
     tick += 1;
   }
 
-  function launchQuestionnaire(child: ChildAssessment): void {
-    // Come back here when the child finishes.
-    setAssessmentContext({
-      parent: { slug: 'pain-classification', title: 'Pain Classification', returnUrl: RETURN_URL },
-    });
-    // Role-gated children (MSI) need their role set and a clean slate.
-    if (child.roleKey && role) {
-      storeSet(child.roleKey, role);
-      storeRemove(child.resultKey);
-      storeRemove(child.slug + ':response');
-    }
-    window.location.href = child.surveyUrl;
+  function openQuestionnaire(child: ChildAssessment): void {
+    // Role-gated children (MSI) read their role from storage on mount, so it
+    // must be set before the survey renders — otherwise the survey redirects.
+    if (child.roleKey && role) storeSet(child.roleKey, role);
+    expanded = null; // don't show the manual editor behind the modal
+    modalChild = child;
+  }
+
+  function closeQuestionnaire(): void {
+    modalChild = null;
+  }
+
+  /**
+   * Called by the embedded survey after it scores and persists its result.
+   * A completed questionnaire supersedes any prior manual entry for the same
+   * child, so we drop the manual override before re-reading status.
+   */
+  function finishQuestionnaire(child: ChildAssessment): void {
+    storeRemove(KEYS.manualPrefix + child.slug);
+    const next = { ...manual };
+    delete next[child.slug];
+    manual = next;
+    modalChild = null;
+    tick += 1;
+  }
+
+  function onWindowKey(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && modalChild) closeQuestionnaire();
   }
 
   function calculate(): void {
@@ -112,6 +132,8 @@
     window.location.href = '/pain-classification/results/';
   }
 </script>
+
+<svelte:window onkeydown={onWindowKey} />
 
 {#if loaded}
   <section class="collect">
@@ -155,7 +177,7 @@
           {/if}
 
           <div class="card__actions">
-            <button type="button" class="btn btn--secondary" onclick={() => launchQuestionnaire(child)}>
+            <button type="button" class="btn btn--secondary" onclick={() => openQuestionnaire(child)}>
               Fill Out Questionnaire
             </button>
             <button type="button" class="btn btn--ghost" onclick={() => toggle(child.slug)}>
@@ -209,6 +231,38 @@
       </button>
     </div>
   </section>
+
+  {#if modalChild}
+    {@const child = modalChild}
+    <div
+      class="modal-overlay"
+      role="presentation"
+      onclick={(e) => { if (e.target === e.currentTarget) closeQuestionnaire(); }}
+    >
+      <div class="modal" role="dialog" aria-modal="true" aria-label={`${child.shortName} questionnaire`}>
+        <header class="modal__head">
+          <div>
+            <h2 class="modal__title">{child.shortName}</h2>
+            <p class="modal__subtitle">{child.title}</p>
+          </div>
+          <button type="button" class="modal__close" aria-label="Close questionnaire" onclick={closeQuestionnaire}>
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </header>
+        <div class="modal__body">
+          {#if child.slug === 'msi'}
+            <MSISurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" />
+          {:else if child.slug === 'briefslanss'}
+            <BriefSLANSSSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" />
+          {:else if child.slug === 'frebaq'}
+            <FreBAQSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" />
+          {:else if child.slug === 'phq4'}
+            <PHQ4Survey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" />
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -379,5 +433,75 @@
   }
   .btn--ghost:hover {
     background: var(--color-primary-tint-ghost);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-6) var(--space-4);
+    background: rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 720px;
+    background: var(--color-bg);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 2 * var(--space-6));
+  }
+
+  .modal__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-5) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    background: var(--color-bg);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .modal__title {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .modal__subtitle {
+    margin: var(--space-1) 0 0 0;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+  }
+
+  .modal__close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+  }
+  .modal__close:hover {
+    background: var(--color-primary-tint-ghost);
+    color: var(--color-text);
+  }
+
+  .modal__body {
+    padding: var(--space-5);
+    overflow-y: auto;
   }
 </style>

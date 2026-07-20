@@ -21,6 +21,17 @@
   import { score, type MSIResponse } from '../assessments/msi/scoring';
   import { get as storeGet, set as storeSet } from '../lib/storage';
 
+  /**
+   * When `onComplete` is supplied (e.g. the survey is embedded in a modal
+   * from a parent composite assessment), it is called after scoring instead
+   * of navigating to the standalone results page. The scored result is still
+   * persisted to sessionStorage either way, so `onComplete` can read it back.
+   */
+  let { onComplete, submitLabel = 'See results' }: {
+    onComplete?: () => void;
+    submitLabel?: string;
+  } = $props();
+
   type AnswerKey =
     | `${(typeof QUESTIONS)[number]['symptom']}_freq`
     | `${(typeof QUESTIONS)[number]['symptom']}_interference`;
@@ -88,6 +99,10 @@
     const result = score(response as unknown as MSIResponse);
     storeSet('msi:response', response);
     storeSet('msi:result', result);
+    if (onComplete) {
+      onComplete();
+      return;
+    }
     window.location.href = '/msi/results/';
   }
 </script>
@@ -183,7 +198,7 @@
         </p>
       {/if}
       <button type="submit" class="btn btn--primary actions__submit">
-        See results
+        {submitLabel}
       </button>
     </div>
   </form>

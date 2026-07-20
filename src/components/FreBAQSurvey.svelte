@@ -14,6 +14,17 @@
   import { score, type freBAQResponse } from '../assessments/frebaq/scoring';
   import { set as storeSet } from '../lib/storage';
 
+  /**
+   * When `onComplete` is supplied (e.g. the survey is embedded in a modal
+   * from a parent composite assessment), it is called after scoring instead
+   * of navigating to the standalone results page. The scored result is still
+   * persisted to sessionStorage either way, so `onComplete` can read it back.
+   */
+  let { onComplete, submitLabel = 'See results' }: {
+    onComplete?: () => void;
+    submitLabel?: string;
+  } = $props();
+
   type AnswerKey = `${(typeof QUESTIONS)[number]['symptom']}_exp`;
 
   let answers = $state<Partial<Record<AnswerKey, number>>>({});
@@ -60,6 +71,10 @@
     const result = score(response as unknown as freBAQResponse);
     storeSet('frebaq:response', response);
     storeSet('frebaq:result', result);
+    if (onComplete) {
+      onComplete();
+      return;
+    }
     window.location.href = '/frebaq/results/';
   }
 </script>
@@ -127,7 +142,7 @@
       </p>
     {/if}
     <button type="submit" class="btn btn--primary actions__submit">
-      See results
+      {submitLabel}
     </button>
   </div>
 </form>
