@@ -9,14 +9,14 @@
  * `y` cursor and advancing downward as elements are drawn.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
-import type { phq4Result } from '../assessments/phq4/scoring';
+import type { PHQ4Result } from '../assessments/phq4/scoring';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export interface PDFInput {
-  result: phq4Result;
+  result: PHQ4Result;
   patientName: string;
 }
 
@@ -250,7 +250,7 @@ function drawSectionHeading(ctx: Ctx, title: string): void {
  * a tinted box with a colored left border, a large numeric score, and a
  * verdict pill. Purple/normal vs amber/elevated based on threshold.
  */
-function drawScoreCard(ctx: Ctx, result: phq4Result): void {
+function drawScoreCard(ctx: Ctx, result: PHQ4Result): void {
   drawSectionHeading(ctx, 'Score');
 
   const elevated = result.total_score >= NEUROPATHIC_THRESHOLD;

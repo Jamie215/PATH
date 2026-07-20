@@ -31,7 +31,7 @@ export type Experience = 0 | 1;
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export interface phq4Response {
+export interface PHQ4Response {
   [key: `${Symptom}_exp`]: Experience;
   other_comments?: string;
 }
@@ -40,7 +40,7 @@ export interface phq4Response {
  * Result shape — identical keys to the original Python return dict so it
  * remains a drop-in replacement for the existing templates.
  */
-export interface phq4Result {
+export interface PHQ4Result {
   total_score: number;
   interpretation: string;
   comments: string;
@@ -57,7 +57,7 @@ function symptomScore(
 /**
  * Score an PHQ-4 survey response
  */
-export function score(response: phq4Response): phq4Result {
+export function score(response: PHQ4Response): PHQ4Result {
   let total_score = 0;
 
   for (const symptom of SYMPTOMS) {
@@ -71,9 +71,22 @@ export function score(response: phq4Response): phq4Result {
       ? response.other_comments
       : 'No comment provided.';
 
+  const MILD_THRESHOLD = 2;
+  const MODERATE_THRESHOLD = 5;
+  const SEVERE_THRESHOLD = 8;
+
+  const interpretation = $derived(
+  !total_score 
+    ? 'unknown' 
+    : total_score > SEVERE_THRESHOLD ? 'Severe'
+    : total_score > MODERATE_THRESHOLD ? 'Moderate'
+    : total_score > MILD_THRESHOLD ? 'Mild'
+    : 'None'
+  );
+
   return {
     total_score,
-    interpretation: "Higher score indicates the greater disorder in the body's perception",
+    interpretation,
     comments,
   };
 }

@@ -11,7 +11,7 @@
     QUESTIONS,
     EXPERIENCE_OPTIONS,
   } from '../assessments/phq4/questions';
-  import { score, type phq4Response } from '../assessments/phq4/scoring';
+  import { score, type PHQ4Response } from '../assessments/phq4/scoring';
   import { set as storeSet } from '../lib/storage';
 
   type AnswerKey = `${(typeof QUESTIONS)[number]['symptom']}_exp`;
@@ -57,7 +57,7 @@
       response.other_comments = comments.trim();
     }
 
-    const result = score(response as unknown as phq4Response);
+    const result = score(response as unknown as PHQ4Response);
     storeSet('phq4:response', response);
     storeSet('phq4:result', result);
     window.location.href = '/phq4/results/';
