@@ -34,6 +34,9 @@
   let expanded = $state<string | null>(null);
   // The child whose questionnaire is currently open in the modal, if any.
   let modalChild = $state<ChildAssessment | null>(null);
+  // Completion fraction (0–1) of the open questionnaire, bound from the
+  // embedded survey so the modal header can render a fixed progress bar.
+  let modalProgress = $state(0);
   // Bumped after a save/completion to recompute derived status from storage.
   let tick = $state(0);
 
@@ -102,6 +105,7 @@
     // must be set before the survey renders — otherwise the survey redirects.
     if (child.roleKey && role) storeSet(child.roleKey, role);
     expanded = null; // don't show the manual editor behind the modal
+    modalProgress = 0;
     modalChild = child;
   }
 
@@ -241,23 +245,28 @@
     >
       <div class="modal" role="dialog" aria-modal="true" aria-label={`${child.shortName} questionnaire`}>
         <header class="modal__head">
-          <div>
-            <h2 class="modal__title">{child.shortName}</h2>
-            <p class="modal__subtitle">{child.title}</p>
+          <div class="modal__head-row">
+            <div>
+              <h2 class="modal__title">{child.shortName}</h2>
+              <p class="modal__subtitle">{child.title}</p>
+            </div>
+            <button type="button" class="modal__close" aria-label="Close questionnaire" onclick={closeQuestionnaire}>
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
           </div>
-          <button type="button" class="modal__close" aria-label="Close questionnaire" onclick={closeQuestionnaire}>
-            <span class="material-symbols-outlined" aria-hidden="true">close</span>
-          </button>
+          <div class="modal__progress" aria-hidden="true">
+            <div class="modal__progress-bar" style:width={`${Math.round(modalProgress * 100)}%`}></div>
+          </div>
         </header>
         <div class="modal__body">
           {#if child.slug === 'msi'}
-            <MSISurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" />
+            <MSISurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'briefslanss'}
-            <BriefSLANSSSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" />
+            <BriefSLANSSSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'frebaq'}
-            <FreBAQSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" />
+            <FreBAQSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'phq4'}
-            <PHQ4Survey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" />
+            <PHQ4Survey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {/if}
         </div>
       </div>
@@ -459,16 +468,36 @@
   }
 
   .modal__head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-5) var(--space-5) var(--space-4);
+    padding: var(--space-5) var(--space-5) 0;
     border-bottom: 1px solid var(--color-border);
     position: sticky;
     top: 0;
     background: var(--color-bg);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .modal__head-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: var(--space-4);
+  }
+
+  /* Fixed progress track: lives in the sticky header, so its background
+     stays put while the questionnaire body scrolls beneath it. */
+  .modal__progress {
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: -1px; /* sit flush over the header's bottom border */
+  }
+
+  .modal__progress-bar {
+    height: 100%;
+    background: var(--color-primary);
+    transition: width 0.2s ease-out;
   }
 
   .modal__title {

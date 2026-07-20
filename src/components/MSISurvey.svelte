@@ -27,9 +27,18 @@
    * of navigating to the standalone results page. The scored result is still
    * persisted to sessionStorage either way, so `onComplete` can read it back.
    */
-  let { onComplete, submitLabel = 'See results' }: {
+  let {
+    onComplete,
+    submitLabel = 'See results',
+    showProgress = true,
+    progress = $bindable(0),
+  }: {
     onComplete?: () => void;
     submitLabel?: string;
+    /** Hide the in-survey progress bar (e.g. when a parent shows it instead). */
+    showProgress?: boolean;
+    /** Bindable completion fraction (0–1), so an embedding parent can render it. */
+    progress?: number;
   } = $props();
 
   type AnswerKey =
@@ -80,6 +89,12 @@
     Object.values(answers).filter((v) => v !== undefined).length,
   );
 
+  // Report progress up so an embedding parent (e.g. the modal header) can
+  // render the bar itself.
+  $effect(() => {
+    progress = totalQuestions > 0 ? Math.min(1, answeredQuestions / totalQuestions) : 0;
+  });
+
   function handleSubmit(e: Event): void {
     e.preventDefault();
     submitAttempted = true;
@@ -109,12 +124,14 @@
 
 {#if roleConfirmed}
   <form class="survey" onsubmit={handleSubmit} novalidate>
-    <div class="survey__progress" aria-hidden="true">
-      <div
-        class="survey__progress-bar"
-        style:width={`${Math.min(100, (answeredQuestions / totalQuestions) * 100)}%`}
-      ></div>
-    </div>
+    {#if showProgress}
+      <div class="survey__progress" aria-hidden="true">
+        <div
+          class="survey__progress-bar"
+          style:width={`${Math.min(100, (answeredQuestions / totalQuestions) * 100)}%`}
+        ></div>
+      </div>
+    {/if}
 
     <p class="survey__intro">
       For each symptom, indicate how often you experience it.
