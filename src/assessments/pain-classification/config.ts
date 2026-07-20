@@ -75,8 +75,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     surveyUrl: '/msi/survey/',
     roleKey: 'msi:role',
     manualFields: [
-      { key: 'somatic', label: 'Somatic score', min: 0, max: 100 },
-      { key: 'nonsomatic', label: 'Non-somatic score', min: 0, max: 100 },
+      { key: 'somatic', label: 'Somatic score', min: 0, max: 60 },
+      { key: 'nonsomatic', label: 'Central (non-somatic) score', min: 0, max: 72 },
     ],
     fromResult: (r) => {
       const o = r as Record<string, unknown> | null;
@@ -93,7 +93,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     shortName: 'BriefSLANSS',
     resultKey: 'briefslanss:result',
     surveyUrl: '/briefslanss/',
-    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 24 }],
+    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 4 }],
     fromResult: (r) => {
       const total = num((r as Record<string, unknown> | null)?.total_score);
       return total === null ? null : { total_score: total };
@@ -105,7 +105,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     shortName: 'FreBAQ',
     resultKey: 'frebaq:result',
     surveyUrl: '/frebaq/',
-    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 36 }],
+    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 24 }],
     fromResult: (r) => {
       const total = num((r as Record<string, unknown> | null)?.total_score);
       return total === null ? null : { total_score: total };

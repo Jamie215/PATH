@@ -2,22 +2,27 @@
   /**
    * Pain Classification results.
    *
-   * Gathers each child's resolved values (manual entry or stored result),
-   * runs the composite scorer, and shows the classification.
-   *
-   * ⚠️ The scorer is currently a stub (see assessments/pain-classification/
-   * scoring.ts) — this page renders the inputs it *would* score and a clear
-   * "pending weights" notice until the acute weights are wired in.
+   * Gathers each child's resolved values, runs the composite scorer (the
+   * acute "more stable model" — Z-standardisation → four category linear
+   * discriminants → softmax), and shows the predicted category with the full
+   * probability distribution.
    *
    * Guards: if any child is missing data, redirects back to the collection page.
    */
   import { onMount } from 'svelte';
   import { get as storeGet } from '../lib/storage';
   import { ACUTE_CHILDREN, KEYS } from '../assessments/pain-classification/config';
-  import { scoreAcute, type PainClassificationInputs, type PainClassificationResult } from '../assessments/pain-classification/scoring';
+  import {
+    scoreAcute,
+    CATEGORIES,
+    type Category,
+    type PainClassificationInputs,
+    type PainClassificationResult,
+  } from '../assessments/pain-classification/scoring';
 
   let loaded = $state(false);
   let result = $state<PainClassificationResult | null>(null);
+  let probs = $state<{ category: Category; prob: number }[]>([]);
   let rows = $state<{ shortName: string; entries: [string, number][]; comment: string }[]>([]);
 
   onMount(() => {
@@ -39,9 +44,15 @@
     }
 
     rows = display;
-    result = scoreAcute(inputs);
+    const r = scoreAcute(inputs);
+    result = r;
+    probs = CATEGORIES.map((c) => ({ category: c, prob: r.probabilities[c] })).sort(
+      (a, b) => b.prob - a.prob,
+    );
     loaded = true;
   });
+
+  const pct = (p: number): string => `${(p * 100).toFixed(1)}%`;
 </script>
 
 {#if loaded && result}
@@ -49,20 +60,27 @@
     <a class="results__back" href="/pain-classification/acute/">&larr; Back to assessments</a>
 
     <div class="results__headline">
-      <p class="results__label">Composite classification</p>
+      <p class="results__label">Most likely presentation</p>
       <p class="results__value">{result.classification}</p>
+      <p class="results__confidence">
+        {pct(result.probabilities[result.classification])} probability
+      </p>
     </div>
 
-    {#if !result.ready}
-      <div class="results__notice">
-        <span class="material-symbols-outlined" aria-hidden="true">construction</span>
-        <p>
-          The acute weighting isn't configured yet, so a final classification
-          can't be computed. The collected inputs below are ready to feed the
-          scorer as soon as the weights are wired in.
-        </p>
-      </div>
-    {/if}
+    <h2 class="results__subhead">Category probabilities</h2>
+    <ul class="probs">
+      {#each probs as p (p.category)}
+        <li class="prob" class:prob--top={p.category === result.classification}>
+          <div class="prob__row">
+            <span class="prob__name">{p.category}</span>
+            <span class="prob__pct">{pct(p.prob)}</span>
+          </div>
+          <div class="prob__track" aria-hidden="true">
+            <div class="prob__bar" style:width={pct(p.prob)}></div>
+          </div>
+        </li>
+      {/each}
+    </ul>
 
     <h2 class="results__subhead">Collected inputs</h2>
     <ul class="inputs">
@@ -121,18 +139,61 @@
     font-weight: 600;
   }
 
-  .results__notice {
-    display: flex;
-    gap: var(--space-3);
-    align-items: flex-start;
-    padding: var(--space-4) var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-primary-tint-ghost);
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-6);
+  .results__confidence {
+    margin: var(--space-2) 0 0 0;
+    font-size: 0.95rem;
+    opacity: 0.85;
   }
-  .results__notice p { margin: 0; font-size: 0.92rem; }
+
+  .probs {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-7) 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .prob__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+
+  .prob__name {
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+  }
+
+  .prob__pct {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prob--top .prob__name {
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  .prob__track {
+    height: 10px;
+    background: var(--color-border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .prob__bar {
+    height: 100%;
+    background: var(--color-primary-tint);
+    border-radius: 999px;
+    transition: width 0.3s ease-out;
+  }
+
+  .prob--top .prob__bar {
+    background: var(--color-primary);
+  }
 
   .results__subhead {
     font-size: 1.05rem;
