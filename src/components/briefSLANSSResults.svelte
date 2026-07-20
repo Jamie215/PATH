@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * briefSLANSS results view.
+   * BriefSLANSS results view.
    *
    * Reads the scored result from sessionStorage and displays:
    *   - Patient name field (used later for PDF generation)
@@ -10,11 +10,11 @@
   import { onMount } from 'svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
-  import type { briefSLANSSResult } from '../assessments/briefslanss/scoring';
+  import type { BriefSLANSSResult } from '../assessments/briefslanss/scoring';
 
-  let result = $state<briefSLANSS | null>(null);
+  let result = $state<BriefSLANSSResult | null>(null);
   let loaded = $state(false);
-  let parentContext = $state<Assessmentcontext | null>(null);
+  let parentContext = $state<AssessmentContext | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName which
   // is what appears in the heading (and later in the PDF).
@@ -26,7 +26,7 @@
   let pdfError = $state<string | null>(null);
 
   onMount(() => {
-    result = storeGet<briefSLANSSResult>('briefslanss:result');
+    result = storeGet<BriefSLANSSResult>('briefslanss:result');
     parentContext = getAssessmentContext();
     const savedName = storeGet<string>('briefslanss:patientName');
     if (savedName) {
@@ -126,6 +126,7 @@
         <div class="score-card__verdict">
             <span class="verdict-pill verdict-pill--{verdict}">{result.interpretation}</span>
         </div>
+      </div>
     </section>
 
     <!-- Comments -->

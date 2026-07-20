@@ -11,7 +11,7 @@
     QUESTIONS,
     EXPERIENCE_OPTIONS,
   } from '../assessments/frebaq/questions';
-  import { score, type freBAQResponse } from '../assessments/frebaq/scoring';
+  import { score, type FreBAQResponse } from '../assessments/frebaq/scoring';
   import { set as storeSet } from '../lib/storage';
 
   type AnswerKey = `${(typeof QUESTIONS)[number]['symptom']}_exp`;
@@ -57,7 +57,7 @@
       response.other_comments = comments.trim();
     }
 
-    const result = score(response as unknown as freBAQResponse);
+    const result = score(response as unknown as FreBAQResponse);
     storeSet('frebaq:response', response);
     storeSet('frebaq:result', result);
     window.location.href = '/frebaq/results/';

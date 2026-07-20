@@ -134,6 +134,7 @@
         <div class="score-card__verdict">
             <span class="verdict-pill verdict-pill--{verdict}">{result.interpretation}</span>
         </div>
+      </div>
     </section>
 
     <!-- Comments -->

@@ -33,7 +33,7 @@ export type Experience = 0 | 1;
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export interface freBAQResponse {
+export interface FreBAQResponse {
   [key: `${Symptom}_exp`]: Experience;
   other_comments?: string;
 }
@@ -42,7 +42,7 @@ export interface freBAQResponse {
  * Result shape — identical keys to the original Python return dict so it
  * remains a drop-in replacement for the existing templates.
  */
-export interface freBAQResult {
+export interface FreBAQResult {
   total_score: number;
   interpretation: string;
   comments: string;
@@ -59,7 +59,7 @@ function symptomScore(
 /**
  * Score an freBAQ survey response
  */
-export function score(response: freBAQResponse): freBAQResult {
+export function score(response: FreBAQResponse): FreBAQResult {
   let total_score = 0;
 
   for (const symptom of SYMPTOMS) {

@@ -21,7 +21,7 @@
   let result = $state<MSIResult | null>(null);
   let role = $state<MSIRole | null>(null);
   let loaded = $state(false);
-  let parentContext = $state<Assessmentcontext | null>(null);
+  let parentContext = $state<AssessmentContext | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName which
   // is what appears in the heading (and later in the PDF).

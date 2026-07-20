@@ -11,7 +11,7 @@
     QUESTIONS,
     EXPERIENCE_OPTIONS,
   } from '../assessments/briefslanss/questions';
-  import { score, type briefSLANSSResponse } from '../assessments/briefslanss/scoring';
+  import { score, type BriefSLANSSResponse } from '../assessments/briefslanss/scoring';
   import { set as storeSet } from '../lib/storage';
 
   type AnswerKey = `${(typeof QUESTIONS)[number]['symptom']}_exp`;
@@ -57,7 +57,7 @@
       response.other_comments = comments.trim();
     }
 
-    const result = score(response as unknown as briefSLANSSResponse);
+    const result = score(response as unknown as BriefSLANSSResponse);
     storeSet('briefslanss:response', response);
     storeSet('briefslanss:result', result);
     window.location.href = '/briefslanss/results/';

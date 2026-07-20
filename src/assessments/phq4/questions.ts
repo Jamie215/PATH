@@ -3,7 +3,7 @@
  */
 import type { Symptom } from './scoring';
 
-export interface phq4Question {
+export interface PHQ4Question {
   symptom: Symptom;
   /** Short symptom name shown as the question title. */
   symptomLabel: string;
@@ -11,7 +11,7 @@ export interface phq4Question {
   description?: string;
 }
 
-export const QUESTIONS: readonly phq4Question[] = [
+export const QUESTIONS: readonly PHQ4Question[] = [
   {
     symptom: 'nervousOrAnxious',
     symptomLabel: 'Feeling nervous, anxious, or on edge',

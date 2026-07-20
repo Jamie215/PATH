@@ -10,11 +10,11 @@
   import { onMount } from 'svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
-  import type { freBAQResult } from '../assessments/frebaq/scoring';
+  import type { FreBAQResult } from '../assessments/frebaq/scoring';
 
-  let result = $state<FreBAQ | null>(null);
+  let result = $state<FreBAQResult | null>(null);
   let loaded = $state(false);
-  let parentContext = $state<Assessmentcontext | null>(null);
+  let parentContext = $state<AssessmentContext | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName which
   // is what appears in the heading (and later in the PDF).
@@ -26,7 +26,7 @@
   let pdfError = $state<string | null>(null);
 
   onMount(() => {
-    result = storeGet<freBAQResult>('frebaq:result');
+    result = storeGet<FreBAQResult>('frebaq:result');
     parentContext = getAssessmentContext();
     const savedName = storeGet<string>('frebaq:patientName');
     if (savedName) {
@@ -126,6 +126,7 @@
         <div class="score-card__verdict">
             <span class="verdict-pill verdict-pill--{verdict}">{result.interpretation}</span>
         </div>
+      </div>
     </section>
 
     <!-- Comments -->

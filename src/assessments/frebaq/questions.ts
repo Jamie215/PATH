@@ -3,7 +3,7 @@
  */
 import type { Symptom } from './scoring';
 
-export interface freBAQQuestion {
+export interface FreBAQQuestion {
   symptom: Symptom;
   /** Short symptom name shown as the question title. */
   symptomLabel: string;
@@ -11,7 +11,7 @@ export interface freBAQQuestion {
   description?: string;
 }
 
-export const QUESTIONS: readonly freBAQQuestion[] = [
+export const QUESTIONS: readonly FreBAQQuestion[] = [
   {
     symptom: 'notPart',
     symptomLabel: 'Feels as though it is not part of the rest of my body.',

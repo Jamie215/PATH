@@ -3,7 +3,7 @@
  */
 import type { Symptom } from './scoring';
 
-export interface briefSLANSSQuestion {
+export interface BriefSLANSSQuestion {
   symptom: Symptom;
   /** Short symptom name shown as the question title. */
   symptomLabel: string;
@@ -11,7 +11,7 @@ export interface briefSLANSSQuestion {
   description?: string;
 }
 
-export const QUESTIONS: readonly briefSLANSSQuestion[] = [
+export const QUESTIONS: readonly BriefSLANSSQuestion[] = [
   {
     symptom: 'numb',
     symptomLabel: 'Numbness, tingling, or prickling sensations',

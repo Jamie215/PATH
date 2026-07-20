@@ -31,7 +31,7 @@ export type Experience = 0 | 1;
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export interface briefSLANSSResponse {
+export interface BriefSLANSSResponse {
   [key: `${Symptom}_exp`]: Experience;
   other_comments?: string;
 }
@@ -40,7 +40,7 @@ export interface briefSLANSSResponse {
  * Result shape — identical keys to the original Python return dict so it
  * remains a drop-in replacement for the existing templates.
  */
-export interface briefSLANSSResult {
+export interface BriefSLANSSResult {
   total_score: number;
   interpretation: string;
   comments: string;
@@ -57,7 +57,7 @@ function symptomScore(
 /**
  * Score an briefSLANSS survey response
  */
-export function score(response: briefSLANSSResponse): briefSLANSSResult {
+export function score(response: BriefSLANSSResponse): BriefSLANSSResult {
   let total_score = 0;
 
   for (const symptom of SYMPTOMS) {
