@@ -9,14 +9,14 @@
  * `y` cursor and advancing downward as elements are drawn.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
-import type { freBAQResult } from '../assessments/frebaq/scoring';
+import type { FreBAQResult } from '../assessments/frebaq/scoring';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export interface PDFInput {
-  result: freBAQResult;
+  result: FreBAQResult;
   patientName: string;
 }
 
@@ -250,7 +250,7 @@ function drawSectionHeading(ctx: Ctx, title: string): void {
  * a tinted box with a colored left border, a large numeric score, and a
  * verdict pill. Purple/normal vs amber/elevated based on threshold.
  */
-function drawScoreCard(ctx: Ctx, result: freBAQResult): void {
+function drawScoreCard(ctx: Ctx, result: FreBAQResult): void {
   drawSectionHeading(ctx, 'Score');
 
   const elevated = result.total_score >= NEUROPATHIC_THRESHOLD;

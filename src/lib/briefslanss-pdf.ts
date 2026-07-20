@@ -9,14 +9,14 @@
  * `y` cursor and advancing downward as elements are drawn.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
-import type { briefSLANSSResult } from '../assessments/briefslanss/scoring';
+import type { BriefSLANSSResult } from '../assessments/briefslanss/scoring';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export interface PDFInput {
-  result: briefSLANSSResult;
+  result: BriefSLANSSResult;
   patientName: string;
 }
 
@@ -246,11 +246,11 @@ function drawSectionHeading(ctx: Ctx, title: string): void {
 }
 
 /**
- * Score card — mirrors the on-screen treatment from briefSLANSSResults.svelte:
+ * Score card — mirrors the on-screen treatment from BriefSLANSSResults.svelte:
  * a tinted box with a colored left border, a large numeric score, and a
  * verdict pill. Purple/normal vs amber/elevated based on threshold.
  */
-function drawScoreCard(ctx: Ctx, result: briefSLANSSResult): void {
+function drawScoreCard(ctx: Ctx, result: BriefSLANSSResult): void {
   drawSectionHeading(ctx, 'Score');
 
   const elevated = result.total_score >= NEUROPATHIC_THRESHOLD;
