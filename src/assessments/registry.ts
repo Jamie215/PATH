@@ -71,7 +71,7 @@ export const assessments: AssessmentSummary[] = [
     description:
       'Composite assessment that classifies pain presentation, with separate scoring for acute and chronic.',
     icon: 'personal_injury',
-    status: 'planned',
+    status: 'available',
     estimatedMinutes: 30,
   },
 ];
