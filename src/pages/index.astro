@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { assessments } from '../assessments/registry';
 ---
-<Base title="PATH" description="Pain Assessment Tools Hub — a collection of validated assessment tools.">
+<Base title="PATH" description="Pain Assessment Tools Hub — a collection of validated assessment tools." wide>
   <script is:inline>
      if (typeof window !== 'undefined' && window.sessionStorage) {
        window.sessionStorage.removeItem('path:assessment-context');
@@ -51,26 +51,23 @@ import { assessments } from '../assessments/registry';
     margin: 0 0 var(--space-7) 0;
   }
 
-  /* Horizontal carousel of fixed-size cards; scrolls within its own track
-     so the page body never scrolls sideways. */
+  /* Centered wrapping grid: with a wide container, five fixed-width cards
+     wrap into two rows (3 + 2) so everything is visible without scrolling. */
   .picker__grid {
     list-style: none;
     margin: 0;
-    padding: var(--space-2) var(--space-1) var(--space-5);
+    padding: 0;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: var(--space-5);
     width: 100%;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scroll-padding-left: var(--space-1);
-    -webkit-overflow-scrolling: touch;
   }
 
   .tool-card {
-    flex: 0 0 240px;
+    flex: 0 0 280px;
     /* Drop the auto min-size so long content can't stretch the fixed width. */
     min-width: 0;
-    scroll-snap-align: start;
   }
 
   .tool-card__inner {
@@ -150,15 +147,8 @@ import { assessments } from '../assessments/registry';
     letter-spacing: 0.02em;
   }
 
-  /* Small screens: drop the carousel for a narrow single column. */
+  /* Small screens: let cards take the full narrow column width. */
   @media (max-width: 560px) {
-    .picker__grid {
-      flex-direction: column;
-      align-items: center;
-      overflow-x: visible;
-      scroll-snap-type: none;
-      padding-bottom: var(--space-4);
-    }
     .tool-card {
       flex: 0 0 auto;
       width: 100%;
