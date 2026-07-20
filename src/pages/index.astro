@@ -51,19 +51,26 @@ import { assessments } from '../assessments/registry';
     margin: 0 0 var(--space-7) 0;
   }
 
+  /* Horizontal carousel of fixed-size cards; scrolls within its own track
+     so the page body never scrolls sideways. */
   .picker__grid {
     list-style: none;
-    padding: 0;
     margin: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 260px));
+    padding: var(--space-2) var(--space-1) var(--space-5);
+    display: flex;
     gap: var(--space-5);
-    justify-content: center;
     width: 100%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: var(--space-1);
+    -webkit-overflow-scrolling: touch;
   }
 
   .tool-card {
-    display: block;
+    flex: 0 0 240px;
+    /* Drop the auto min-size so long content can't stretch the fixed width. */
+    min-width: 0;
+    scroll-snap-align: start;
   }
 
   .tool-card__inner {
@@ -78,7 +85,12 @@ import { assessments } from '../assessments/registry';
     color: #ffffff;
     border-radius: var(--radius-lg);
     border: none;
-    aspect-ratio: 1 / 1;
+    /* Fixed width (from .tool-card) + stretched height keeps every card the
+       same size; height equalizes to the tallest card via align-items. */
+    width: 100%;
+    height: 100%;
+    min-height: 240px;
+    overflow: hidden;
     justify-content: center;
     transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
     box-shadow: var(--shadow-sm);
@@ -138,9 +150,19 @@ import { assessments } from '../assessments/registry';
     letter-spacing: 0.02em;
   }
 
-  @media (max-width: 520px) {
+  /* Small screens: drop the carousel for a narrow single column. */
+  @media (max-width: 560px) {
     .picker__grid {
-      grid-template-columns: minmax(220px, 280px);
+      flex-direction: column;
+      align-items: center;
+      overflow-x: visible;
+      scroll-snap-type: none;
+      padding-bottom: var(--space-4);
+    }
+    .tool-card {
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: 280px;
     }
   }
 </style>

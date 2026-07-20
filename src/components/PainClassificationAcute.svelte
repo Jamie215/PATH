@@ -281,7 +281,7 @@
   .card {
     display: grid;
     grid-template-columns: 1fr auto;
-    align-items: start;
+    align-items: center;
     gap: var(--space-5);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-lg);
@@ -351,7 +351,8 @@
 
   .card__action {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
   }
 
   .btn--success {
