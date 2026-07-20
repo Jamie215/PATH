@@ -2,14 +2,14 @@
   /**
    * Acute pain-classification collection page.
    *
-   * Shows one card per child assessment. Each child can be satisfied by:
-   *   - "Fill Out Questionnaire": launches the child (writing assessment
-   *     context so it returns here), or
-   *   - Manual entry: type the child's result inline.
+   * One card per child assessment, laid out in three columns: the assessment
+   * name, inline manual-entry inputs, and a "Fill Out Questionnaire" button
+   * that opens the child's survey in a modal. Each card also has an optional
+   * comment box; completing the questionnaire carries its comment over here.
    *
-   * A child counts as "have data" if a manual entry is saved OR the child's
-   * scored result is in sessionStorage. "Calculate Results" unlocks once all
-   * children have data.
+   * A child is "complete" once all its numeric fields hold finite values,
+   * whether typed directly or populated by a finished questionnaire.
+   * "Calculate Results" unlocks once every child is complete.
    *
    * Guards: if no role is stored, redirects back to the intake.
    */
@@ -29,16 +29,14 @@
   let loaded = $state(false);
   let role = $state<Role | null>(null);
 
-  // Per-child working values for manual entry, plus which card is expanded.
-  let manual = $state<Record<string, Record<string, number>>>({});
-  let expanded = $state<string | null>(null);
+  // Per-child working state: numeric field values + an optional comment.
+  let values = $state<Record<string, Record<string, number | undefined>>>({});
+  let comments = $state<Record<string, string>>({});
   // The child whose questionnaire is currently open in the modal, if any.
   let modalChild = $state<ChildAssessment | null>(null);
   // Completion fraction (0–1) of the open questionnaire, bound from the
   // embedded survey so the modal header can render a fixed progress bar.
   let modalProgress = $state(0);
-  // Bumped after a save/completion to recompute derived status from storage.
-  let tick = $state(0);
 
   onMount(() => {
     role = storeGet<Role>(KEYS.role);
@@ -46,65 +44,52 @@
       window.location.replace('/pain-classification/');
       return;
     }
-    // Seed manual working state from anything already saved.
+    // Seed working state from anything already saved.
     for (const child of ACUTE_CHILDREN) {
-      const saved = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
-      if (saved) manual[child.slug] = { ...saved };
+      const savedValues = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
+      if (savedValues) values[child.slug] = { ...savedValues };
+      const savedComment = storeGet<string>(KEYS.commentPrefix + child.slug);
+      if (savedComment) comments[child.slug] = savedComment;
     }
     loaded = true;
   });
 
-  /** Resolved data for a child: manual entry wins, else its stored result. */
-  function resolved(child: ChildAssessment): { values: Record<string, number>; source: 'manual' | 'questionnaire' } | null {
-    tick; // establish reactive dependency
-    const savedManual = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
-    if (savedManual) return { values: savedManual, source: 'manual' };
-    const fromResult = child.fromResult(storeGet(child.resultKey));
-    if (fromResult) return { values: fromResult, source: 'questionnaire' };
-    return null;
+  function childComplete(child: ChildAssessment): boolean {
+    const v = values[child.slug];
+    return !!v && child.manualFields.every((f) => typeof v[f.key] === 'number' && Number.isFinite(v[f.key]));
   }
 
-  const statuses = $derived(
-    (() => {
-      tick;
-      return ACUTE_CHILDREN.map((c) => ({ slug: c.slug, done: resolved(c) !== null }));
-    })(),
-  );
-  const allDone = $derived(statuses.every((s) => s.done));
+  const doneCount = $derived(ACUTE_CHILDREN.filter((c) => childComplete(c)).length);
+  const allDone = $derived(doneCount === ACUTE_CHILDREN.length);
 
-  function toggle(slug: string): void {
-    expanded = expanded === slug ? null : slug;
+  /** Persist a child's values to storage, keeping only finite numbers. */
+  function persistValues(slug: string): void {
+    const v = values[slug] ?? {};
+    const clean: Record<string, number> = {};
+    for (const [k, val] of Object.entries(v)) {
+      if (typeof val === 'number' && Number.isFinite(val)) clean[k] = val;
+    }
+    if (Object.keys(clean).length > 0) storeSet(KEYS.manualPrefix + slug, clean);
+    else storeRemove(KEYS.manualPrefix + slug);
   }
 
-  function setManualField(slug: string, key: string, value: number): void {
-    manual = { ...manual, [slug]: { ...(manual[slug] ?? {}), [key]: value } };
+  function setField(slug: string, key: string, raw: number): void {
+    const value = Number.isFinite(raw) ? raw : undefined;
+    values = { ...values, [slug]: { ...(values[slug] ?? {}), [key]: value } };
+    persistValues(slug);
   }
 
-  function manualComplete(child: ChildAssessment): boolean {
-    const vals = manual[child.slug];
-    return !!vals && child.manualFields.every((f) => typeof vals[f.key] === 'number' && Number.isFinite(vals[f.key]));
-  }
-
-  function saveManual(child: ChildAssessment): void {
-    if (!manualComplete(child)) return;
-    storeSet(KEYS.manualPrefix + child.slug, manual[child.slug]);
-    expanded = null;
-    tick += 1;
-  }
-
-  function clearData(child: ChildAssessment): void {
-    storeRemove(KEYS.manualPrefix + child.slug);
-    const next = { ...manual };
-    delete next[child.slug];
-    manual = next;
-    tick += 1;
+  function setComment(slug: string, text: string): void {
+    comments = { ...comments, [slug]: text };
+    const trimmed = text.trim();
+    if (trimmed) storeSet(KEYS.commentPrefix + slug, trimmed);
+    else storeRemove(KEYS.commentPrefix + slug);
   }
 
   function openQuestionnaire(child: ChildAssessment): void {
     // Role-gated children (MSI) read their role from storage on mount, so it
     // must be set before the survey renders — otherwise the survey redirects.
     if (child.roleKey && role) storeSet(child.roleKey, role);
-    expanded = null; // don't show the manual editor behind the modal
     modalProgress = 0;
     modalChild = child;
   }
@@ -115,16 +100,19 @@
 
   /**
    * Called by the embedded survey after it scores and persists its result.
-   * A completed questionnaire supersedes any prior manual entry for the same
-   * child, so we drop the manual override before re-reading status.
+   * Pull the computed field values into the inline inputs, and carry any
+   * comment typed in the questionnaire over to the card's comment box.
    */
   function finishQuestionnaire(child: ChildAssessment): void {
-    storeRemove(KEYS.manualPrefix + child.slug);
-    const next = { ...manual };
-    delete next[child.slug];
-    manual = next;
+    const extracted = child.fromResult(storeGet(child.resultKey));
+    if (extracted) {
+      values = { ...values, [child.slug]: { ...extracted } };
+      persistValues(child.slug);
+    }
+    const response = storeGet<Record<string, unknown>>(child.slug + ':response');
+    const comment = typeof response?.other_comments === 'string' ? response.other_comments : '';
+    if (comment) setComment(child.slug, comment);
     modalChild = null;
-    tick += 1;
   }
 
   function onWindowKey(e: KeyboardEvent): void {
@@ -151,75 +139,50 @@
 
     <ul class="cards">
       {#each ACUTE_CHILDREN as child (child.slug)}
-        {@const data = (tick, resolved(child))}
-        {@const isOpen = expanded === child.slug}
-        <li class="card" class:card--done={data}>
-          <div class="card__head">
-            <div class="card__title-wrap">
+        <li class="card" class:card--done={childComplete(child)}>
+          <div class="card__row">
+            <div class="card__name">
               <h2 class="card__title">{child.shortName}</h2>
               <p class="card__subtitle">{child.title}</p>
             </div>
-            <span class="card__status" class:card__status--done={data}>
-              {#if data}
-                <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
-                {data.source === 'manual' ? 'Entered manually' : 'From questionnaire'}
-              {:else}
-                Not provided
-              {/if}
-            </span>
-          </div>
 
-          {#if data}
-            <dl class="card__values">
+            <div class="card__manual">
               {#each child.manualFields as f (f.key)}
-                <div class="card__value">
-                  <dt>{f.label}</dt>
-                  <dd>{data.values[f.key] ?? '—'}</dd>
-                </div>
-              {/each}
-            </dl>
-          {/if}
-
-          <div class="card__actions">
-            <button type="button" class="btn btn--secondary" onclick={() => openQuestionnaire(child)}>
-              Fill Out Questionnaire
-            </button>
-            <button type="button" class="btn btn--ghost" onclick={() => toggle(child.slug)}>
-              {isOpen ? 'Cancel' : data ? 'Edit manually' : 'Enter result manually'}
-            </button>
-            {#if data}
-              <button type="button" class="btn btn--ghost card__clear" onclick={() => clearData(child)}>
-                Clear
-              </button>
-            {/if}
-          </div>
-
-          {#if isOpen}
-            <div class="manual">
-              {#each child.manualFields as f (f.key)}
-                <label class="manual__field">
-                  <span class="manual__label">{f.label} ({f.min}–{f.max})</span>
+                <label class="field">
+                  <span class="field__label">
+                    {f.label} <span class="field__range">({f.min}–{f.max})</span>
+                  </span>
                   <input
-                    class="manual__input"
+                    class="field__input"
                     type="number"
                     min={f.min}
                     max={f.max}
                     step={f.step ?? 1}
-                    value={manual[child.slug]?.[f.key] ?? ''}
-                    oninput={(e) => setManualField(child.slug, f.key, (e.currentTarget as HTMLInputElement).valueAsNumber)}
+                    value={values[child.slug]?.[f.key] ?? ''}
+                    oninput={(e) => setField(child.slug, f.key, (e.currentTarget as HTMLInputElement).valueAsNumber)}
                   />
                 </label>
               {/each}
-              <button
-                type="button"
-                class="btn btn--primary"
-                disabled={!manualComplete(child)}
-                onclick={() => saveManual(child)}
-              >
-                Save
+            </div>
+
+            <div class="card__action">
+              <button type="button" class="btn btn--success" onclick={() => openQuestionnaire(child)}>
+                Fill Out Questionnaire
               </button>
             </div>
-          {/if}
+          </div>
+
+          <div class="card__comment">
+            <label class="field__label" for={`comment-${child.slug}`}>Comments (optional)</label>
+            <textarea
+              id={`comment-${child.slug}`}
+              class="card__comment-input"
+              rows="2"
+              placeholder="Any notes about this assessment…"
+              value={comments[child.slug] ?? ''}
+              oninput={(e) => setComment(child.slug, (e.currentTarget as HTMLTextAreaElement).value)}
+            ></textarea>
+          </div>
         </li>
       {/each}
     </ul>
@@ -227,7 +190,7 @@
     <div class="collect__footer">
       {#if !allDone}
         <p class="collect__hint">
-          {statuses.filter((s) => !s.done).length} of {ACUTE_CHILDREN.length} assessments still need a result.
+          {ACUTE_CHILDREN.length - doneCount} of {ACUTE_CHILDREN.length} assessments still need a result.
         </p>
       {/if}
       <button type="button" class="btn btn--primary collect__calc" disabled={!allDone} onclick={calculate}>
@@ -309,15 +272,14 @@
   }
 
   .card--done {
-    border-color: var(--color-primary-tint);
-    background: var(--color-primary-tint-ghost);
+    border-color: var(--color-success);
   }
 
-  .card__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--space-3);
+  .card__row {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr auto;
+    align-items: center;
+    gap: var(--space-5);
   }
 
   .card__title {
@@ -331,76 +293,30 @@
     margin: var(--space-1) 0 0 0;
   }
 
-  .card__status {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    font-size: 0.82rem;
-    color: var(--color-text-subtle);
-    white-space: nowrap;
-  }
-
-  .card__status--done {
-    color: var(--color-primary);
-    font-weight: 600;
-  }
-
-  .card__status .material-symbols-outlined {
-    font-size: 18px;
-  }
-
-  .card__values {
+  .card__manual {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-5);
-    margin: var(--space-4) 0 0 0;
-  }
-
-  .card__value dt {
-    font-size: 0.78rem;
-    color: var(--color-text-muted);
-  }
-
-  .card__value dd {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 600;
-  }
-
-  .card__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    margin-top: var(--space-5);
-  }
-
-  .card__clear {
-    margin-left: auto;
-  }
-
-  .manual {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
     gap: var(--space-4);
-    margin-top: var(--space-5);
-    padding-top: var(--space-5);
-    border-top: 1px solid var(--color-border);
   }
 
-  .manual__field {
+  .field {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
   }
 
-  .manual__label {
+  .field__label {
     font-size: 0.85rem;
     font-weight: 500;
   }
 
-  .manual__input {
-    width: 8rem;
+  .field__range {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+
+  .field__input {
+    width: 7rem;
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-md);
@@ -409,10 +325,64 @@
     color: var(--color-text);
   }
 
-  .manual__input:focus {
+  .field__input:focus {
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
+  }
+
+  .card__action {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .card__comment {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .card__comment-input {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .card__comment-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
+  }
+
+  .btn--success {
+    background: var(--color-success);
+    color: #fff;
+    white-space: nowrap;
+  }
+  .btn--success:hover {
+    filter: brightness(0.93);
+  }
+
+  @media (max-width: 640px) {
+    .card__row {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
+    .card__action {
+      justify-content: stretch;
+    }
+    .card__action .btn {
+      width: 100%;
+    }
   }
 
   .collect__footer {
@@ -433,15 +403,6 @@
   .collect__calc {
     padding: var(--space-3) var(--space-7);
     font-size: 1rem;
-  }
-
-  .btn--ghost {
-    background: transparent;
-    color: var(--color-primary);
-    border: 1px solid transparent;
-  }
-  .btn--ghost:hover {
-    background: var(--color-primary-tint-ghost);
   }
 
   .modal-overlay {

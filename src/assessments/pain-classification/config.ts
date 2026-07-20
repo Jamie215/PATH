@@ -133,6 +133,8 @@ export const KEYS = {
   role: 'pain-classification:role',
   /** Manual entry for a child is stored at `${manualPrefix}${slug}`. */
   manualPrefix: 'pain-classification:manual:',
+  /** Optional per-child comment is stored at `${commentPrefix}${slug}`. */
+  commentPrefix: 'pain-classification:comment:',
 } as const;
 
 export const RETURN_URL = '/pain-classification/acute/';

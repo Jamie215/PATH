@@ -18,15 +18,14 @@
 
   let loaded = $state(false);
   let result = $state<PainClassificationResult | null>(null);
-  let rows = $state<{ shortName: string; entries: [string, number][] }[]>([]);
+  let rows = $state<{ shortName: string; entries: [string, number][]; comment: string }[]>([]);
 
   onMount(() => {
     const inputs: PainClassificationInputs = {};
     const display: typeof rows = [];
 
     for (const child of ACUTE_CHILDREN) {
-      const savedManual = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
-      const values = savedManual ?? child.fromResult(storeGet(child.resultKey));
+      const values = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
       if (!values) {
         window.location.replace('/pain-classification/acute/');
         return;
@@ -35,6 +34,7 @@
       display.push({
         shortName: child.shortName,
         entries: child.manualFields.map((f) => [f.label, values[f.key]] as [string, number]),
+        comment: storeGet<string>(KEYS.commentPrefix + child.slug) ?? '',
       });
     }
 
@@ -77,6 +77,9 @@
               </div>
             {/each}
           </dl>
+          {#if row.comment}
+            <p class="inputs__comment">{row.comment}</p>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -170,6 +173,13 @@
   .inputs__pair dd {
     margin: 0;
     font-weight: 600;
+  }
+
+  .inputs__comment {
+    margin: var(--space-3) 0 0 0;
+    font-size: 0.88rem;
+    color: var(--color-text-muted);
+    font-style: italic;
   }
 
   .results__actions {
