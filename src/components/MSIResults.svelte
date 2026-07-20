@@ -385,7 +385,7 @@
     background: var(--color-primary-tint-ghost);
     color: var(--color-primary);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     padding: var(--space-3) var(--space-4);
@@ -416,7 +416,7 @@
 
   .score-table__pct {
     color: var(--color-text-muted);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
   }
 
   .score-table__target {
@@ -456,7 +456,7 @@
     display: inline-block;
     padding: var(--space-1) var(--space-3);
     border-radius: 999px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     letter-spacing: 0.02em;
   }
@@ -523,7 +523,7 @@
 
   .pdf-error {
     color: var(--color-danger);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     margin: var(--space-3) 0 0 0;
   }
 
@@ -559,13 +559,13 @@
     .score-table__current::before {
       content: 'Current: ';
       color: var(--color-text-muted);
-      font-size: 0.88rem;
+      font-size: 0.9rem;
     }
 
     .score-table__target::before {
       content: 'Target: ';
       color: var(--color-text-muted);
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       font-weight: 400;
     }
   }

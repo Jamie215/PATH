@@ -77,16 +77,14 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     manualFields: [
       { key: 'somatic', label: 'Somatic score', min: 0, max: 100 },
       { key: 'nonsomatic', label: 'Non-somatic score', min: 0, max: 100 },
-      { key: 'symp_no', label: 'Number of symptoms', min: 0, max: 10 },
     ],
     fromResult: (r) => {
       const o = r as Record<string, unknown> | null;
       if (!o) return null;
       const somatic = num(o.somatic);
       const nonsomatic = num(o.nonsomatic);
-      const symp_no = num(o.symp_no);
-      if (somatic === null || nonsomatic === null || symp_no === null) return null;
-      return { somatic, nonsomatic, symp_no };
+      if (somatic === null || nonsomatic === null) return null;
+      return { somatic, nonsomatic };
     },
   },
   {

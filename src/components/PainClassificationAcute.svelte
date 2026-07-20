@@ -289,7 +289,7 @@
 
   .card__subtitle {
     color: var(--color-text-muted);
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     margin: var(--space-1) 0 0 0;
   }
 
@@ -306,7 +306,7 @@
   }
 
   .field__label {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 500;
   }
 
@@ -468,7 +468,7 @@
 
   .modal__subtitle {
     margin: var(--space-1) 0 0 0;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: var(--color-text-muted);
   }
 

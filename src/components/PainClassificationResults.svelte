@@ -109,7 +109,7 @@
 
   .results__label {
     margin: 0 0 var(--space-2) 0;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     opacity: 0.85;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -167,7 +167,7 @@
   }
 
   .inputs__pair dt {
-    font-size: 0.78rem;
+    font-size: 0.9rem;
     color: var(--color-text-muted);
   }
   .inputs__pair dd {
@@ -177,7 +177,7 @@
 
   .inputs__comment {
     margin: var(--space-3) 0 0 0;
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     color: var(--color-text-muted);
     font-style: italic;
   }

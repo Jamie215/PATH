@@ -157,7 +157,7 @@
 
   .choice__desc {
     color: var(--color-text-muted);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     line-height: 1.4;
   }
 

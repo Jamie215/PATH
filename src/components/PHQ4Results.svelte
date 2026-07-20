@@ -352,7 +352,7 @@
 
   .pdf-error {
     color: var(--color-danger);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     margin: var(--space-3) 0 0 0;
   }
 </style>

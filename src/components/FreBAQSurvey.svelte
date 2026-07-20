@@ -219,7 +219,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
   }
 
   .question__body {
@@ -236,13 +236,13 @@
 
   .question__desc {
     color: var(--color-text-muted);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     margin: 0;
   }
 
   .question__error {
     color: var(--color-danger);
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     margin: var(--space-2) 0 0 0;
   }
 
