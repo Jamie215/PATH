@@ -12,13 +12,20 @@
   import { KEYS, RETURN_URL, type PainType, type Role } from '../assessments/pain-classification/config';
 
   let painType = $state<PainType | null>(null);
+  let role = $state<Role | null>(null);
 
   function choosePainType(t: PainType): void {
     painType = t;
     storeSet<PainType>(KEYS.painType, t);
+    if (t !== 'acute') role = null;
   }
 
-  function chooseRole(role: Role): void {
+  function selectRole(r: Role): void {
+    role = r;
+  }
+
+  function proceed(): void {
+    if (painType !== 'acute' || !role) return;
     storeSet<Role>(KEYS.role, role);
     // Start the collection fresh: drop any stale manual entries.
     ['msi', 'briefslanss', 'frebaq', 'phq4'].forEach((slug) =>
@@ -66,13 +73,29 @@
     <div class="intake__prompt">
       <h2 class="intake__question">Which best describes you?</h2>
       <div class="intake__choices">
-        <button type="button" class="choice" onclick={() => chooseRole('patient')}>
+        <button
+          type="button"
+          class="choice"
+          class:choice--selected={role === 'patient'}
+          onclick={() => selectRole('patient')}
+        >
           <span class="choice__title">I'm a patient</span>
         </button>
-        <button type="button" class="choice" onclick={() => chooseRole('professional')}>
+        <button
+          type="button"
+          class="choice"
+          class:choice--selected={role === 'professional'}
+          onclick={() => selectRole('professional')}
+        >
           <span class="choice__title">I'm a healthcare professional</span>
         </button>
       </div>
+    </div>
+
+    <div class="intake__actions">
+      <button type="button" class="btn btn--primary intake__next" disabled={!role} onclick={proceed}>
+        Next
+      </button>
     </div>
   {/if}
 
@@ -147,6 +170,23 @@
   .choice--selected {
     border-color: var(--color-primary);
     background: var(--color-primary-tint-ghost);
+  }
+
+  .intake__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: calc(-1 * var(--space-2));
+    margin-bottom: var(--space-6);
+  }
+
+  .intake__next {
+    padding: var(--space-3) var(--space-7);
+    font-size: 1rem;
+  }
+
+  .intake__next:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .choice__title {

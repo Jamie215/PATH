@@ -108,9 +108,10 @@
           placeholder="Enter name"
           bind:value={nameInput}
           onkeydown={handleNameKey}
+          oninput={saveName}
         />
-        <button type="button" class="btn btn--primary name-row__save" onclick={saveName}>
-          Save
+        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+          {pdfBusy ? 'Printing…' : 'Print'}
         </button>
       </label>
       {#if displayedName}
@@ -139,19 +140,8 @@
 
     <!-- Actions -->
     <div class="actions">
-      <button
-        type="button"
-        class="btn btn--primary actions__pdf"
-        onclick={downloadPDF}
-        disabled={pdfBusy}
-      >
-        {pdfBusy ? 'Generating PDF…' : 'Download as PDF'}
-      </button>
-      {#if parentContext}
-        <a href={parentContext.returnUrl} class="btn btn--secondary">Continue with {parentContext.title}</a>
-      {:else}
-        <a href="/" class="btn btn--secondary">Return to Home</a>
-      {/if}
+      <a href="/" class="btn btn--secondary">Return to Home</a>
+      <a href="/briefslanss/" class="btn btn--primary">Redo Assessment</a>
     </div>
     {#if pdfError}
       <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>

@@ -3,11 +3,20 @@ import Base from '../../layouts/Base.astro';
 import MSISurvey from '../../components/MSISurvey.svelte';
 ---
 <Base title="MSI · Survey" description="Multi-Dimensional Symptom Index — survey">
+  <a class="survey-back" href="/msi/">&larr; Change role</a>
   <h1 class="survey-heading">Symptom assessment</h1>
   <MSISurvey client:only="svelte" />
 </Base>
 
 <style>
+  .survey-back {
+    display: inline-block;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-4);
+    border-bottom: none;
+  }
+
   .survey-heading {
     margin-bottom: var(--space-3);
   }
