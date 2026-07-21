@@ -86,9 +86,11 @@
     }
   }
 
-  const NEUROPATHIC_THRESHOLD = 2; //TODO: Confirm this threshold
+  // FreBAQ has no firm validated cutoff; flag the upper half of the 0–24 range
+  // as "elevated" body-perception disruption. TODO: confirm threshold with PI.
+  const ELEVATED_THRESHOLD = 12;
   const verdict = $derived(
-    result && result.total_score >= NEUROPATHIC_THRESHOLD ? 'elevated' : 'normal'
+    result && result.total_score >= ELEVATED_THRESHOLD ? 'elevated' : 'normal'
   );
 </script>
 

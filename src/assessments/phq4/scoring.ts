@@ -24,8 +24,16 @@ export const SYMPTOM_LABELS: Record<Symptom, string> = {
 
 // --- Types -------------------------------------------------------------------
 
-/** Experience rating: 0=No, 1=Yes */
-export type Experience = 0 | 1;
+/** Ordinal rating per item: 0=Not at all … 3=Nearly every day. Four items → total 0–12. */
+export type Experience = 0 | 1 | 2 | 3;
+
+/** Standard PHQ-4 severity bands for the 0–12 total. */
+function interpret(total: number): string {
+  if (total >= 9) return 'Severe psychological distress';
+  if (total >= 6) return 'Moderate psychological distress';
+  if (total >= 3) return 'Mild psychological distress';
+  return 'Normal — minimal distress';
+}
 
 /**
  * Shape of the survey response object as posted from the form.
@@ -73,7 +81,7 @@ export function score(response: phq4Response): phq4Result {
 
   return {
     total_score,
-    interpretation: "Higher score indicates the greater disorder in the body's perception",
+    interpretation: interpret(total_score),
     comments,
   };
 }

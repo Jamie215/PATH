@@ -38,10 +38,12 @@ export const QUESTIONS: readonly freBAQQuestion[] = [
   },
 ] as const;
 
+// 0-based ordinal scale (0–4 per item → 0–24 total), matching the FreBAQ
+// scoring the composite Pain Classification model was calibrated on.
 export const EXPERIENCE_OPTIONS = [
-  { value: 1, label: 'Never' },
-  { value: 2, label: 'Rarely' },
-  { value: 3, label: 'Occasionally' },
-  { value: 4, label: 'Often' },
-  { value: 5, label: 'Always' },
+  { value: 0, label: 'Never' },
+  { value: 1, label: 'Rarely' },
+  { value: 2, label: 'Occasionally' },
+  { value: 3, label: 'Often' },
+  { value: 4, label: 'Always' },
 ] as const;
