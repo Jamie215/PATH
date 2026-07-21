@@ -120,7 +120,6 @@
 {#if loaded && result}
   <section class="results">
     <div class="results__topbar">
-      <a class="results__back" href="/pain-classification/acute/">&larr; Back to assessments</a>
       <AssessmentDate />
     </div>
 
@@ -198,17 +197,8 @@
 <style>
   .results__topbar {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-4);
+    justify-content: flex-end;
     margin-bottom: var(--space-5);
-  }
-
-  .results__back {
-    display: inline-block;
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
-    border-bottom: none;
   }
 
   .results__headline {
