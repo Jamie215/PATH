@@ -77,7 +77,7 @@ const MARGIN_BOTTOM = 60;
 const MARGIN_X = 50;
 const CONTENT_W = PAGE_W - 2 * MARGIN_X;
 
-const NEUROPATHIC_THRESHOLD = 10; // matches scoring.ts; verify with PI
+const ELEVATED_THRESHOLD = 3; // mild or worse on the 0–12 PHQ-4 total
 
 const COLOR_PRIMARY = rgb(0.31, 0.149, 0.514); // #4F2683
 const COLOR_TEXT = rgb(0.122, 0.122, 0.122);   // #1F1F1F
@@ -253,7 +253,7 @@ function drawSectionHeading(ctx: Ctx, title: string): void {
 function drawScoreCard(ctx: Ctx, result: phq4Result): void {
   drawSectionHeading(ctx, 'Score');
 
-  const elevated = result.total_score >= NEUROPATHIC_THRESHOLD;
+  const elevated = result.total_score >= ELEVATED_THRESHOLD;
   const borderColor = elevated ? COLOR_AMBER_BORDER : COLOR_PRIMARY;
   const bgColor = elevated ? COLOR_AMBER_BG : COLOR_TINT;
   const pillBg = elevated ? COLOR_AMBER_PILL_BG : COLOR_TINT;
@@ -326,8 +326,9 @@ function drawScoreCard(ctx: Ctx, result: phq4Result): void {
 
 function drawInterpretationNote(ctx: Ctx): void {
   const note =
-    `Scores at or above ${NEUROPATHIC_THRESHOLD} suggest a predominantly neuropathic pain ` +
-    `mechanism. This is a screening result, not a diagnosis.`;
+    `PHQ-4 total score bands: 0–2 normal, 3–5 mild, 6–8 moderate, 9–12 severe ` +
+    `psychological distress (combined anxiety and depression screen). This is a ` +
+    `screening result, not a diagnosis.`;
   const lines = wrapText(note, CONTENT_W, ctx.font, 9);
   ensureSpace(ctx, lines.length * 13 + 8);
   for (const line of lines) {

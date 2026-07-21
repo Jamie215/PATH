@@ -86,7 +86,8 @@
     }
   }
 
-  const NEUROPATHIC_THRESHOLD = 10; //TODO: Confirm this threshold
+  // Brief S-LANSS flips to "predominantly neuropathic" above 2 (see scoring.ts).
+  const NEUROPATHIC_THRESHOLD = 3;
   const verdict = $derived(
     result && result.total_score >= NEUROPATHIC_THRESHOLD ? 'elevated' : 'normal'
   );

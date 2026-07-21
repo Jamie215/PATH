@@ -10,7 +10,7 @@
    * Guards: if any child is missing data, redirects back to the collection page.
    */
   import { onMount } from 'svelte';
-  import { get as storeGet } from '../lib/storage';
+  import { get as storeGet, set as storeSet } from '../lib/storage';
   import { ACUTE_CHILDREN, KEYS } from '../assessments/pain-classification/config';
   import {
     scoreAcute,
@@ -24,6 +24,14 @@
   let result = $state<PainClassificationResult | null>(null);
   let probs = $state<{ category: Category; prob: number }[]>([]);
   let rows = $state<{ shortName: string; entries: [string, number][]; comment: string }[]>([]);
+
+  // Patient name — bound to input; "Save" commits to displayedName.
+  let nameInput = $state('');
+  let displayedName = $state('');
+
+  // PDF download state.
+  let pdfBusy = $state(false);
+  let pdfError = $state<string | null>(null);
 
   onMount(() => {
     const inputs: PainClassificationInputs = {};
@@ -49,15 +57,85 @@
     probs = CATEGORIES.map((c) => ({ category: c, prob: r.probabilities[c] })).sort(
       (a, b) => b.prob - a.prob,
     );
+
+    const savedName = storeGet<string>(KEYS.patientName);
+    if (savedName) {
+      nameInput = savedName;
+      displayedName = savedName;
+    }
     loaded = true;
   });
 
   const pct = (p: number): string => `${(p * 100).toFixed(1)}%`;
+
+  function saveName(): void {
+    const trimmed = nameInput.trim();
+    displayedName = trimmed;
+    storeSet(KEYS.patientName, trimmed);
+  }
+
+  function handleNameKey(e: KeyboardEvent): void {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveName();
+    }
+  }
+
+  /**
+   * Generate and download the composite PDF. pdf-lib is lazy-imported so the
+   * dependency only loads when the user actually requests a download.
+   */
+  async function downloadPDF(): Promise<void> {
+    if (!result) return;
+    pdfBusy = true;
+    pdfError = null;
+    try {
+      const { generatePainClassificationReport, buildFilename } = await import(
+        '../lib/pain-classification-pdf'
+      );
+      const bytes = await generatePainClassificationReport({
+        classification: result.classification,
+        probs: probs.map((p) => ({ category: p.category, prob: p.prob })),
+        rows,
+        patientName: displayedName || nameInput.trim(),
+      });
+      const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = buildFilename(displayedName || nameInput.trim());
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      pdfError = err instanceof Error ? err.message : 'Could not generate the PDF.';
+    } finally {
+      pdfBusy = false;
+    }
+  }
 </script>
 
 {#if loaded && result}
   <section class="results">
     <a class="results__back" href="/pain-classification/acute/">&larr; Back to assessments</a>
+
+    <section class="name-section" aria-labelledby="name-heading">
+      <label class="name-row" for="patient-name">
+        <span id="name-heading" class="name-row__label">Patient name / ID</span>
+        <input
+          id="patient-name"
+          class="name-row__input"
+          type="text"
+          placeholder="Enter name"
+          bind:value={nameInput}
+          onkeydown={handleNameKey}
+        />
+        <button type="button" class="btn btn--primary name-row__save" onclick={saveName}>
+          Save
+        </button>
+      </label>
+    </section>
 
     <div class="results__headline">
       <p class="results__label">Most likely presentation</p>
@@ -103,8 +181,14 @@
     </ul>
 
     <div class="results__actions">
+      <button type="button" class="btn btn--primary" disabled={pdfBusy} onclick={downloadPDF}>
+        {pdfBusy ? 'Generating…' : 'Download PDF'}
+      </button>
       <a href="/" class="btn btn--secondary">Return to hub</a>
     </div>
+    {#if pdfError}
+      <p class="results__pdf-error" role="alert">{pdfError}</p>
+    {/if}
   </section>
 {/if}
 
@@ -245,6 +329,46 @@
 
   .results__actions {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-3);
+  }
+
+  .results__pdf-error {
+    color: var(--color-danger);
+    font-size: 0.9rem;
+    margin: var(--space-3) 0 0 0;
+  }
+
+  .name-section {
+    margin-bottom: var(--space-5);
+  }
+
+  .name-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .name-row__label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+  }
+
+  .name-row__input {
+    flex: 1 1 220px;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .name-row__input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
   }
 </style>

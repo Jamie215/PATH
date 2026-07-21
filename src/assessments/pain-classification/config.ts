@@ -133,6 +133,8 @@ export const KEYS = {
   manualPrefix: 'pain-classification:manual:',
   /** Optional per-child comment is stored at `${commentPrefix}${slug}`. */
   commentPrefix: 'pain-classification:comment:',
+  /** Patient name / ID for the composite report. */
+  patientName: 'pain-classification:patientName',
 } as const;
 
 export const RETURN_URL = '/pain-classification/acute/';
