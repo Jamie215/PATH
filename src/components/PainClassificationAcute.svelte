@@ -140,12 +140,13 @@
     <ul class="cards">
       {#each ACUTE_CHILDREN as child (child.slug)}
         <li class="assessment">
-          <div class="assessment__head">
-            <h2 class="assessment__title">{child.shortName}</h2>
-            <p class="assessment__subtitle">{child.title}</p>
-          </div>
-
           <div class="card" class:card--done={childComplete(child)}>
+            <header class="card__header">
+              <h2 class="card__title">{child.shortName}</h2>
+              <p class="card__subtitle">{child.title}</p>
+            </header>
+
+            <div class="card__body">
             <div class="card__fields">
               {#each child.manualFields as f (f.key)}
                 <label class="field">
@@ -180,6 +181,7 @@
               <button type="button" class="btn btn--success" onclick={() => openQuestionnaire(child)}>
                 Fill Out Questionnaire
               </button>
+            </div>
             </div>
           </div>
         </li>
@@ -263,34 +265,45 @@
     gap: var(--space-6);
   }
 
-  .assessment__head {
-    margin-bottom: var(--space-3);
+  .card {
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    overflow: hidden; /* clip the header background to the rounded corners */
   }
 
-  .assessment__title {
+  .card--done {
+    border-color: var(--color-success);
+  }
+
+  /* Dedicated header band, visually separated from the card body. */
+  .card__header {
+    padding: var(--space-4) var(--space-5);
+    background: var(--color-primary-tint-ghost);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .card--done .card__header {
+    border-bottom-color: var(--color-success);
+  }
+
+  .card__title {
     font-size: 1.1rem;
     margin: 0;
   }
 
-  .assessment__subtitle {
+  .card__subtitle {
     color: var(--color-text-muted);
     font-size: 0.9rem;
     margin: var(--space-1) 0 0 0;
   }
 
-  .card {
+  .card__body {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
     gap: var(--space-5);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
     padding: var(--space-5);
-    background: var(--color-bg);
-  }
-
-  .card--done {
-    border-color: var(--color-success);
   }
 
   .card__fields {
@@ -365,7 +378,7 @@
   }
 
   @media (max-width: 640px) {
-    .card {
+    .card__body {
       grid-template-columns: 1fr;
     }
     .card__action .btn {

@@ -8,6 +8,7 @@
    *   - Comments section
    */
   import { onMount } from 'svelte';
+  import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { freBAQResult } from '../assessments/frebaq/scoring';
@@ -96,6 +97,7 @@
 
 {#if loaded && result}
   <div class="results">
+    <AssessmentDate />
     <!-- Patient name -->
     <section class="name-section" aria-labelledby="name-heading">
       <label class="name-row" for="patient-name">

@@ -10,6 +10,7 @@
    * Guards: if any child is missing data, redirects back to the collection page.
    */
   import { onMount } from 'svelte';
+  import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { ACUTE_CHILDREN, KEYS } from '../assessments/pain-classification/config';
   import {
@@ -118,7 +119,10 @@
 
 {#if loaded && result}
   <section class="results">
-    <a class="results__back" href="/pain-classification/acute/">&larr; Back to assessments</a>
+    <div class="results__topbar">
+      <a class="results__back" href="/pain-classification/acute/">&larr; Back to assessments</a>
+      <AssessmentDate />
+    </div>
 
     <section class="name-section" aria-labelledby="name-heading">
       <label class="name-row" for="patient-name">
@@ -193,11 +197,18 @@
 {/if}
 
 <style>
+  .results__topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+  }
+
   .results__back {
     display: inline-block;
     font-size: 0.9rem;
     color: var(--color-text-muted);
-    margin-bottom: var(--space-5);
     border-bottom: none;
   }
 
