@@ -142,8 +142,15 @@
         <li class="assessment">
           <div class="card" class:card--done={childComplete(child)}>
             <header class="card__header">
-              <h2 class="card__title">{child.shortName}</h2>
-              <p class="card__subtitle">{child.title}</p>
+              <div class="card__heading">
+                <h2 class="card__title">{child.shortName}</h2>
+                <p class="card__subtitle">{child.title}</p>
+              </div>
+              <div class="card__actions">
+                <button type="button" class="btn btn--success card__btn" onclick={() => openQuestionnaire(child)}>
+                  Fill Out Questionnaire
+                </button>
+              </div>
             </header>
 
             <div class="card__body">
@@ -175,12 +182,6 @@
                   oninput={(e) => setComment(child.slug, (e.currentTarget as HTMLTextAreaElement).value)}
                 ></textarea>
               </label>
-            </div>
-
-            <div class="card__action">
-              <button type="button" class="btn btn--success" onclick={() => openQuestionnaire(child)}>
-                Fill Out Questionnaire
-              </button>
             </div>
             </div>
           </div>
@@ -276,15 +277,24 @@
     border-color: var(--color-success);
   }
 
-  /* Dedicated header band, visually separated from the card body. */
+  /* Header band: assessment heading on the left, action button(s) on the
+     right. White background, separated from the body by a bottom border. */
   .card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
     padding: var(--space-4) var(--space-5);
-    background: var(--color-primary-tint-ghost);
+    background: var(--color-bg);
     border-bottom: 1px solid var(--color-border);
   }
 
   .card--done .card__header {
     border-bottom-color: var(--color-success);
+  }
+
+  .card__heading {
+    min-width: 0;
   }
 
   .card__title {
@@ -298,11 +308,22 @@
     margin: var(--space-1) 0 0 0;
   }
 
+  /* Action button group — column so a second (e.g. "Upload image") button
+     stacks neatly beneath the first at matching width. */
+  .card__actions {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .card__btn {
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.85rem;
+  }
+
   .card__body {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: var(--space-5);
     padding: var(--space-5);
   }
 
@@ -362,12 +383,6 @@
     box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
   }
 
-  .card__action {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   .btn--success {
     background: var(--color-success);
     color: #fff;
@@ -378,11 +393,9 @@
   }
 
   @media (max-width: 640px) {
-    .card__body {
-      grid-template-columns: 1fr;
-    }
-    .card__action .btn {
-      width: 100%;
+    .card__header {
+      flex-direction: column;
+      align-items: stretch;
     }
   }
 
