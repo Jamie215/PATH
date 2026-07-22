@@ -401,7 +401,7 @@
 
   .collect__footer {
     display: flex;
-    flex-direction: column;
+    justify-content: flex-end;
     align-items: center;
     gap: var(--space-3);
     border-top: 1px solid var(--color-border);
