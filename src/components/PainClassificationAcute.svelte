@@ -129,7 +129,7 @@
 
 {#if loaded}
   <section class="collect">
-    <a class="collect__back" href="/pain-classification/">&larr; Change pain type or role</a>
+    <a class="collect__back" href="/pain-classification/">&larr; Go back</a>
     <h1 class="collect__heading">Acute Pain Classification</h1>
     <p class="collect__lede">
       Provide a result for each of the four assessments below — either enter a
