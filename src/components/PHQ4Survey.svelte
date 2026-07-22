@@ -279,7 +279,7 @@
 
   .actions {
     display: flex;
-    justify-content: flex-end;
+    flex-direction: column;
     align-items: stretch;
     gap: var(--space-3);
   }
