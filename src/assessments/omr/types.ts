@@ -50,6 +50,8 @@ export interface OmrField {
  */
 export interface OmrRow {
   label: string;
+  /** Optional clarifying sub-label printed beneath the row label. */
+  description?: string;
   fields: OmrField[];
 }
 
@@ -93,5 +95,13 @@ export interface OmrTemplate {
   fiducials: [OmrPoint, OmrPoint, OmrPoint, OmrPoint];
   /** Side length of each square fiducial, normalized to page width. */
   fiducialSize: number;
+  /**
+   * A distinct solid marker inset near the top-left corner. The four
+   * fiducials are identical, so a sheet scanned rotated or flipped is
+   * ambiguous on its own; the reader recovers "up" by finding which
+   * detected corner this extra key sits next to. Kept separate from the
+   * fiducials so precise 4-point registration is unaffected.
+   */
+  orientationMark: { center: OmrPoint; size: number };
   sections: OmrSection[];
 }

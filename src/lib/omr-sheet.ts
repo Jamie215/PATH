@@ -20,6 +20,7 @@ const COLOR_INK = rgb(0, 0, 0);
 const COLOR_PRIMARY = rgb(0.31, 0.149, 0.514); // #4F2683
 const COLOR_MUTED = rgb(0.361, 0.361, 0.361);
 const COLOR_SUBTLE = rgb(0.533, 0.533, 0.533);
+const COLOR_HAIRLINE = rgb(0.88, 0.88, 0.88); // eye-tracking separators
 
 const MARGIN_X = 50;
 
@@ -85,20 +86,23 @@ export function buildAnswerSheetFilename(template: OmrTemplate): string {
 
 // ---------------------------------------------------------------------------
 
+function drawSquare(ctx: Ctx, center: { x: number; y: number }, sideNorm: number): void {
+  // drawRectangle's (x, y) is the bottom-left corner; center the square.
+  const side = sideNorm * ctx.pageW;
+  ctx.page.drawRectangle({
+    x: toX(ctx, center.x) - side / 2,
+    y: toY(ctx, center.y) - side / 2,
+    width: side,
+    height: side,
+    color: COLOR_INK,
+  });
+}
+
 function drawFiducials(ctx: Ctx, template: OmrTemplate): void {
-  const side = template.fiducialSize * ctx.pageW;
-  for (const f of template.fiducials) {
-    // drawRectangle's (x, y) is the bottom-left corner; center the square.
-    const cx = toX(ctx, f.x);
-    const cy = toY(ctx, f.y);
-    ctx.page.drawRectangle({
-      x: cx - side / 2,
-      y: cy - side / 2,
-      width: side,
-      height: side,
-      color: COLOR_INK,
-    });
-  }
+  for (const f of template.fiducials) drawSquare(ctx, f, template.fiducialSize);
+  // Orientation key: a smaller solid square inset from the top-left corner,
+  // so the reader can tell an upright scan from a rotated/flipped one.
+  drawSquare(ctx, template.orientationMark.center, template.orientationMark.size);
 }
 
 function drawHeader(ctx: Ctx, template: OmrTemplate): void {
@@ -167,51 +171,96 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
   });
 }
 
+const LABEL_X = MARGIN_X + 18; // leaves room for the row number
+const RADIUS_TO_CONTENT = 6; // bubble radius fallback for extents
+
 function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void {
-  // Topmost bubble Y across the section — everything decorative sits above it.
-  const firstRowYnorm = Math.min(
-    ...section.rows.flatMap((r) => r.fields.flatMap((f) => f.bubbles.map((b) => b.center.y))),
-  );
-  const firstRowYpt = toY(ctx, firstRowYnorm);
+  const radiusPt = template.bubbleRadius * ctx.pageW || RADIUS_TO_CONTENT;
+
+  // Vertical extent of the bubble grid.
+  const allY = section.rows.flatMap((r) => r.fields.flatMap((f) => f.bubbles.map((b) => b.center.y)));
+  const firstRowYpt = toY(ctx, Math.min(...allY));
+  const lastRowYpt = toY(ctx, Math.max(...allY));
+
+  // Horizontal extent of the bubble grid (for separators / divider).
+  const allX = section.columnGroups.flatMap((g) => g.columnX);
+  const gridLeftPt = toX(ctx, Math.min(...allX)) - radiusPt;
+  const gridRightPt = toX(ctx, Math.max(...allX)) + radiusPt;
 
   // Section title.
   ctx.page.drawText(section.title, {
     x: MARGIN_X,
-    y: firstRowYpt + 64,
+    y: firstRowYpt + 62,
     size: 12,
     font: ctx.fontBold,
     color: COLOR_INK,
   });
 
-  // Legend lines.
-  let ly = firstRowYpt + 50;
+  // Legend lines (usually empty now that words label the columns directly).
+  let ly = firstRowYpt + 48;
   for (const line of section.legend) {
     ctx.page.drawText(line, { x: MARGIN_X, y: ly, size: 8, font: ctx.font, color: COLOR_MUTED });
     ly -= 11;
   }
 
-  // Column-group labels + per-column option headers, just above the grid.
+  // Group question headers + per-column word labels, just above the grid.
   for (const group of section.columnGroups) {
     const centerX =
       (toX(ctx, group.columnX[0]) + toX(ctx, group.columnX[group.columnX.length - 1])) / 2;
-    drawCentered(ctx, group.label, centerX, firstRowYpt + 22, 7.5, ctx.fontBold, COLOR_PRIMARY);
+    drawCentered(ctx, group.label, centerX, firstRowYpt + 34, 8, ctx.fontBold, COLOR_PRIMARY);
     group.optionHeaders.forEach((h, i) => {
-      drawCentered(ctx, h, toX(ctx, group.columnX[i]), firstRowYpt + 10, 8, ctx.font, COLOR_MUTED);
+      drawCentered(ctx, h, toX(ctx, group.columnX[i]), firstRowYpt + 16, 7, ctx.font, COLOR_MUTED);
     });
   }
 
-  // Rows: label on the left, bubble circles across.
-  const radiusPt = template.bubbleRadius * ctx.pageW;
-  for (const row of section.rows) {
-    const rowYnorm = row.fields[0].bubbles[0].center.y;
-    const yPt = toY(ctx, rowYnorm);
-    ctx.page.drawText(row.label, {
+  // Light divider between the two column groups, plus a rule under the headers.
+  if (section.columnGroups.length === 2) {
+    const gap =
+      (toX(ctx, section.columnGroups[0].columnX.at(-1)!) +
+        toX(ctx, section.columnGroups[1].columnX[0])) /
+      2;
+    ctx.page.drawLine({
+      start: { x: gap, y: firstRowYpt + 24 },
+      end: { x: gap, y: lastRowYpt - radiusPt - 4 },
+      thickness: 0.5,
+      color: COLOR_HAIRLINE,
+    });
+  }
+  ctx.page.drawLine({
+    start: { x: MARGIN_X, y: firstRowYpt + 10 },
+    end: { x: gridRightPt, y: firstRowYpt + 10 },
+    thickness: 0.5,
+    color: COLOR_HAIRLINE,
+  });
+
+  // Rows: number, label (+ optional description), bubbles, hairline separator.
+  section.rows.forEach((row, i) => {
+    const yPt = toY(ctx, row.fields[0].bubbles[0].center.y);
+
+    ctx.page.drawText(`${i + 1}`, {
       x: MARGIN_X,
-      y: yPt - 3, // nudge to visually center against the bubbles
+      y: yPt - 3,
+      size: 9,
+      font: ctx.fontBold,
+      color: COLOR_SUBTLE,
+    });
+    ctx.page.drawText(row.label, {
+      x: LABEL_X,
+      y: row.description ? yPt + 1 : yPt - 3,
       size: 9.5,
       font: ctx.font,
       color: COLOR_INK,
     });
+    if (row.description) {
+      ctx.page.drawText(row.description, {
+        x: LABEL_X,
+        y: yPt - 9,
+        size: 6.5,
+        font: ctx.font,
+        color: COLOR_MUTED,
+      });
+    }
+
     for (const field of row.fields) {
       for (const bubble of field.bubbles) {
         ctx.page.drawCircle({
@@ -223,7 +272,18 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
         });
       }
     }
-  }
+
+    // Separator below every row but the last.
+    if (i < section.rows.length - 1) {
+      const nextYpt = toY(ctx, section.rows[i + 1].fields[0].bubbles[0].center.y);
+      ctx.page.drawLine({
+        start: { x: MARGIN_X, y: (yPt + nextYpt) / 2 },
+        end: { x: gridRightPt, y: (yPt + nextYpt) / 2 },
+        thickness: 0.4,
+        color: COLOR_HAIRLINE,
+      });
+    }
+  });
 }
 
 function drawFooter(ctx: Ctx, template: OmrTemplate): void {
