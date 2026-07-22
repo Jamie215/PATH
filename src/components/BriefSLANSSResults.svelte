@@ -300,6 +300,7 @@
   /* ----- Actions ----- */
   .actions {
     display: flex;
+    justify-content: center;
     gap: var(--space-3);
     flex-wrap: wrap;
     padding-top: var(--space-4);

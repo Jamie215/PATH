@@ -329,6 +329,7 @@
 
   .results__actions {
     display: flex;
+    justify-content: center;
     flex-wrap: wrap;
     gap: var(--space-3);
   }
