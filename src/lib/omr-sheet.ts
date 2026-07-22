@@ -17,10 +17,13 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
 import type { OmrTemplate, OmrSection } from '../assessments/omr/types';
 
 const COLOR_INK = rgb(0, 0, 0);
+const COLOR_TEXT = rgb(0.12, 0.12, 0.12);
 const COLOR_PRIMARY = rgb(0.31, 0.149, 0.514); // #4F2683
 const COLOR_MUTED = rgb(0.361, 0.361, 0.361);
 const COLOR_SUBTLE = rgb(0.533, 0.533, 0.533);
 const COLOR_HAIRLINE = rgb(0.88, 0.88, 0.88); // eye-tracking separators
+const COLOR_TINT = rgb(0.961, 0.941, 0.98); // #F5F0FA callout background
+const COLOR_TINT_BORDER = rgb(0.82, 0.76, 0.9); // callout border
 
 const MARGIN_X = 50;
 
@@ -106,10 +109,14 @@ function drawFiducials(ctx: Ctx, template: OmrTemplate): void {
 }
 
 function drawHeader(ctx: Ctx, template: OmrTemplate): void {
+  const contentW = ctx.pageW - 2 * MARGIN_X;
+  // Work in top-left coordinates; flip once per baseline.
+  const at = (topY: number): number => ctx.pageH - topY;
+
   // Brand + form id row.
   ctx.page.drawText('PATH', {
     x: MARGIN_X,
-    y: ctx.pageH - 46,
+    y: at(48),
     size: 13,
     font: ctx.fontBold,
     color: COLOR_PRIMARY,
@@ -118,7 +125,7 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
   const idW = ctx.font.widthOfTextAtSize(idText, 9);
   ctx.page.drawText(idText, {
     x: ctx.pageW - MARGIN_X - idW,
-    y: ctx.pageH - 46,
+    y: at(48),
     size: 9,
     font: ctx.font,
     color: COLOR_SUBTLE,
@@ -127,45 +134,60 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
   // Title + subtitle.
   ctx.page.drawText(template.title, {
     x: MARGIN_X,
-    y: ctx.pageH - 70,
-    size: 16,
+    y: at(78),
+    size: 17,
     font: ctx.fontBold,
     color: COLOR_INK,
   });
   ctx.page.drawText(template.subtitle, {
     x: MARGIN_X,
-    y: ctx.pageH - 86,
-    size: 10,
+    y: at(98),
+    size: 10.5,
     font: ctx.font,
     color: COLOR_MUTED,
   });
 
-  // Instructions.
-  let y = ctx.pageH - 104;
-  for (const line of template.instructions) {
-    ctx.page.drawText(`•  ${line}`, {
-      x: MARGIN_X,
-      y,
-      size: 8.5,
-      font: ctx.font,
-      color: COLOR_MUTED,
-    });
-    y -= 12;
-  }
+  // Instructions callout — a tinted, bordered panel so the fill-out rules
+  // read as important, not fine print. Sits above the bubble grid, so the
+  // background never touches a mark the reader has to sample.
+  const boxTop = 116;
+  const lineGap = 16;
+  const boxHeight = 34 + template.instructions.length * lineGap;
+  ctx.page.drawRectangle({
+    x: MARGIN_X,
+    y: at(boxTop + boxHeight),
+    width: contentW,
+    height: boxHeight,
+    color: COLOR_TINT,
+    borderColor: COLOR_TINT_BORDER,
+    borderWidth: 1,
+  });
+  ctx.page.drawText('INSTRUCTIONS', {
+    x: MARGIN_X + 14,
+    y: at(boxTop + 20),
+    size: 9.5,
+    font: ctx.fontBold,
+    color: COLOR_PRIMARY,
+  });
+  template.instructions.forEach((line, i) => {
+    const y = at(boxTop + 38 + i * lineGap);
+    ctx.page.drawText('•', { x: MARGIN_X + 14, y, size: 10, font: ctx.fontBold, color: COLOR_PRIMARY });
+    ctx.page.drawText(line, { x: MARGIN_X + 26, y, size: 9.5, font: ctx.font, color: COLOR_TEXT });
+  });
 
   // Freeform patient / date line (not machine-read).
-  y -= 6;
+  const nameY = at(boxTop + boxHeight + 30);
   ctx.page.drawText('Name / ID: ______________________________', {
     x: MARGIN_X,
-    y,
-    size: 9,
+    y: nameY,
+    size: 9.5,
     font: ctx.font,
     color: COLOR_INK,
   });
   ctx.page.drawText('Date: ________________', {
     x: ctx.pageW - MARGIN_X - 150,
-    y,
-    size: 9,
+    y: nameY,
+    size: 9.5,
     font: ctx.font,
     color: COLOR_INK,
   });

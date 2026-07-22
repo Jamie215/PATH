@@ -41,9 +41,11 @@ const FREQ_X = [252, 290, 328, 366];
  *  read as one run. */
 const INT_X = [410, 448, 486, 524];
 
-/** First row's bubble center, and spacing between successive rows. */
-const FIRST_ROW_Y = 250;
-const ROW_SPACING = 32;
+/** First row's bubble center, and spacing between successive rows.
+ *  Generous spacing: the grid sits below a taller header and spreads down
+ *  the page so every row has room to breathe. */
+const FIRST_ROW_Y = 340;
+const ROW_SPACING = 40;
 
 const BUBBLE_RADIUS_PT = 6;
 const FIDUCIAL_SIZE_PT = 16;
