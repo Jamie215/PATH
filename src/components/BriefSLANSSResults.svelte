@@ -8,6 +8,7 @@
    *   - Comments section
    */
   import { onMount } from 'svelte';
+  import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { briefSLANSSResult } from '../assessments/briefslanss/scoring';
@@ -86,7 +87,8 @@
     }
   }
 
-  const NEUROPATHIC_THRESHOLD = 10; //TODO: Confirm this threshold
+  // Brief S-LANSS flips to "predominantly neuropathic" above 2 (see scoring.ts).
+  const NEUROPATHIC_THRESHOLD = 3;
   const verdict = $derived(
     result && result.total_score >= NEUROPATHIC_THRESHOLD ? 'elevated' : 'normal'
   );
@@ -94,6 +96,7 @@
 
 {#if loaded && result}
   <div class="results">
+    <AssessmentDate />
     <!-- Patient name -->
     <section class="name-section" aria-labelledby="name-heading">
       <label class="name-row" for="patient-name">
@@ -105,9 +108,10 @@
           placeholder="Enter name"
           bind:value={nameInput}
           onkeydown={handleNameKey}
+          oninput={saveName}
         />
-        <button type="button" class="btn btn--primary name-row__save" onclick={saveName}>
-          Save
+        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+          {pdfBusy ? 'Printing…' : 'Print'}
         </button>
       </label>
       {#if displayedName}
@@ -136,19 +140,8 @@
 
     <!-- Actions -->
     <div class="actions">
-      <button
-        type="button"
-        class="btn btn--primary actions__pdf"
-        onclick={downloadPDF}
-        disabled={pdfBusy}
-      >
-        {pdfBusy ? 'Generating PDF…' : 'Download as PDF'}
-      </button>
-      {#if parentContext}
-        <a href={parentContext.returnUrl} class="btn btn--secondary">Continue with {parentContext.title}</a>
-      {:else}
-        <a href="/" class="btn btn--secondary">Return to Home</a>
-      {/if}
+      <a href="/" class="btn btn--secondary">Return to Home</a>
+      <a href="/briefslanss/" class="btn btn--primary">Redo Assessment</a>
     </div>
     {#if pdfError}
       <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>
@@ -324,7 +317,7 @@
 
   .pdf-error {
     color: var(--color-danger);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     margin: var(--space-3) 0 0 0;
   }
 </style>

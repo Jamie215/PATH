@@ -14,6 +14,26 @@
   import { score, type freBAQResponse } from '../assessments/frebaq/scoring';
   import { set as storeSet } from '../lib/storage';
 
+  /**
+   * When `onComplete` is supplied (e.g. the survey is embedded in a modal
+   * from a parent composite assessment), it is called after scoring instead
+   * of navigating to the standalone results page. The scored result is still
+   * persisted to sessionStorage either way, so `onComplete` can read it back.
+   */
+  let {
+    onComplete,
+    submitLabel = 'See results',
+    showProgress = true,
+    progress = $bindable(0),
+  }: {
+    onComplete?: () => void;
+    submitLabel?: string;
+    /** Hide the in-survey progress bar (e.g. when a parent shows it instead). */
+    showProgress?: boolean;
+    /** Bindable completion fraction (0–1), so an embedding parent can render it. */
+    progress?: number;
+  } = $props();
+
   type AnswerKey = `${(typeof QUESTIONS)[number]['symptom']}_exp`;
 
   let answers = $state<Partial<Record<AnswerKey, number>>>({});
@@ -39,6 +59,12 @@
     Object.values(answers).filter((v) => v !== undefined).length,
   );
 
+  // Report progress up so an embedding parent (e.g. the modal header) can
+  // render the bar itself.
+  $effect(() => {
+    progress = totalQuestions > 0 ? Math.min(1, answeredQuestions / totalQuestions) : 0;
+  });
+
   function handleSubmit(e: Event): void {
     e.preventDefault();
     submitAttempted = true;
@@ -60,17 +86,23 @@
     const result = score(response as unknown as freBAQResponse);
     storeSet('frebaq:response', response);
     storeSet('frebaq:result', result);
+    if (onComplete) {
+      onComplete();
+      return;
+    }
     window.location.href = '/frebaq/results/';
   }
 </script>
 
 <form class="survey" onsubmit={handleSubmit} novalidate>
-  <div class="survey__progress" aria-hidden="true">
-    <div
-      class="survey__progress-bar"
-      style:width={`${Math.min(100, (answeredQuestions / totalQuestions) * 100)}%`}
-    ></div>
-  </div>
+  {#if showProgress}
+    <div class="survey__progress" aria-hidden="true">
+      <div
+        class="survey__progress-bar"
+        style:width={`${Math.min(100, (answeredQuestions / totalQuestions) * 100)}%`}
+      ></div>
+    </div>
+  {/if}
 
   <p class="survey__intro">
     For each item below, rate your experience in the area of interest.
@@ -127,7 +159,7 @@
       </p>
     {/if}
     <button type="submit" class="btn btn--primary actions__submit">
-      See results
+      {submitLabel}
     </button>
   </div>
 </form>
@@ -187,7 +219,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
   }
 
   .question__body {
@@ -204,13 +236,13 @@
 
   .question__desc {
     color: var(--color-text-muted);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     margin: 0;
   }
 
   .question__error {
     color: var(--color-danger);
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     margin: var(--space-2) 0 0 0;
   }
 

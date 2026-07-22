@@ -12,7 +12,14 @@
   import { set as storeSet, remove as storeRemove } from '../lib/storage';
   import type { MSIRole } from '../assessments/msi/questions';
 
-  function choose(role: MSIRole): void {
+  let role = $state<MSIRole | null>(null);
+
+  function selectRole(r: MSIRole): void {
+    role = r;
+  }
+
+  function proceed(): void {
+    if (!role) return;
     storeSet<MSIRole>('msi:role', role);
     // Clear any stale prior result so the survey starts fresh
     storeRemove('msi:result');
@@ -32,14 +39,30 @@
     <h2 class="intake__question">Which best describes you?</h2>
 
     <div class="intake__choices">
-      <button type="button" class="choice" onclick={() => choose('patient')}>
+      <button
+        type="button"
+        class="choice"
+        class:choice--selected={role === 'patient'}
+        onclick={() => selectRole('patient')}
+      >
         <span class="choice__title">I'm a patient</span>
       </button>
 
-      <button type="button" class="choice" onclick={() => choose('professional')}>
+      <button
+        type="button"
+        class="choice"
+        class:choice--selected={role === 'professional'}
+        onclick={() => selectRole('professional')}
+      >
         <span class="choice__title">I'm a healthcare professional</span>
       </button>
     </div>
+  </div>
+
+  <div class="intake__actions">
+    <button type="button" class="btn btn--primary intake__next" disabled={!role} onclick={proceed}>
+      Next
+    </button>
   </div>
 </section>
 
@@ -105,6 +128,27 @@
     outline-offset: 2px;
   }
 
+  .choice--selected {
+    border-color: var(--color-primary);
+    background: var(--color-primary-tint-ghost);
+  }
+
+  .intake__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--space-6);
+  }
+
+  .intake__next {
+    padding: var(--space-3) var(--space-7);
+    font-size: 1rem;
+  }
+
+  .intake__next:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .choice__title {
     font-weight: 600;
     color: var(--color-primary);
@@ -113,7 +157,7 @@
 
   .choice__desc {
     color: var(--color-text-muted);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     line-height: 1.4;
   }
 

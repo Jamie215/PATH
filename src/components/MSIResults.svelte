@@ -11,6 +11,7 @@
    *
    */
   import { onMount } from 'svelte';
+  import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { MSIResult } from '../assessments/msi/scoring';
@@ -145,6 +146,7 @@
 
 {#if loaded && result && role}
   <div class="results">
+    <AssessmentDate />
     <!-- Patient name -->
     <section class="name-section" aria-labelledby="name-heading">
       <label class="name-row" for="patient-name">
@@ -156,9 +158,10 @@
           placeholder="Enter name"
           bind:value={nameInput}
           onkeydown={handleNameKey}
+          oninput={saveName}
         />
-        <button type="button" class="btn btn--primary name-row__save" onclick={saveName}>
-          Save
+        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+          {pdfBusy ? 'Printing…' : 'Print'}
         </button>
       </label>
       {#if displayedName}
@@ -285,19 +288,8 @@
 
     <!-- Actions -->
     <div class="actions">
-      <button
-        type="button"
-        class="btn btn--primary actions__pdf"
-        onclick={downloadPDF}
-        disabled={pdfBusy}
-      >
-        {pdfBusy ? 'Generating PDF…' : 'Download as PDF'}
-      </button>
-      {#if parentContext}
-        <a href={parentContext.returnUrl} class="btn btn--secondary">Continue with {parentContext.title}</a>
-      {:else}
-        <a href="/" class="btn btn--secondary">Return to Home</a>
-      {/if}
+      <a href="/" class="btn btn--secondary">Return to Home</a>
+      <a href="/msi/" class="btn btn--primary">Redo Assessment</a>
     </div>
     {#if pdfError}
       <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>
@@ -385,7 +377,7 @@
     background: var(--color-primary-tint-ghost);
     color: var(--color-primary);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     padding: var(--space-3) var(--space-4);
@@ -416,7 +408,7 @@
 
   .score-table__pct {
     color: var(--color-text-muted);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
   }
 
   .score-table__target {
@@ -456,7 +448,7 @@
     display: inline-block;
     padding: var(--space-1) var(--space-3);
     border-radius: 999px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     letter-spacing: 0.02em;
   }
@@ -523,7 +515,7 @@
 
   .pdf-error {
     color: var(--color-danger);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     margin: var(--space-3) 0 0 0;
   }
 
@@ -559,13 +551,13 @@
     .score-table__current::before {
       content: 'Current: ';
       color: var(--color-text-muted);
-      font-size: 0.88rem;
+      font-size: 0.9rem;
     }
 
     .score-table__target::before {
       content: 'Target: ';
       color: var(--color-text-muted);
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       font-weight: 400;
     }
   }

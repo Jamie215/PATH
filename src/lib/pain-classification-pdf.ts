@@ -1,29 +1,39 @@
 /**
- * FreBAQ PDF report generator.
+ * Pain Classification (acute) PDF report generator.
  *
- * Produces a clean, text-based PDF using pdf-lib. All text remains
- * selectable and searchable in the output.
- *
- * Page layout uses pdf-lib's native coordinate system (origin at
- * bottom-left). Content is laid out top-to-bottom by tracking a
- * `y` cursor and advancing downward as elements are drawn.
+ * Produces a clean, text-based PDF using pdf-lib. All text remains selectable
+ * and searchable. Same layout conventions as the per-assessment reports:
+ * origin at bottom-left, content laid out top-to-bottom via a `y` cursor.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
-import type { freBAQResult } from '../assessments/frebaq/scoring';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
+export interface PDFProb {
+  category: string;
+  prob: number; // 0–1
+}
+
+export interface PDFInputRow {
+  shortName: string;
+  entries: [string, number][];
+  comment: string;
+}
+
 export interface PDFInput {
-  result: freBAQResult;
+  classification: string;
+  /** Probabilities, expected already sorted high → low. */
+  probs: PDFProb[];
+  rows: PDFInputRow[];
   patientName: string;
 }
 
-export async function generateFreBAQReport(input: PDFInput): Promise<Uint8Array> {
+export async function generatePainClassificationReport(input: PDFInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle('FreBAQ Results');
-  doc.setSubject('FreBAQ — clinical screening results');
+  doc.setTitle('Pain Classification Results');
+  doc.setSubject('Pain Classification (acute) — composite results');
   doc.setProducer('PATH — Pain Assessment Tools Hub');
   doc.setCreator('PATH');
   doc.setCreationDate(new Date());
@@ -42,11 +52,11 @@ export async function generateFreBAQReport(input: PDFInput): Promise<Uint8Array>
 
   drawHeader(ctx);
   drawTitle(ctx, input.patientName);
-  drawScoreCard(ctx, input.result);
+  drawHeadline(ctx, input);
+  drawProbabilities(ctx, input.probs, input.classification);
+  drawInputs(ctx, input.rows);
   drawInterpretationNote(ctx);
-  drawComments(ctx, input.result.comments);
 
-  // Stamp every page's footer once we know the total page count
   const total = ctx.doc.getPageCount();
   for (let i = 0; i < total; i += 1) {
     drawFooter(ctx.doc.getPage(i), font, i + 1, total);
@@ -63,7 +73,9 @@ export function buildFilename(patientName: string): string {
     .replace(/[^a-zA-Z0-9-]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 40);
-  return safe ? `frebaq_Results_${safe}_${today}.pdf` : `frebaq_Results_${today}.pdf`;
+  return safe
+    ? `pain_classification_Results_${safe}_${today}.pdf`
+    : `pain_classification_Results_${today}.pdf`;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,19 +89,14 @@ const MARGIN_BOTTOM = 60;
 const MARGIN_X = 50;
 const CONTENT_W = PAGE_W - 2 * MARGIN_X;
 
-const ELEVATED_THRESHOLD = 12; // mirrors FreBAQResults.svelte (upper half of 0–24)
-
 const COLOR_PRIMARY = rgb(0.31, 0.149, 0.514); // #4F2683
-const COLOR_TEXT = rgb(0.122, 0.122, 0.122);   // #1F1F1F
-const COLOR_MUTED = rgb(0.361, 0.361, 0.361);  // #5C5C5C
+const COLOR_PRIMARY_TINT = rgb(0.722, 0.624, 0.82); // #B89FD1
+const COLOR_TEXT = rgb(0.122, 0.122, 0.122); // #1F1F1F
+const COLOR_MUTED = rgb(0.361, 0.361, 0.361); // #5C5C5C
 const COLOR_SUBTLE = rgb(0.533, 0.533, 0.533); // #888
 const COLOR_BORDER = rgb(0.898, 0.898, 0.898); // #E5E5E5
-const COLOR_TINT = rgb(0.961, 0.941, 0.980);   // #F5F0FA
-
-const COLOR_AMBER_BORDER = rgb(0.706, 0.325, 0.035); // #B45309
-const COLOR_AMBER_BG = rgb(1.0, 0.984, 0.922);        // #FFFBEB
-const COLOR_AMBER_PILL_BG = rgb(0.992, 0.902, 0.541); // #FDE68A
-const COLOR_AMBER_PILL_TEXT = rgb(0.471, 0.208, 0.059); // #78350F
+const COLOR_TINT = rgb(0.961, 0.941, 0.98); // #F5F0FA
+const COLOR_WHITE = rgb(1, 1, 1);
 
 interface Ctx {
   doc: PDFDocument;
@@ -120,22 +127,33 @@ function moveDown(ctx: Ctx, dy: number): void {
 function drawText(
   ctx: Ctx,
   text: string,
-  opts: {
-    x?: number;
-    size?: number;
-    bold?: boolean;
-    color?: ReturnType<typeof rgb>;
-  } = {},
+  opts: { x?: number; size?: number; bold?: boolean; color?: ReturnType<typeof rgb> } = {},
 ): void {
   const size = opts.size ?? 10;
   const font = opts.bold ? ctx.fontBold : ctx.font;
-  const color = opts.color ?? COLOR_TEXT;
   ctx.page.drawText(text, {
     x: opts.x ?? MARGIN_X,
     y: ctx.y,
     size,
     font,
-    color,
+    color: opts.color ?? COLOR_TEXT,
+  });
+}
+
+function drawRightText(
+  ctx: Ctx,
+  text: string,
+  opts: { size?: number; bold?: boolean; color?: ReturnType<typeof rgb> } = {},
+): void {
+  const size = opts.size ?? 10;
+  const font = opts.bold ? ctx.fontBold : ctx.font;
+  const w = font.widthOfTextAtSize(text, size);
+  ctx.page.drawText(text, {
+    x: MARGIN_X + CONTENT_W - w,
+    y: ctx.y,
+    size,
+    font,
+    color: opts.color ?? COLOR_TEXT,
   });
 }
 
@@ -148,11 +166,9 @@ function drawRule(ctx: Ctx, color = COLOR_BORDER, thickness = 0.5): void {
   });
 }
 
-/** Greedy text wrap by word at a target pixel width. */
 function wrapText(text: string, maxWidth: number, font: PDFFont, size: number): string[] {
   const lines: string[] = [];
-  const paragraphs = text.split(/\r?\n/);
-  for (const para of paragraphs) {
+  for (const para of text.split(/\r?\n/)) {
     const words = para.split(/\s+/).filter(Boolean);
     if (words.length === 0) {
       lines.push('');
@@ -161,8 +177,7 @@ function wrapText(text: string, maxWidth: number, font: PDFFont, size: number): 
     let current = '';
     for (const word of words) {
       const candidate = current.length === 0 ? word : `${current} ${word}`;
-      const w = font.widthOfTextAtSize(candidate, size);
-      if (w > maxWidth && current.length > 0) {
+      if (font.widthOfTextAtSize(candidate, size) > maxWidth && current.length > 0) {
         lines.push(current);
         current = word;
       } else {
@@ -186,7 +201,6 @@ function drawHeader(ctx: Ctx, opts: { compact?: boolean } = {}): void {
     drawText(ctx, 'Pain Assessment Tools Hub', { size: 9, color: COLOR_MUTED });
   }
 
-  // Right-aligned date
   const dateStr = new Date().toLocaleString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -211,22 +225,13 @@ function drawHeader(ctx: Ctx, opts: { compact?: boolean } = {}): void {
 function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, total: number): void {
   const text = `Page ${pageNum} of ${total} · Generated by PATH`;
   const width = font.widthOfTextAtSize(text, 8);
-  page.drawText(text, {
-    x: (PAGE_W - width) / 2,
-    y: 30,
-    size: 8,
-    font,
-    color: COLOR_SUBTLE,
-  });
+  page.drawText(text, { x: (PAGE_W - width) / 2, y: 30, size: 8, font, color: COLOR_SUBTLE });
 }
 
 function drawTitle(ctx: Ctx, patientName: string): void {
-  drawText(ctx, 'FreBAQ', { bold: true, size: 18, color: COLOR_TEXT });
+  drawText(ctx, 'Pain Classification', { bold: true, size: 18, color: COLOR_TEXT });
   moveDown(ctx, 22);
-  drawText(ctx, 'Fremantle Back Awareness Questionnaire — results report', {
-    size: 11,
-    color: COLOR_MUTED,
-  });
+  drawText(ctx, 'Acute pathway — composite results report', { size: 11, color: COLOR_MUTED });
   moveDown(ctx, 22);
 
   if (patientName) {
@@ -245,118 +250,104 @@ function drawSectionHeading(ctx: Ctx, title: string): void {
   moveDown(ctx, 16);
 }
 
-/**
- * Score card — mirrors the on-screen treatment from FreBAQResults.svelte:
- * a tinted box with a colored left border, a large numeric score, and a
- * verdict pill. Purple/normal vs amber/elevated based on threshold.
- */
-function drawScoreCard(ctx: Ctx, result: freBAQResult): void {
-  drawSectionHeading(ctx, 'Score');
-
-  const elevated = result.total_score >= ELEVATED_THRESHOLD;
-  const borderColor = elevated ? COLOR_AMBER_BORDER : COLOR_PRIMARY;
-  const bgColor = elevated ? COLOR_AMBER_BG : COLOR_TINT;
-  const pillBg = elevated ? COLOR_AMBER_PILL_BG : COLOR_TINT;
-  const pillText = elevated ? COLOR_AMBER_PILL_TEXT : COLOR_PRIMARY;
-
-  const cardH = 90;
+/** Filled purple banner with the predicted category + its probability. */
+function drawHeadline(ctx: Ctx, input: PDFInput): void {
+  const cardH = 78;
   ensureSpace(ctx, cardH + 12);
-
-  // Card background + left accent border
   const cardTop = ctx.y;
   ctx.page.drawRectangle({
     x: MARGIN_X,
     y: cardTop - cardH,
     width: CONTENT_W,
     height: cardH,
-    color: bgColor,
-    borderColor: COLOR_BORDER,
-    borderWidth: 0.5,
-  });
-  ctx.page.drawRectangle({
-    x: MARGIN_X,
-    y: cardTop - cardH,
-    width: 4,
-    height: cardH,
-    color: borderColor,
+    color: COLOR_PRIMARY,
   });
 
-  // Score number (left)
-  const scoreText = String(result.total_score);
-  const scoreSize = 36;
-  const scoreX = MARGIN_X + 24;
-  const scoreY = cardTop - 56;
-  ctx.page.drawText(scoreText, {
-    x: scoreX,
-    y: scoreY,
-    size: scoreSize,
+  const topProb = input.probs.find((p) => p.category === input.classification)?.prob ?? 0;
+  ctx.page.drawText('MOST LIKELY PRESENTATION', {
+    x: MARGIN_X + 18,
+    y: cardTop - 24,
+    size: 8,
     font: ctx.fontBold,
-    color: COLOR_TEXT,
+    color: rgb(0.85, 0.8, 0.92),
   });
-
-  // Verdict pill (right side of card)
-  const pillPaddingX = 12;
-  const pillPaddingY = 6;
-  const pillSize = 11;
-  const pillTextW = ctx.fontBold.widthOfTextAtSize(result.interpretation, pillSize);
-  const pillW = pillTextW + pillPaddingX * 2;
-  const pillH = pillSize + pillPaddingY * 2;
-  const pillX = MARGIN_X + CONTENT_W - pillW - 16;
-  const pillY = cardTop - cardH / 2 - pillH / 2;
-
-  ctx.page.drawRectangle({
-    x: pillX,
-    y: pillY,
-    width: pillW,
-    height: pillH,
-    color: pillBg,
-    borderColor: borderColor,
-    borderWidth: 0.5,
-  });
-  ctx.page.drawText(result.interpretation, {
-    x: pillX + pillPaddingX,
-    y: pillY + pillPaddingY + 2,
-    size: pillSize,
+  ctx.page.drawText(input.classification, {
+    x: MARGIN_X + 18,
+    y: cardTop - 46,
+    size: 18,
     font: ctx.fontBold,
-    color: pillText,
+    color: COLOR_WHITE,
+  });
+  ctx.page.drawText(`${(topProb * 100).toFixed(1)}% probability`, {
+    x: MARGIN_X + 18,
+    y: cardTop - 64,
+    size: 10,
+    font: ctx.font,
+    color: rgb(0.9, 0.87, 0.96),
   });
 
-  moveDown(ctx, cardH + 16);
+  moveDown(ctx, cardH + 20);
+}
+
+function drawProbabilities(ctx: Ctx, probs: PDFProb[], classification: string): void {
+  drawSectionHeading(ctx, 'Category probabilities');
+  for (const p of probs) {
+    const top = p.category === classification;
+    ensureSpace(ctx, 30);
+    drawText(ctx, p.category, { size: 10, bold: top, color: top ? COLOR_TEXT : COLOR_MUTED });
+    drawRightText(ctx, `${(p.prob * 100).toFixed(1)}%`, { size: 10, bold: true });
+    moveDown(ctx, 8);
+
+    // Track + filled bar
+    const barY = ctx.y - 8;
+    ctx.page.drawRectangle({ x: MARGIN_X, y: barY, width: CONTENT_W, height: 6, color: COLOR_BORDER });
+    ctx.page.drawRectangle({
+      x: MARGIN_X,
+      y: barY,
+      width: Math.max(0, Math.min(1, p.prob)) * CONTENT_W,
+      height: 6,
+      color: top ? COLOR_PRIMARY : COLOR_PRIMARY_TINT,
+    });
+    moveDown(ctx, 22);
+  }
+  moveDown(ctx, 4);
+}
+
+function drawInputs(ctx: Ctx, rows: PDFInputRow[]): void {
+  drawSectionHeading(ctx, 'Collected inputs');
+  for (const row of rows) {
+    ensureSpace(ctx, 40);
+    drawText(ctx, row.shortName, { bold: true, size: 11, color: COLOR_TEXT });
+    moveDown(ctx, 16);
+    for (const [label, val] of row.entries) {
+      drawText(ctx, label, { x: MARGIN_X + 12, size: 10, color: COLOR_MUTED });
+      drawRightText(ctx, String(val), { size: 10, bold: true });
+      moveDown(ctx, 15);
+    }
+    if (row.comment) {
+      const lines = wrapText(row.comment, CONTENT_W - 12, ctx.font, 9);
+      for (const line of lines) {
+        ensureSpace(ctx, 13);
+        drawText(ctx, line, { x: MARGIN_X + 12, size: 9, color: COLOR_SUBTLE });
+        moveDown(ctx, 13);
+      }
+    }
+    moveDown(ctx, 10);
+  }
 }
 
 function drawInterpretationNote(ctx: Ctx): void {
   const note =
-    `The FreBAQ measures disrupted back/body perception (body awareness); higher ` +
-    `scores indicate greater disruption. Scores at or above ${ELEVATED_THRESHOLD} ` +
-    `(the upper half of the 0–24 range) are flagged as elevated. This is a ` +
-    `screening result, not a diagnosis.`;
+    'This composite classifies the acute pain presentation from five standardised sub-scores ' +
+    '(MSI Somatic and Central, Brief S-LANSS, FreBAQ, and PHQ-4) using a multinomial model. ' +
+    'Probabilities sum to 100% across the four categories. This is a screening result, not a ' +
+    'diagnosis, and should be interpreted alongside clinical judgement.';
   const lines = wrapText(note, CONTENT_W, ctx.font, 9);
   ensureSpace(ctx, lines.length * 13 + 8);
+  drawRule(ctx);
+  moveDown(ctx, 14);
   for (const line of lines) {
     drawText(ctx, line, { size: 9, color: COLOR_MUTED });
     moveDown(ctx, 13);
   }
-  moveDown(ctx, 12);
-}
-
-function drawComments(ctx: Ctx, comments: string): void {
-  drawSectionHeading(ctx, 'Other comments');
-  const lines = wrapText(comments, CONTENT_W - 16, ctx.font, 10);
-  const blockHeight = lines.length * 14 + 16;
-  ensureSpace(ctx, blockHeight);
-
-  ctx.page.drawRectangle({
-    x: MARGIN_X,
-    y: ctx.y - blockHeight + 14,
-    width: CONTENT_W,
-    height: blockHeight,
-    borderColor: COLOR_BORDER,
-    borderWidth: 0.5,
-  });
-  moveDown(ctx, 4);
-  for (const line of lines) {
-    drawText(ctx, line, { x: MARGIN_X + 8, size: 10 });
-    moveDown(ctx, 14);
-  }
-  moveDown(ctx, 8);
 }

@@ -30,9 +30,11 @@ export const QUESTIONS: readonly phq4Question[] = [
   },
 ] as const;
 
+// 0-based ordinal scale (0–3 per item → 0–12 total), the standard PHQ-4
+// scoring the composite Pain Classification model was calibrated on.
 export const EXPERIENCE_OPTIONS = [
-  { value: 1, label: 'Not at all' },
-  { value: 2, label: 'Several days' },
-  { value: 3, label: 'More than half the days' },
-  { value: 4, label: 'Nearly every day' },
+  { value: 0, label: 'Not at all' },
+  { value: 1, label: 'Several days' },
+  { value: 2, label: 'More than half the days' },
+  { value: 3, label: 'Nearly every day' },
 ] as const;

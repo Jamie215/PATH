@@ -77,7 +77,7 @@ const MARGIN_BOTTOM = 60;
 const MARGIN_X = 50;
 const CONTENT_W = PAGE_W - 2 * MARGIN_X;
 
-const NEUROPATHIC_THRESHOLD = 10; // matches scoring.ts; verify with PI
+const NEUROPATHIC_THRESHOLD = 3; // matches scoring.ts: neuropathic when total > 2
 
 const COLOR_PRIMARY = rgb(0.31, 0.149, 0.514); // #4F2683
 const COLOR_TEXT = rgb(0.122, 0.122, 0.122);   // #1F1F1F

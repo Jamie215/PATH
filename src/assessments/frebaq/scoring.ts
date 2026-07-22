@@ -26,8 +26,8 @@ export const SYMPTOM_LABELS: Record<Symptom, string> = {
 
 // --- Types -------------------------------------------------------------------
 
-/** Experience rating: 0=No, 1=Yes */
-export type Experience = 0 | 1;
+/** Ordinal rating per item: 0=Never … 4=Always. Six items → total 0–24. */
+export type Experience = 0 | 1 | 2 | 3 | 4;
 
 /**
  * Shape of the survey response object as posted from the form.

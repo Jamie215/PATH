@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { assessments } from '../assessments/registry';
 ---
-<Base title="PATH" description="Pain Assessment Tools Hub — a collection of validated assessment tools.">
+<Base title="PATH" description="Pain Assessment Tools Hub — a collection of validated assessment tools." wide>
   <script is:inline>
      if (typeof window !== 'undefined' && window.sessionStorage) {
        window.sessionStorage.removeItem('path:assessment-context');
@@ -51,19 +51,23 @@ import { assessments } from '../assessments/registry';
     margin: 0 0 var(--space-7) 0;
   }
 
+  /* Centered wrapping grid: with a wide container, five fixed-width cards
+     wrap into two rows (3 + 2) so everything is visible without scrolling. */
   .picker__grid {
     list-style: none;
-    padding: 0;
     margin: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 260px));
-    gap: var(--space-5);
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
     justify-content: center;
+    gap: var(--space-5);
     width: 100%;
   }
 
   .tool-card {
-    display: block;
+    flex: 0 0 280px;
+    /* Drop the auto min-size so long content can't stretch the fixed width. */
+    min-width: 0;
   }
 
   .tool-card__inner {
@@ -78,7 +82,12 @@ import { assessments } from '../assessments/registry';
     color: #ffffff;
     border-radius: var(--radius-lg);
     border: none;
-    aspect-ratio: 1 / 1;
+    /* Fixed width (from .tool-card) + stretched height keeps every card the
+       same size; height equalizes to the tallest card via align-items. */
+    width: 100%;
+    height: 100%;
+    min-height: 240px;
+    overflow: hidden;
     justify-content: center;
     transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
     box-shadow: var(--shadow-sm);
@@ -119,7 +128,7 @@ import { assessments } from '../assessments/registry';
   }
 
   .tool-card__desc {
-    font-size: 0.82rem;
+    font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.82);
     margin: 0;
     line-height: 1.4;
@@ -133,14 +142,17 @@ import { assessments } from '../assessments/registry';
     background: rgba(255, 255, 255, 0.18);
     color: #ffffff;
     border-radius: 999px;
-    font-size: 0.7rem;
+    font-size: 0.9rem;
     font-weight: 600;
     letter-spacing: 0.02em;
   }
 
-  @media (max-width: 520px) {
-    .picker__grid {
-      grid-template-columns: minmax(220px, 280px);
+  /* Small screens: let cards take the full narrow column width. */
+  @media (max-width: 560px) {
+    .tool-card {
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: 280px;
     }
   }
 </style>
