@@ -48,7 +48,9 @@ const INT_X = [426, 463, 500, 537];
 const FIRST_ROW_Y = 336;
 const ROW_SPACING = 42;
 
-const BUBBLE_RADIUS_PT = 6.5;
+// Smaller bubble: a thin pen fills a larger fraction of a small circle, so a
+// quick firm mark registers without edge-to-edge inking.
+const BUBBLE_RADIUS_PT = 5;
 const FIDUCIAL_SIZE_PT = 16;
 /** Fiducial center inset from each page edge. */
 const FIDUCIAL_INSET = 30;

@@ -26,8 +26,9 @@ const INNER_RADIUS_FACTOR = 0.6;
  *  subtracted from the interior so paper tint and shadow cancel out. */
 const BG_INNER_FACTOR = 1.35;
 const BG_OUTER_FACTOR = 1.9;
-/** Fill signal (interior minus local paper) needed to count as marked. */
-const MARK_MIN = 0.22;
+/** Fill signal (interior minus local paper) needed to count as marked. Kept
+ *  forgiving so a firm partial mark counts, not only an edge-to-edge fill. */
+const MARK_MIN = 0.18;
 /** Minimum fill margin over the runner-up for an unambiguous pick. */
 const SEP_MIN = 0.12;
 

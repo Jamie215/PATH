@@ -123,6 +123,18 @@ describe('readSheet — off-white paper with a shadow gradient', () => {
   });
 });
 
+describe('readSheet — small thin-pen dabs (not edge-to-edge fills)', () => {
+  // A ~2pt dab in each answered bubble, well short of filling the circle.
+  const img = renderSyntheticSheet(T, ANSWERS, { scale: 2, markRadiusPt: 2 });
+  const result = readSheet(img, T);
+
+  it('reads quick partial marks correctly', () => {
+    expect(result.ok).toBe(true);
+    expect(result.response).toEqual(expectedResponse());
+    expect(result.warnings).toEqual([]);
+  });
+});
+
 describe('readSheet — failure handling', () => {
   it('reports when no sheet is present', () => {
     const blank: GrayImage = { width: 400, height: 500, data: new Uint8Array(400 * 500).fill(255) };

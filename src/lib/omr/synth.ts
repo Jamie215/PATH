@@ -45,6 +45,12 @@ export interface SynthOptions {
   paper?: number;
   /** Peak luminance drop across a top-left→bottom-right gradient (a shadow). */
   shadow?: number;
+  /**
+   * If set, fill each answered bubble with a dab of this absolute radius (in
+   * page points) instead of a near-full fill — simulating a quick thin-pen
+   * mark rather than edge-to-edge inking.
+   */
+  markRadiusPt?: number;
 }
 
 /**
@@ -57,7 +63,7 @@ export function renderSyntheticSheet(
   answers: Record<string, number>,
   opts: number | SynthOptions = {},
 ): GrayImage {
-  const { scale = 2, paper = 255, shadow = 0 } =
+  const { scale = 2, paper = 255, shadow = 0, markRadiusPt } =
     typeof opts === 'number' ? { scale: opts } : opts;
   const W = Math.round(template.page.width * scale);
   const H = Math.round(template.page.height * scale);
@@ -82,7 +88,8 @@ export function renderSyntheticSheet(
         for (const bubble of field.bubbles) {
           drawRing(d, W, bubble.center.x * W, bubble.center.y * H, r, RING);
           if (chosen !== undefined && bubble.value === chosen) {
-            fillDisc(d, W, bubble.center.x * W, bubble.center.y * H, r * 0.85, INK);
+            const markR = markRadiusPt !== undefined ? markRadiusPt * scale : r * 0.85;
+            fillDisc(d, W, bubble.center.x * W, bubble.center.y * H, markR, INK);
           }
         }
       }
