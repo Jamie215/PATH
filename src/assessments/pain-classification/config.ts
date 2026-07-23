@@ -19,6 +19,9 @@
  * is a one-place change.
  */
 
+import type { OmrTemplate } from '../omr/types';
+import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
+
 export type PainType = 'acute' | 'chronic';
 
 /** Kept as 'professional' to match the child assessments' stored role values. */
@@ -59,6 +62,13 @@ export interface ChildAssessment {
    * manual entry. Returns null if the stored result is missing/unusable.
    */
   fromResult: (result: unknown) => Record<string, number> | null;
+  /**
+   * If set, this child can also be satisfied by uploading a scan/photo of its
+   * printed OMR answer sheet. The reader decodes the sheet against this
+   * template; the user then confirms via the child's own survey before it
+   * feeds the composite. Only MSI has a sheet today.
+   */
+  omrTemplate?: OmrTemplate;
 }
 
 function num(v: unknown): number | null {
@@ -86,6 +96,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
       if (somatic === null || nonsomatic === null) return null;
       return { somatic, nonsomatic };
     },
+    omrTemplate: MSI_OMR_TEMPLATE,
   },
   {
     slug: 'briefslanss',

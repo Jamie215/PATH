@@ -51,3 +51,23 @@ export async function readSheetFromBlob(blob: Blob, template: OmrTemplate): Prom
   const img = await blobToGrayImage(blob);
   return readSheet(img, template);
 }
+
+/** Encode a grayscale buffer as a PNG data URL — for showing the flattened
+ *  sheet in the confirmation UI. */
+export function grayImageToDataURL(img: GrayImage): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get a 2D canvas context.');
+  const out = ctx.createImageData(img.width, img.height);
+  for (let i = 0, p = 0; i < img.data.length; i += 1, p += 4) {
+    const v = img.data[i];
+    out.data[p] = v;
+    out.data[p + 1] = v;
+    out.data[p + 2] = v;
+    out.data[p + 3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+  return canvas.toDataURL('image/png');
+}

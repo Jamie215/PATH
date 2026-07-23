@@ -19,6 +19,7 @@
   import BriefSLANSSSurvey from './BriefSLANSSSurvey.svelte';
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
+  import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
   import {
     ACUTE_CHILDREN,
     KEYS,
@@ -37,6 +38,20 @@
   // Completion fraction (0–1) of the open questionnaire, bound from the
   // embedded survey so the modal header can render a fixed progress bar.
   let modalProgress = $state(0);
+
+  // OMR upload state.
+  let fileInput = $state<HTMLInputElement | undefined>(undefined);
+  let pendingUploadChild: ChildAssessment | null = null;
+  // Slug currently being read, so its button can show a busy label.
+  let omrBusy = $state<string | null>(null);
+  let omrError = $state<string | null>(null);
+  // The scanned sheet awaiting the user's confirmation.
+  let omrReview = $state<{
+    child: ChildAssessment;
+    imageUrl: string;
+    response: Record<string, number>;
+    warnings: string[];
+  } | null>(null);
 
   onMount(() => {
     role = storeGet<Role>(KEYS.role);
@@ -115,8 +130,64 @@
     modalChild = null;
   }
 
+  /** Open the file picker to upload a scan/photo for a child's OMR sheet. */
+  function startUpload(child: ChildAssessment): void {
+    if (!child.omrTemplate || !fileInput) return;
+    omrError = null;
+    pendingUploadChild = child;
+    fileInput.value = ''; // allow re-selecting the same file
+    fileInput.click();
+  }
+
+  /** Read the chosen image, then open the confirmation review on success. */
+  async function onFileChosen(e: Event): Promise<void> {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    const child = pendingUploadChild;
+    pendingUploadChild = null;
+    if (!file || !child?.omrTemplate) return;
+
+    omrError = null;
+    omrBusy = child.slug;
+    try {
+      const result = await readSheetFromBlob(file, child.omrTemplate);
+      if (!result.ok || !result.warped) {
+        omrError =
+          (result.error ?? 'Could not read the sheet.') +
+          ' Make sure the whole sheet is visible, well-lit, and reasonably flat.';
+        return;
+      }
+      // Role-gated children (MSI) need their role set before the survey renders.
+      if (child.roleKey && role) storeSet(child.roleKey, role);
+      omrReview = {
+        child,
+        imageUrl: grayImageToDataURL(result.warped),
+        response: result.response,
+        warnings: result.warnings,
+      };
+    } catch (err) {
+      omrError = err instanceof Error ? err.message : 'Could not read the sheet.';
+    } finally {
+      omrBusy = null;
+    }
+  }
+
+  function closeReview(): void {
+    omrReview = null;
+  }
+
+  /** The user confirmed the scanned answers via the embedded survey (which
+   *  has already scored and persisted the result); fold it into the card. */
+  function finishReview(child: ChildAssessment): void {
+    finishQuestionnaire(child);
+    omrReview = null;
+  }
+
   function onWindowKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && modalChild) closeQuestionnaire();
+    if (e.key !== 'Escape') return;
+    if (omrError) omrError = null;
+    else if (omrReview) closeReview();
+    else if (modalChild) closeQuestionnaire();
   }
 
   function calculate(): void {
@@ -137,6 +208,14 @@
       complete, calculate the composite classification.
     </p>
 
+    <input
+      bind:this={fileInput}
+      type="file"
+      accept="image/*"
+      class="visually-hidden"
+      onchange={onFileChosen}
+    />
+
     <ul class="cards">
       {#each ACUTE_CHILDREN as child (child.slug)}
         <li class="assessment">
@@ -150,6 +229,16 @@
                 <button type="button" class="btn btn--success card__btn" onclick={() => openQuestionnaire(child)}>
                   Fill Out Questionnaire
                 </button>
+                {#if child.omrTemplate}
+                  <button
+                    type="button"
+                    class="btn btn--secondary card__btn"
+                    onclick={() => startUpload(child)}
+                    disabled={omrBusy === child.slug}
+                  >
+                    {omrBusy === child.slug ? 'Reading scan…' : 'Upload scan / photo'}
+                  </button>
+                {/if}
               </div>
             </header>
 
@@ -233,6 +322,72 @@
           {:else if child.slug === 'phq4'}
             <PHQ4Survey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if omrReview}
+    {@const rv = omrReview}
+    <div
+      class="modal-overlay"
+      role="presentation"
+      onclick={(e) => { if (e.target === e.currentTarget) closeReview(); }}
+    >
+      <div class="modal modal--review" role="dialog" aria-modal="true" aria-label={`Review scanned ${rv.child.shortName}`}>
+        <header class="modal__head">
+          <div class="modal__head-row">
+            <div>
+              <h2 class="modal__title">Review scanned {rv.child.shortName}</h2>
+              <p class="modal__subtitle">
+                We read your sheet — check the answers against the scan, correct any, then confirm.
+              </p>
+            </div>
+            <button type="button" class="modal__close" aria-label="Close" onclick={closeReview}>
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+        </header>
+        <div class="modal__body review">
+          <div class="review__scan">
+            <img class="review__img" src={rv.imageUrl} alt={`Flattened scan of the ${rv.child.shortName} answer sheet`} />
+          </div>
+          <div class="review__form">
+            {#if rv.warnings.length > 0}
+              <div class="review__note" role="alert">
+                <strong>Please double-check:</strong>
+                <ul class="review__note-list">
+                  {#each rv.warnings as w (w)}<li>{w}</li>{/each}
+                </ul>
+              </div>
+            {/if}
+            {#if rv.child.slug === 'msi'}
+              <MSISurvey
+                initialAnswers={rv.response}
+                onComplete={() => finishReview(rv.child)}
+                submitLabel="Confirm &amp; save"
+                showProgress={false}
+              />
+            {/if}
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if omrError}
+    <div
+      class="modal-overlay"
+      role="presentation"
+      onclick={(e) => { if (e.target === e.currentTarget) omrError = null; }}
+    >
+      <div class="modal modal--narrow" role="alertdialog" aria-modal="true" aria-label="Scan could not be read">
+        <div class="modal__body">
+          <h2 class="modal__title">Couldn't read the sheet</h2>
+          <p class="omr-error__text">{omrError}</p>
+          <div class="omr-error__actions">
+            <button type="button" class="btn btn--primary" onclick={() => omrError = null}>OK</button>
+          </div>
         </div>
       </div>
     </div>
@@ -507,5 +662,90 @@
   .modal__body {
     padding: var(--space-5);
     overflow-y: auto;
+  }
+
+  /* Visually-hidden file input (kept in the DOM for programmatic click). */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Review modal: flattened scan beside the pre-filled survey. */
+  .modal--review {
+    max-width: 980px;
+  }
+
+  .review {
+    display: flex;
+    gap: var(--space-6);
+    align-items: flex-start;
+  }
+
+  .review__scan {
+    flex: 0 0 40%;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+  }
+
+  .review__img {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: #fff;
+  }
+
+  .review__form {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .review__note {
+    background: var(--color-warning-tint, #fdf6e3);
+    border: 1px solid var(--color-warning, #b8860b);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-5);
+    font-size: 0.9rem;
+  }
+
+  .review__note-list {
+    margin: var(--space-2) 0 0 0;
+    padding-left: var(--space-5);
+  }
+
+  .modal--narrow {
+    max-width: 440px;
+  }
+
+  .omr-error__text {
+    color: var(--color-text-muted);
+    margin: var(--space-3) 0 var(--space-5) 0;
+  }
+
+  .omr-error__actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 720px) {
+    .review {
+      flex-direction: column;
+    }
+    .review__scan {
+      position: static;
+      flex-basis: auto;
+      width: 100%;
+      max-height: 40vh;
+      overflow: auto;
+    }
   }
 </style>

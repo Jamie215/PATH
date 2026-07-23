@@ -110,11 +110,15 @@ function assembleRow(
       return; // interference is meaningless without frequency
     }
     response[freq.key] = freq.value;
+    if (freq.status === 'ambiguous') warnings.push(`"${label}": frequency mark unclear — please verify.`);
     if (freq.value === 0) return; // "Never" → bothersomeness ignored by design
     if (interference.value === null) {
       warnings.push(`"${label}": marked as occurring, but bothersomeness not marked.`);
     } else {
       response[interference.key] = interference.value;
+      if (interference.status === 'ambiguous') {
+        warnings.push(`"${label}": bothersomeness mark unclear — please verify.`);
+      }
     }
     return;
   }
@@ -122,6 +126,9 @@ function assembleRow(
   // Generic single-value rows.
   for (const r of reads) {
     if (r.value === null) warnings.push(`"${label}": not marked.`);
-    else response[r.key] = r.value;
+    else {
+      response[r.key] = r.value;
+      if (r.status === 'ambiguous') warnings.push(`"${label}": mark unclear — please verify.`);
+    }
   }
 }

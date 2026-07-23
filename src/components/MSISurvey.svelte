@@ -32,6 +32,7 @@
     submitLabel = 'See results',
     showProgress = true,
     progress = $bindable(0),
+    initialAnswers,
   }: {
     onComplete?: () => void;
     submitLabel?: string;
@@ -39,13 +40,20 @@
     showProgress?: boolean;
     /** Bindable completion fraction (0–1), so an embedding parent can render it. */
     progress?: number;
+    /**
+     * Pre-fill the answers (e.g. from an OMR-scanned sheet the user is
+     * confirming). Keys are `<symptom>_freq` / `<symptom>_interference`.
+     */
+    initialAnswers?: Record<string, number>;
   } = $props();
 
   type AnswerKey =
     | `${(typeof QUESTIONS)[number]['symptom']}_freq`
     | `${(typeof QUESTIONS)[number]['symptom']}_interference`;
 
-  let answers = $state<Partial<Record<AnswerKey, number>>>({});
+  let answers = $state<Partial<Record<AnswerKey, number>>>({
+    ...(initialAnswers as Partial<Record<AnswerKey, number>> | undefined),
+  });
   let comments = $state('');
   let submitAttempted = $state(false);
   let roleConfirmed = $state(false);
