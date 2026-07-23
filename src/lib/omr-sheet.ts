@@ -212,26 +212,26 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   // Section title.
   ctx.page.drawText(section.title, {
     x: MARGIN_X,
-    y: firstRowYpt + 62,
-    size: 12,
+    y: firstRowYpt + 66,
+    size: 13,
     font: ctx.fontBold,
     color: COLOR_INK,
   });
 
   // Legend lines (usually empty now that words label the columns directly).
-  let ly = firstRowYpt + 48;
+  let ly = firstRowYpt + 50;
   for (const line of section.legend) {
-    ctx.page.drawText(line, { x: MARGIN_X, y: ly, size: 8, font: ctx.font, color: COLOR_MUTED });
-    ly -= 11;
+    ctx.page.drawText(line, { x: MARGIN_X, y: ly, size: 8.5, font: ctx.font, color: COLOR_MUTED });
+    ly -= 12;
   }
 
   // Group question headers + per-column word labels, just above the grid.
   for (const group of section.columnGroups) {
     const centerX =
       (toX(ctx, group.columnX[0]) + toX(ctx, group.columnX[group.columnX.length - 1])) / 2;
-    drawCentered(ctx, group.label, centerX, firstRowYpt + 34, 8, ctx.fontBold, COLOR_PRIMARY);
+    drawCentered(ctx, group.label, centerX, firstRowYpt + 38, 10, ctx.fontBold, COLOR_PRIMARY);
     group.optionHeaders.forEach((h, i) => {
-      drawCentered(ctx, h, toX(ctx, group.columnX[i]), firstRowYpt + 16, 7, ctx.font, COLOR_MUTED);
+      drawCentered(ctx, h, toX(ctx, group.columnX[i]), firstRowYpt + 18, 8, ctx.font, COLOR_MUTED);
     });
   }
 
@@ -261,23 +261,23 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
 
     ctx.page.drawText(`${i + 1}`, {
       x: MARGIN_X,
-      y: yPt - 3,
-      size: 9,
+      y: yPt - 4,
+      size: 10.5,
       font: ctx.fontBold,
       color: COLOR_SUBTLE,
     });
     ctx.page.drawText(row.label, {
       x: LABEL_X,
-      y: row.description ? yPt + 1 : yPt - 3,
-      size: 9.5,
+      y: row.description ? yPt + 2 : yPt - 4,
+      size: 11,
       font: ctx.font,
       color: COLOR_INK,
     });
     if (row.description) {
       ctx.page.drawText(row.description, {
         x: LABEL_X,
-        y: yPt - 9,
-        size: 6.5,
+        y: yPt - 11,
+        size: 8,
         font: ctx.font,
         color: COLOR_MUTED,
       });

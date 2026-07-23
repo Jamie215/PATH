@@ -32,22 +32,23 @@ import type {
 const PAGE_W = 612;
 const PAGE_H = 792;
 
-/** Uniform spacing between bubble columns within either group. */
-const COL_SPACING = 38;
-/** Frequency group: four bubble columns. */
-const FREQ_X = [252, 290, 328, 366];
-/** Bothersomeness group: four bubble columns, after a wider inter-group gap
- *  so the last frequency column and the first bothersomeness column never
- *  read as one run. */
-const INT_X = [410, 448, 486, 524];
+/** Bubble columns. Pushed right and spread wide so the grid text can be
+ *  larger while the long symptom labels still clear the first column and the
+ *  rightmost label stays inside the margin — all on one page.
+ *  Frequency group: four columns. */
+const FREQ_X = [276, 313, 350, 387];
+/** Bothersomeness group: four columns, after a wider inter-group gap so the
+ *  last frequency column and the first bothersomeness column never read as
+ *  one run. */
+const INT_X = [432, 469, 506, 543];
 
 /** First row's bubble center, and spacing between successive rows.
  *  Generous spacing: the grid sits below a taller header and spreads down
  *  the page so every row has room to breathe. */
-const FIRST_ROW_Y = 340;
-const ROW_SPACING = 40;
+const FIRST_ROW_Y = 336;
+const ROW_SPACING = 42;
 
-const BUBBLE_RADIUS_PT = 6;
+const BUBBLE_RADIUS_PT = 6.5;
 const FIDUCIAL_SIZE_PT = 16;
 /** Fiducial center inset from each page edge. */
 const FIDUCIAL_INSET = 30;
