@@ -209,10 +209,10 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   const gridLeftPt = toX(ctx, Math.min(...allX)) - radiusPt;
   const gridRightPt = toX(ctx, Math.max(...allX)) + radiusPt;
 
-  // Section title.
+  // Section title — kept close to the grid it heads.
   ctx.page.drawText(section.title, {
     x: MARGIN_X,
-    y: firstRowYpt + 66,
+    y: firstRowYpt + 50,
     size: 13,
     font: ctx.fontBold,
     color: COLOR_INK,
@@ -231,7 +231,7 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
       (toX(ctx, group.columnX[0]) + toX(ctx, group.columnX[group.columnX.length - 1])) / 2;
     drawCentered(ctx, group.label, centerX, firstRowYpt + 38, 10, ctx.fontBold, COLOR_PRIMARY);
     group.optionHeaders.forEach((h, i) => {
-      drawCentered(ctx, h, toX(ctx, group.columnX[i]), firstRowYpt + 18, 8, ctx.font, COLOR_MUTED);
+      drawCentered(ctx, h, toX(ctx, group.columnX[i]), firstRowYpt + 18, 9, ctx.font, COLOR_MUTED);
     });
   }
 
@@ -276,8 +276,8 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
     if (row.description) {
       ctx.page.drawText(row.description, {
         x: LABEL_X,
-        y: yPt - 11,
-        size: 8,
+        y: yPt - 12,
+        size: 9,
         font: ctx.font,
         color: COLOR_MUTED,
       });

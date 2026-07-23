@@ -39,8 +39,8 @@ const PAGE_H = 792;
 const FREQ_X = [276, 313, 350, 387];
 /** Bothersomeness group: four columns, after a wider inter-group gap so the
  *  last frequency column and the first bothersomeness column never read as
- *  one run. */
-const INT_X = [432, 469, 506, 543];
+ *  one run. Nudged left so the larger "Extremely" label stays in the margin. */
+const INT_X = [426, 463, 500, 537];
 
 /** First row's bubble center, and spacing between successive rows.
  *  Generous spacing: the grid sits below a taller header and spreads down
@@ -55,7 +55,7 @@ const FIDUCIAL_INSET = 30;
 
 /** Short clarifications for the two symptoms the survey elaborates on. */
 const DESCRIPTIONS: Partial<Record<(typeof SYMPTOMS)[number], string>> = {
-  sensitive: 'Bothered by certain light, noise, odor, or temperature',
+  sensitive: 'Bothered by light, noise, odor, or temperature',
   foggy: 'Difficulty concentrating or remembering things',
 };
 
