@@ -39,18 +39,36 @@ function drawRing(d: Uint8Array, W: number, cx: number, cy: number, r: number, v
   }
 }
 
+export interface SynthOptions {
+  scale?: number;
+  /** Base paper luminance (255 = white). Lower simulates off-white paper. */
+  paper?: number;
+  /** Peak luminance drop across a top-left→bottom-right gradient (a shadow). */
+  shadow?: number;
+}
+
 /**
- * Render `template` at `scale` px/pt, filling the bubbles named in `answers`
- * (map of field key → chosen value).
+ * Render `template`, filling the bubbles named in `answers` (map of field key →
+ * chosen value). `paper`/`shadow` simulate a real photo's off-white stock and
+ * uneven lighting so the reader's background handling can be exercised.
  */
 export function renderSyntheticSheet(
   template: OmrTemplate,
   answers: Record<string, number>,
-  scale = 2,
+  opts: number | SynthOptions = {},
 ): GrayImage {
+  const { scale = 2, paper = 255, shadow = 0 } =
+    typeof opts === 'number' ? { scale: opts } : opts;
   const W = Math.round(template.page.width * scale);
   const H = Math.round(template.page.height * scale);
-  const d = new Uint8Array(W * H).fill(255);
+  const d = new Uint8Array(W * H);
+  // Paper background: base tint minus a diagonal shadow gradient.
+  for (let y = 0; y < H; y += 1) {
+    for (let x = 0; x < W; x += 1) {
+      const lum = paper - shadow * ((x / W + y / H) / 2);
+      d[y * W + x] = Math.max(0, Math.min(255, Math.round(lum)));
+    }
+  }
 
   for (const f of template.fiducials) fillRect(d, W, f.x * W, f.y * H, template.fiducialSize * W, INK);
   const key = template.orientationMark;

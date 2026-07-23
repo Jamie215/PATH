@@ -14,17 +14,22 @@
 import type { GrayImage, Mat3, Pt, FieldRead, OmrReadResult } from './types';
 import type { OmrTemplate, OmrField } from '../../assessments/omr/types';
 import { homographyFromPoints } from './geometry';
-import { warpPerspective, discDarkness } from './image';
+import { warpPerspective, discDarkness, annulusDarkness } from './image';
 import { detectCorners } from './detect';
 
 /** Canonical (flattened) resolution = page points × this. */
 const SCALE = 2;
 /** Sample the inner disc only, to exclude the printed bubble outline. */
 const INNER_RADIUS_FACTOR = 0.6;
-/** A bubble counts as marked when its interior darkness reaches this. */
-const MARK_MIN = 0.35;
-/** Minimum darkness margin over the runner-up for an unambiguous pick. */
-const SEP_MIN = 0.15;
+/** Local-background annulus (× bubble radius): clean paper just outside the
+ *  printed ring, before the neighboring bubbles/separators. Its darkness is
+ *  subtracted from the interior so paper tint and shadow cancel out. */
+const BG_INNER_FACTOR = 1.35;
+const BG_OUTER_FACTOR = 1.9;
+/** Fill signal (interior minus local paper) needed to count as marked. */
+const MARK_MIN = 0.22;
+/** Minimum fill margin over the runner-up for an unambiguous pick. */
+const SEP_MIN = 0.12;
 
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 
@@ -65,7 +70,10 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
   }
 
   const warped = warpPerspective(img, H, canonW, canonH);
-  const sampleR = template.bubbleRadius * canonW * INNER_RADIUS_FACTOR;
+  const fullR = template.bubbleRadius * canonW;
+  const sampleR = fullR * INNER_RADIUS_FACTOR;
+  const bgInner = fullR * BG_INNER_FACTOR;
+  const bgOuter = fullR * BG_OUTER_FACTOR;
 
   const fields: FieldRead[] = [];
   const response: Record<string, number> = {};
@@ -74,9 +82,15 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
   for (const section of template.sections) {
     for (const row of section.rows) {
       const rowReads: FieldRead[] = row.fields.map((field) => {
-        const darknesses = field.bubbles.map((b) =>
-          discDarkness(warped, b.center.x * canonW, b.center.y * canonH, sampleR),
-        );
+        // Fill signal = interior darkness minus the local paper background,
+        // so shadow and off-white paper don't masquerade as ink.
+        const darknesses = field.bubbles.map((b) => {
+          const cx = b.center.x * canonW;
+          const cy = b.center.y * canonH;
+          const interior = discDarkness(warped, cx, cy, sampleR);
+          const background = annulusDarkness(warped, cx, cy, bgInner, bgOuter);
+          return Math.max(0, interior - background);
+        });
         const read = decodeField(field, darknesses);
         fields.push(read);
         return read;

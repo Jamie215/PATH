@@ -95,6 +95,34 @@ describe('readSheet — perspective-warped synthetic sheet (tilted photo)', () =
   });
 });
 
+describe('readSheet — off-white paper with a shadow gradient', () => {
+  // Only two symptoms marked; the other eight rows are blank and must NOT be
+  // read as filled despite the darkened paper.
+  const SPARSE: Record<string, number> = {
+    sharp_freq: 2, sharp_interference: 3,
+    numb_freq: 1, numb_interference: 4,
+  };
+  const img = renderSyntheticSheet(T, SPARSE, { scale: 2, paper: 205, shadow: 100 });
+  const result = readSheet(img, T);
+
+  it('locates the sheet on tinted, unevenly-lit paper', () => {
+    expect(result.ok).toBe(true);
+  });
+
+  it('reads only the marked bubbles — no phantom marks on blank rows', () => {
+    expect(result.response).toEqual({
+      sharp_freq: 2, sharp_interference: 3,
+      numb_freq: 1, numb_interference: 4,
+    });
+  });
+
+  it('flags the genuinely blank rows as missing', () => {
+    for (const label of ['Fatigue', 'Fogginess', 'Poor appetite or nausea']) {
+      expect(result.warnings.some((w) => w.includes(label))).toBe(true);
+    }
+  });
+});
+
 describe('readSheet — failure handling', () => {
   it('reports when no sheet is present', () => {
     const blank: GrayImage = { width: 400, height: 500, data: new Uint8Array(400 * 500).fill(255) };

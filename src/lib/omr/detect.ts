@@ -17,7 +17,7 @@
  */
 import type { GrayImage, Pt } from './types';
 import type { OmrTemplate } from '../../assessments/omr/types';
-import { otsuThreshold, connectedComponents, type Component } from './image';
+import { adaptiveBinarize, connectedComponents, type Component } from './image';
 
 export interface CornerLabels {
   TL: Pt;
@@ -55,11 +55,13 @@ function dist2(a: Pt, b: Pt): number {
  * and an orientation key can't be found.
  */
 export function detectCorners(img: GrayImage, template: OmrTemplate): CornerLabels | null {
-  const threshold = otsuThreshold(img);
+  // Adaptive binarization survives shadows/tint that a global threshold can't.
+  const radius = Math.max(15, Math.round(Math.min(img.width, img.height) / 16));
+  const mask = adaptiveBinarize(img, radius, 12);
   // Fiducials scale with the page; require components of at least a modest size
   // relative to the image to skip specks.
   const minArea = Math.max(8, Math.round((img.width * img.height) / 200000));
-  const squares = connectedComponents(img, threshold, minArea).filter(isSquareSolid);
+  const squares = connectedComponents(mask, 128, minArea).filter(isSquareSolid);
   if (squares.length < 5) return null;
 
   // Four largest solid squares are the fiducials; the key is the largest of the

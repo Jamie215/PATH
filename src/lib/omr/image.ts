@@ -38,6 +38,46 @@ export function otsuThreshold(img: GrayImage): number {
   return threshold;
 }
 
+/**
+ * Adaptive (local-mean) binarization: a pixel is ink (0) when it is at least
+ * `C` darker than the average luminance of the `radius`-neighborhood around
+ * it, else paper (255). Unlike a global threshold, this survives shadows and
+ * lighting gradients — essential for locating fiducials in a real photo.
+ * Uses an integral image for O(1) box means.
+ */
+export function adaptiveBinarize(img: GrayImage, radius: number, C: number): GrayImage {
+  const { width: W, height: H, data } = img;
+  const IW = W + 1;
+  const II = new Float64Array(IW * (H + 1));
+  for (let y = 1; y <= H; y += 1) {
+    let rowSum = 0;
+    const base = y * IW;
+    const prev = (y - 1) * IW;
+    for (let x = 1; x <= W; x += 1) {
+      rowSum += data[(y - 1) * W + (x - 1)];
+      II[base + x] = II[prev + x] + rowSum;
+    }
+  }
+  const out = new Uint8Array(W * H);
+  for (let y = 0; y < H; y += 1) {
+    const y0 = Math.max(0, y - radius);
+    const y1 = Math.min(H - 1, y + radius);
+    for (let x = 0; x < W; x += 1) {
+      const x0 = Math.max(0, x - radius);
+      const x1 = Math.min(W - 1, x + radius);
+      const area = (x1 - x0 + 1) * (y1 - y0 + 1);
+      const sum =
+        II[(y1 + 1) * IW + (x1 + 1)] -
+        II[y0 * IW + (x1 + 1)] -
+        II[(y1 + 1) * IW + x0] +
+        II[y0 * IW + x0];
+      const mean = sum / area;
+      out[y * W + x] = data[y * W + x] < mean - C ? 0 : 255;
+    }
+  }
+  return { width: W, height: H, data: out };
+}
+
 /** A connected region of ink pixels, with centroid and bounding box. */
 export interface Component {
   area: number;
@@ -161,6 +201,41 @@ export function warpPerspective(src: GrayImage, H: Mat3, outW: number, outH: num
     }
   }
   return { width: outW, height: outH, data: out };
+}
+
+/**
+ * Mean darkness (0 = white … 1 = black) over the annulus between `rInner` and
+ * `rOuter`, centered at (cx, cy). Used to sample the clean paper *around* a
+ * bubble as a local background, so paper tint and shadow can be subtracted out.
+ */
+export function annulusDarkness(
+  img: GrayImage,
+  cx: number,
+  cy: number,
+  rInner: number,
+  rOuter: number,
+): number {
+  const { width, height, data } = img;
+  const minX = Math.max(0, Math.floor(cx - rOuter));
+  const maxX = Math.min(width - 1, Math.ceil(cx + rOuter));
+  const minY = Math.max(0, Math.floor(cy - rOuter));
+  const maxY = Math.min(height - 1, Math.ceil(cy + rOuter));
+  const ri2 = rInner * rInner;
+  const ro2 = rOuter * rOuter;
+  let sum = 0;
+  let count = 0;
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      const dx = x - cx;
+      const dy = y - cy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < ri2 || d2 > ro2) continue;
+      sum += 255 - data[y * width + x];
+      count += 1;
+    }
+  }
+  if (count === 0) return 0;
+  return sum / count / 255;
 }
 
 /**
