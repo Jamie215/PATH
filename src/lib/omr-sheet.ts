@@ -40,6 +40,24 @@ const toX = (ctx: Ctx, xNorm: number): number => xNorm * ctx.pageW;
 /** Normalized top-left y → point y (flip to pdf-lib's bottom-left origin). */
 const toY = (ctx: Ctx, yNorm: number): number => ctx.pageH - yNorm * ctx.pageH;
 
+/** Greedy word-wrap `text` to fit `maxWidth` at the given font/size. */
+function wrapText(text: string, maxWidth: number, font: PDFFont, size: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length ? lines : [''];
+}
+
 /** Draw text centered horizontally on a point x. */
 function drawCentered(
   ctx: Ctx,
@@ -148,11 +166,15 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
   });
 
   // Instructions callout — a tinted, bordered panel so the fill-out rules
-  // read as important, not fine print. Sits above the bubble grid, so the
-  // background never touches a mark the reader has to sample.
+  // read as important, not fine print. Each instruction wraps within the box
+  // so long lines don't spill past the border. Sits above the bubble grid, so
+  // the background never touches a mark the reader has to sample.
   const boxTop = 116;
   const lineGap = 16;
-  const boxHeight = 34 + template.instructions.length * lineGap;
+  const textWidth = contentW - 40; // bullet indent + right padding
+  const wrapped = template.instructions.map((line) => wrapText(line, textWidth, ctx.font, 9.5));
+  const totalLines = wrapped.reduce((n, lines) => n + lines.length, 0);
+  const boxHeight = 34 + totalLines * lineGap;
   ctx.page.drawRectangle({
     x: MARGIN_X,
     y: at(boxTop + boxHeight),
@@ -169,11 +191,17 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
     font: ctx.fontBold,
     color: COLOR_PRIMARY,
   });
-  template.instructions.forEach((line, i) => {
-    const y = at(boxTop + 38 + i * lineGap);
-    ctx.page.drawText('•', { x: MARGIN_X + 14, y, size: 10, font: ctx.fontBold, color: COLOR_PRIMARY });
-    ctx.page.drawText(line, { x: MARGIN_X + 26, y, size: 9.5, font: ctx.font, color: COLOR_TEXT });
-  });
+  let lineIdx = 0;
+  for (const lines of wrapped) {
+    lines.forEach((line, k) => {
+      const y = at(boxTop + 38 + lineIdx * lineGap);
+      if (k === 0) {
+        ctx.page.drawText('•', { x: MARGIN_X + 14, y, size: 10, font: ctx.fontBold, color: COLOR_PRIMARY });
+      }
+      ctx.page.drawText(line, { x: MARGIN_X + 26, y, size: 9.5, font: ctx.font, color: COLOR_TEXT });
+      lineIdx += 1;
+    });
+  }
 
   // Freeform patient / date line (not machine-read).
   const nameY = at(boxTop + boxHeight + 30);
@@ -209,23 +237,7 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   const gridLeftPt = toX(ctx, Math.min(...allX)) - radiusPt;
   const gridRightPt = toX(ctx, Math.max(...allX)) + radiusPt;
 
-  // Section title — kept close to the grid it heads.
-  ctx.page.drawText(section.title, {
-    x: MARGIN_X,
-    y: firstRowYpt + 50,
-    size: 13,
-    font: ctx.fontBold,
-    color: COLOR_INK,
-  });
-
-  // Legend lines (usually empty now that words label the columns directly).
-  let ly = firstRowYpt + 50;
-  for (const line of section.legend) {
-    ctx.page.drawText(line, { x: MARGIN_X, y: ly, size: 8.5, font: ctx.font, color: COLOR_MUTED });
-    ly -= 12;
-  }
-
-  // Group question headers + per-column word labels, just above the grid.
+  // Group header + per-column option headers, just above the grid.
   for (const group of section.columnGroups) {
     const centerX =
       (toX(ctx, group.columnX[0]) + toX(ctx, group.columnX[group.columnX.length - 1])) / 2;
@@ -234,6 +246,20 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
       drawCentered(ctx, h, toX(ctx, group.columnX[i]), firstRowYpt + 18, 9, ctx.font, COLOR_MUTED);
     });
   }
+
+  // Legend lines (decode long option labels), stacked above the group header,
+  // then the section title above them. Empty legend (e.g. MSI) → title only.
+  const legendTopY = firstRowYpt + 58 + Math.max(0, section.legend.length - 1) * 12;
+  section.legend.forEach((line, k) => {
+    ctx.page.drawText(line, { x: MARGIN_X, y: legendTopY - k * 12, size: 8.5, font: ctx.font, color: COLOR_MUTED });
+  });
+  ctx.page.drawText(section.title, {
+    x: MARGIN_X,
+    y: section.legend.length ? legendTopY + 16 : firstRowYpt + 58,
+    size: 13,
+    font: ctx.fontBold,
+    color: COLOR_INK,
+  });
 
   // Light divider between the two column groups, plus a rule under the headers.
   if (section.columnGroups.length === 2) {
@@ -259,29 +285,42 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   section.rows.forEach((row, i) => {
     const yPt = toY(ctx, row.fields[0].bubbles[0].center.y);
 
+    // Wrap the label (and any description) to the space left of the grid, and
+    // vertically center the whole text block on the row so short (MSI) and long
+    // (FreBAQ/BriefSLANSS) items both look right.
+    const labelMaxWidth = Math.max(60, gridLeftPt - LABEL_X - 12);
+    const LH = 13;
+    const DLH = 11;
+    const labelLines = wrapText(row.label, labelMaxWidth, ctx.font, 11);
+    const descLines = row.description ? wrapText(row.description, labelMaxWidth, ctx.font, 9) : [];
+    const blockH = labelLines.length * LH + (descLines.length ? 4 + descLines.length * DLH : 0);
+    const topY = yPt + blockH / 2; // bottom-left coords: higher y = up
+
     ctx.page.drawText(`${i + 1}`, {
       x: MARGIN_X,
-      y: yPt - 4,
+      y: topY - LH + 1,
       size: 10.5,
       font: ctx.fontBold,
       color: COLOR_SUBTLE,
     });
-    ctx.page.drawText(row.label, {
-      x: LABEL_X,
-      y: row.description ? yPt + 2 : yPt - 4,
-      size: 11,
-      font: ctx.font,
-      color: COLOR_INK,
-    });
-    if (row.description) {
-      ctx.page.drawText(row.description, {
+    labelLines.forEach((line, k) => {
+      ctx.page.drawText(line, {
         x: LABEL_X,
-        y: yPt - 12,
+        y: topY - (k + 1) * LH + 1,
+        size: 11,
+        font: ctx.font,
+        color: COLOR_INK,
+      });
+    });
+    descLines.forEach((line, j) => {
+      ctx.page.drawText(line, {
+        x: LABEL_X,
+        y: topY - labelLines.length * LH - 3 - (j + 1) * DLH + 3,
         size: 9,
         font: ctx.font,
         color: COLOR_MUTED,
       });
-    }
+    });
 
     for (const field of row.fields) {
       for (const bubble of field.bubbles) {
