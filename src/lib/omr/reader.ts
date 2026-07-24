@@ -35,21 +35,27 @@ const SEP_MIN = 0.12;
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 
 function decodeField(field: OmrField, darknesses: number[]): FieldRead {
-  let mi = 0;
-  for (let i = 1; i < darknesses.length; i += 1) if (darknesses[i] > darknesses[mi]) mi = i;
-  const maxD = darknesses[mi];
-  let second = -1;
-  for (let i = 0; i < darknesses.length; i += 1) if (i !== mi && darknesses[i] > second) second = darknesses[i];
-  const gap = maxD - second;
+  // Every bubble whose fill signal clears the bar counts as a mark.
+  const marked: number[] = [];
+  for (let i = 0; i < darknesses.length; i += 1) if (darknesses[i] >= MARK_MIN) marked.push(i);
 
-  if (maxD < MARK_MIN) {
+  if (marked.length === 0) {
+    const maxD = Math.max(...darknesses);
     return { key: field.key, value: null, darknesses, confidence: clamp01((MARK_MIN - maxD) / MARK_MIN), status: 'blank' };
   }
-  const absConf = clamp01((maxD - MARK_MIN) / (1 - MARK_MIN));
-  const sepConf = clamp01(gap / SEP_MIN);
+  if (marked.length > 1) {
+    // Two or more bubbles marked — e.g. a double-fill, or an answer that was
+    // crossed out (still inked) next to the intended one. Don't pick a winner;
+    // leave it unresolved so the user chooses during review.
+    return { key: field.key, value: null, darknesses, confidence: 0, status: 'ambiguous' };
+  }
+  const mi = marked[0];
+  let second = 0;
+  for (let i = 0; i < darknesses.length; i += 1) if (i !== mi && darknesses[i] > second) second = darknesses[i];
+  const absConf = clamp01((darknesses[mi] - MARK_MIN) / (1 - MARK_MIN));
+  const sepConf = clamp01((darknesses[mi] - second) / SEP_MIN);
   const confidence = clamp01(0.4 * absConf + 0.6 * sepConf);
-  const status: FieldRead['status'] = gap < SEP_MIN ? 'ambiguous' : 'ok';
-  return { key: field.key, value: field.bubbles[mi].value, darknesses, confidence, status };
+  return { key: field.key, value: field.bubbles[mi].value, darknesses, confidence, status: 'ok' };
 }
 
 /** Read a photographed sheet against its template. */
@@ -121,29 +127,37 @@ function assembleRow(
 
   if (freq && interference) {
     if (freq.value === null) {
-      warnings.push(`"${label}": frequency not marked.`);
-      return; // interference is meaningless without frequency
+      warnings.push(
+        freq.status === 'ambiguous'
+          ? `"${label}": more than one frequency bubble marked — please choose one.`
+          : `"${label}": frequency not marked.`,
+      );
+      return; // nothing usable without a single frequency
     }
     response[freq.key] = freq.value;
-    if (freq.status === 'ambiguous') warnings.push(`"${label}": frequency mark unclear — please verify.`);
     if (freq.value === 0) return; // "Never" → bothersomeness ignored by design
     if (interference.value === null) {
-      warnings.push(`"${label}": marked as occurring, but bothersomeness not marked.`);
+      warnings.push(
+        interference.status === 'ambiguous'
+          ? `"${label}": more than one bothersomeness bubble marked — please choose one.`
+          : `"${label}": marked as occurring, but bothersomeness not marked.`,
+      );
     } else {
       response[interference.key] = interference.value;
-      if (interference.status === 'ambiguous') {
-        warnings.push(`"${label}": bothersomeness mark unclear — please verify.`);
-      }
     }
     return;
   }
 
   // Generic single-value rows.
   for (const r of reads) {
-    if (r.value === null) warnings.push(`"${label}": not marked.`);
-    else {
+    if (r.value === null) {
+      warnings.push(
+        r.status === 'ambiguous'
+          ? `"${label}": more than one bubble marked — please choose one.`
+          : `"${label}": not marked.`,
+      );
+    } else {
       response[r.key] = r.value;
-      if (r.status === 'ambiguous') warnings.push(`"${label}": mark unclear — please verify.`);
     }
   }
 }

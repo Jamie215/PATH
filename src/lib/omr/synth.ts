@@ -51,6 +51,11 @@ export interface SynthOptions {
    * mark rather than edge-to-edge inking.
    */
   markRadiusPt?: number;
+  /**
+   * Additional filled bubbles per field key, on top of the chosen answer —
+   * simulating a double-mark or a crossed-out (still inked) wrong entry.
+   */
+  extraMarks?: Record<string, number[]>;
 }
 
 /**
@@ -63,7 +68,7 @@ export function renderSyntheticSheet(
   answers: Record<string, number>,
   opts: number | SynthOptions = {},
 ): GrayImage {
-  const { scale = 2, paper = 255, shadow = 0, markRadiusPt } =
+  const { scale = 2, paper = 255, shadow = 0, markRadiusPt, extraMarks } =
     typeof opts === 'number' ? { scale: opts } : opts;
   const W = Math.round(template.page.width * scale);
   const H = Math.round(template.page.height * scale);
@@ -85,9 +90,11 @@ export function renderSyntheticSheet(
     for (const row of section.rows) {
       for (const field of row.fields) {
         const chosen = answers[field.key];
+        const extra = extraMarks?.[field.key];
         for (const bubble of field.bubbles) {
           drawRing(d, W, bubble.center.x * W, bubble.center.y * H, r, RING);
-          if (chosen !== undefined && bubble.value === chosen) {
+          const filled = (chosen !== undefined && bubble.value === chosen) || extra?.includes(bubble.value);
+          if (filled) {
             const markR = markRadiusPt !== undefined ? markRadiusPt * scale : r * 0.85;
             fillDisc(d, W, bubble.center.x * W, bubble.center.y * H, markR, INK);
           }

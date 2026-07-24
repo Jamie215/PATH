@@ -135,6 +135,27 @@ describe('readSheet — small thin-pen dabs (not edge-to-edge fills)', () => {
   });
 });
 
+describe('readSheet — contested fields (double-mark / crossed-out answer)', () => {
+  it('does not pick a winner when a frequency has two marks; flags it', () => {
+    // Sharp frequency answer = 2 (Often), plus a second inked bubble at 1
+    // (Rarely) — e.g. a wrong entry the user crossed out but still inked.
+    const img = renderSyntheticSheet(T, ANSWERS, { scale: 2, extraMarks: { sharp_freq: [1] } });
+    const result = readSheet(img, T);
+    expect(result.response.sharp_freq).toBeUndefined();
+    expect(result.response.sharp_interference).toBeUndefined(); // gated on frequency
+    expect(result.warnings.some((w) => w.includes('Sharp') && /choose one/i.test(w))).toBe(true);
+  });
+
+  it('flags a contested bothersomeness the same way', () => {
+    const img = renderSyntheticSheet(T, ANSWERS, { scale: 2, extraMarks: { stiff_interference: [2] } });
+    const result = readSheet(img, T);
+    // stiff answer = freq 1 / interference 1, plus an extra interference mark at 2.
+    expect(result.response.stiff_freq).toBe(1);
+    expect(result.response.stiff_interference).toBeUndefined();
+    expect(result.warnings.some((w) => w.includes('Stiffness') && /choose one/i.test(w))).toBe(true);
+  });
+});
+
 describe('readSheet — failure handling', () => {
   it('reports when no sheet is present', () => {
     const blank: GrayImage = { width: 400, height: 500, data: new Uint8Array(400 * 500).fill(255) };
