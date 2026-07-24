@@ -62,7 +62,7 @@ function decodeField(field: OmrField, darknesses: number[]): FieldRead {
 export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult {
   const corners = detectCorners(img, template);
   if (!corners) {
-    return { ok: false, error: 'Could not locate the sheet (corner marks not found).', response: {}, fields: [], warnings: [] };
+    return { ok: false, error: 'Could not locate the sheet (corner marks not found).', response: {}, fields: [], warnings: [], attention: [] };
   }
 
   const canonW = Math.round(template.page.width * SCALE);
@@ -73,7 +73,7 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
   const dst: Pt[] = [corners.TL, corners.TR, corners.BR, corners.BL];
   const H: Mat3 | null = homographyFromPoints(src, dst);
   if (!H) {
-    return { ok: false, error: 'Corner marks are degenerate; cannot rectify the sheet.', response: {}, fields: [], warnings: [] };
+    return { ok: false, error: 'Corner marks are degenerate; cannot rectify the sheet.', response: {}, fields: [], warnings: [], attention: [] };
   }
 
   const warped = warpPerspective(img, H, canonW, canonH);
@@ -85,6 +85,7 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
   const fields: FieldRead[] = [];
   const response: Record<string, number> = {};
   const warnings: string[] = [];
+  const attention: string[] = [];
 
   for (const section of template.sections) {
     for (const row of section.rows) {
@@ -102,11 +103,11 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
         fields.push(read);
         return read;
       });
-      assembleRow(row.label, rowReads, response, warnings);
+      assembleRow(row.label, rowReads, response, warnings, attention);
     }
   }
 
-  return { ok: true, response, fields, warped, warnings };
+  return { ok: true, response, fields, warped, warnings, attention };
 }
 
 /**
@@ -121,6 +122,7 @@ function assembleRow(
   reads: FieldRead[],
   response: Record<string, number>,
   warnings: string[],
+  attention: string[],
 ): void {
   const freq = reads.find((r) => r.key.endsWith('_freq'));
   const interference = reads.find((r) => r.key.endsWith('_interference'));
@@ -132,6 +134,7 @@ function assembleRow(
           ? `"${label}": more than one frequency bubble marked — please choose one.`
           : `"${label}": frequency not marked.`,
       );
+      attention.push(freq.key);
       return; // nothing usable without a single frequency
     }
     response[freq.key] = freq.value;
@@ -142,6 +145,7 @@ function assembleRow(
           ? `"${label}": more than one bothersomeness bubble marked — please choose one.`
           : `"${label}": marked as occurring, but bothersomeness not marked.`,
       );
+      attention.push(interference.key);
     } else {
       response[interference.key] = interference.value;
     }
@@ -156,6 +160,7 @@ function assembleRow(
           ? `"${label}": more than one bubble marked — please choose one.`
           : `"${label}": not marked.`,
       );
+      attention.push(r.key);
     } else {
       response[r.key] = r.value;
     }

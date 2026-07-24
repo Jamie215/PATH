@@ -51,6 +51,7 @@
     imageUrl: string;
     response: Record<string, number>;
     warnings: string[];
+    attention: string[];
   } | null>(null);
 
   onMount(() => {
@@ -164,6 +165,7 @@
         imageUrl: grayImageToDataURL(result.warped),
         response: result.response,
         warnings: result.warnings,
+        attention: result.attention,
       };
     } catch (err) {
       omrError = err instanceof Error ? err.message : 'Could not read the sheet.';
@@ -364,6 +366,7 @@
             {#if rv.child.slug === 'msi'}
               <MSISurvey
                 initialAnswers={rv.response}
+                attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
                 showProgress={false}

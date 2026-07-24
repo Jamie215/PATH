@@ -44,9 +44,10 @@ describe('readSheet — axis-aligned synthetic sheet', () => {
     expect(result.error).toBeUndefined();
   });
 
-  it('recovers the exact response with no warnings', () => {
+  it('recovers the exact response with no warnings or flags', () => {
     expect(result.response).toEqual(expectedResponse());
     expect(result.warnings).toEqual([]);
+    expect(result.attention).toEqual([]);
   });
 
   it('marks every decoded field ok with high confidence', () => {
@@ -144,6 +145,7 @@ describe('readSheet — contested fields (double-mark / crossed-out answer)', ()
     expect(result.response.sharp_freq).toBeUndefined();
     expect(result.response.sharp_interference).toBeUndefined(); // gated on frequency
     expect(result.warnings.some((w) => w.includes('Sharp') && /choose one/i.test(w))).toBe(true);
+    expect(result.attention).toContain('sharp_freq');
   });
 
   it('flags a contested bothersomeness the same way', () => {

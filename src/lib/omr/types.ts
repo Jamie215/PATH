@@ -51,4 +51,10 @@ export interface OmrReadResult {
   warped?: GrayImage;
   /** Non-fatal notes (e.g. low-confidence or missing required fields). */
   warnings: string[];
+  /**
+   * Response keys that need the user's attention (blank required, contested,
+   * or missing follow-up), so the confirmation UI can highlight exactly those
+   * questions. Mirrors `warnings` but machine-usable.
+   */
+  attention: string[];
 }
