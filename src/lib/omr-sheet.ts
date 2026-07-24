@@ -226,6 +226,7 @@ const RADIUS_TO_CONTENT = 6; // bubble radius fallback for extents
 
 function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void {
   const radiusPt = template.bubbleRadius * ctx.pageW || RADIUS_TO_CONTENT;
+  const contentW = ctx.pageW - 2 * MARGIN_X;
 
   // Vertical extent of the bubble grid.
   const allY = section.rows.flatMap((r) => r.fields.flatMap((f) => f.bubbles.map((b) => b.center.y)));
@@ -237,46 +238,65 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   const gridLeftPt = toX(ctx, Math.min(...allX)) - radiusPt;
   const gridRightPt = toX(ctx, Math.max(...allX)) + radiusPt;
 
-  // Group header + per-column option headers, just above the grid.
+  // Give row 1 the same top margin as the half-gap between subsequent rows,
+  // so its content is vertically centered in its cell rather than crowded
+  // against the header rule.
+  const rowGapPt =
+    section.rows.length > 1
+      ? firstRowYpt - toY(ctx, section.rows[1].fields[0].bubbles[0].center.y)
+      : 40;
+  const topGap = Math.max(14, rowGapPt / 2);
+  const ruleY = firstRowYpt + topGap;
+  const optionHeadersY = ruleY + 10;
+  const groupHeaderY = ruleY + 28;
+
+  // Group header + per-column option headers.
   for (const group of section.columnGroups) {
     const centerX =
       (toX(ctx, group.columnX[0]) + toX(ctx, group.columnX[group.columnX.length - 1])) / 2;
-    drawCentered(ctx, group.label, centerX, firstRowYpt + 38, 10, ctx.fontBold, COLOR_PRIMARY);
+    drawCentered(ctx, group.label, centerX, groupHeaderY, 10, ctx.fontBold, COLOR_PRIMARY);
     group.optionHeaders.forEach((h, i) => {
-      drawCentered(ctx, h, toX(ctx, group.columnX[i]), firstRowYpt + 18, 9, ctx.font, COLOR_MUTED);
+      drawCentered(ctx, h, toX(ctx, group.columnX[i]), optionHeadersY, 9, ctx.font, COLOR_MUTED);
     });
   }
 
-  // Legend lines (decode long option labels), stacked above the group header,
-  // then the section title above them. Empty legend (e.g. MSI) → title only.
-  const legendTopY = firstRowYpt + 58 + Math.max(0, section.legend.length - 1) * 12;
+  // Legend lines above the group header, then the section title, then an
+  // optional wrapped preamble above that.
+  const legendTopY = groupHeaderY + 18 + Math.max(0, section.legend.length - 1) * 12;
   section.legend.forEach((line, k) => {
     ctx.page.drawText(line, { x: MARGIN_X, y: legendTopY - k * 12, size: 8.5, font: ctx.font, color: COLOR_MUTED });
   });
-  ctx.page.drawText(section.title, {
-    x: MARGIN_X,
-    y: section.legend.length ? legendTopY + 16 : firstRowYpt + 58,
-    size: 13,
-    font: ctx.fontBold,
-    color: COLOR_INK,
+  // Section title (wraps for long headings), bottom line at titleY.
+  const titleY = section.legend.length ? legendTopY + 16 : groupHeaderY + 18;
+  const titleLines = wrapText(section.title, contentW, ctx.fontBold, 13);
+  const titleTopY = titleY + (titleLines.length - 1) * 15;
+  titleLines.forEach((line, k) => {
+    ctx.page.drawText(line, { x: MARGIN_X, y: titleTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
   });
+  if (section.preamble) {
+    const preLines = wrapText(section.preamble, contentW, ctx.font, 9.5);
+    const preTopY = titleTopY + 18 + (preLines.length - 1) * 12;
+    preLines.forEach((line, k) => {
+      ctx.page.drawText(line, { x: MARGIN_X, y: preTopY - k * 12, size: 9.5, font: ctx.font, color: COLOR_MUTED });
+    });
+  }
 
-  // Light divider between the two column groups, plus a rule under the headers.
+  // Light divider between two column groups, plus the header rule.
   if (section.columnGroups.length === 2) {
     const gap =
       (toX(ctx, section.columnGroups[0].columnX.at(-1)!) +
         toX(ctx, section.columnGroups[1].columnX[0])) /
       2;
     ctx.page.drawLine({
-      start: { x: gap, y: firstRowYpt + 24 },
+      start: { x: gap, y: ruleY - 6 },
       end: { x: gap, y: lastRowYpt - radiusPt - 4 },
       thickness: 0.5,
       color: COLOR_HAIRLINE,
     });
   }
   ctx.page.drawLine({
-    start: { x: MARGIN_X, y: firstRowYpt + 10 },
-    end: { x: gridRightPt, y: firstRowYpt + 10 },
+    start: { x: MARGIN_X, y: ruleY },
+    end: { x: gridRightPt, y: ruleY },
     thickness: 0.5,
     color: COLOR_HAIRLINE,
   });

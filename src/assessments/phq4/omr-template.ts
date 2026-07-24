@@ -14,13 +14,15 @@ export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
     'For each item, fill in ONE bubble for how often it has bothered you over the last 2 weeks, using a dark pen.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
-  sectionTitle: 'Over the last 2 weeks, how often bothered by…',
+  sectionTitle: 'Over the last 2 weeks, how often have you been bothered by the following?',
+  preamble:
+    "These four questions ask about your mood more generally and how you've been feeling recently, whether due to pain or something else.",
   groupLabel: 'How often?',
   optionHeaders: EXPERIENCE_OPTIONS.map((o) => String(o.value)),
   optionValues: EXPERIENCE_OPTIONS.map((o) => o.value),
   legend: [EXPERIENCE_OPTIONS.map((o) => `${o.value} = ${o.label}`).join('     ')],
   items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
   colSpacing: 44,
-  firstRowY: 350,
+  firstRowY: 400,
   rowSpacing: 46,
 });

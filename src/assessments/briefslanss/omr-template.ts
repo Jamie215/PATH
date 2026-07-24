@@ -14,7 +14,7 @@ export const BRIEFSLANSS_OMR_TEMPLATE = buildSingleGroupTemplate({
     'For each item, fill in ONE bubble — Yes or No — for the painful area, using a dark pen.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
-  sectionTitle: 'In the painful area, do you have…',
+  sectionTitle: 'In your painful area, do you also experience…',
   groupLabel: 'Your answer',
   optionHeaders: EXPERIENCE_OPTIONS.map((o) => o.label),
   optionValues: EXPERIENCE_OPTIONS.map((o) => o.value),

@@ -14,13 +14,15 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
     'Each statement is about your back (the affected area). Fill in ONE bubble for how often each is true, using a dark pen.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
-  sectionTitle: 'How often is each statement true?',
+  sectionTitle: 'With your bothersome area in mind, how often do you experience the following?',
+  preamble:
+    'The part of my body that has been bothering me the most is my ___________________  (e.g., right knee, left hand, neck).',
   groupLabel: 'How often?',
   optionHeaders: EXPERIENCE_OPTIONS.map((o) => String(o.value)),
   optionValues: EXPERIENCE_OPTIONS.map((o) => o.value),
   legend: [EXPERIENCE_OPTIONS.map((o) => `${o.value} = ${o.label}`).join('     ')],
   items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
   colSpacing: 36,
-  firstRowY: 350,
+  firstRowY: 390,
   rowSpacing: 52,
 });

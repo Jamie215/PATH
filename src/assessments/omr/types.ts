@@ -68,6 +68,9 @@ export interface OmrColumnGroup {
 /** A block of rows sharing a heading, legend, and column layout. */
 export interface OmrSection {
   title: string;
+  /** Optional lead-in text shown above the title (wraps), e.g. a fill-in
+   *  prompt or framing note. */
+  preamble?: string;
   /** Lines decoding the option headers, e.g. '0 = Never   1 = Rarely   …'. */
   legend: string[];
   columnGroups: OmrColumnGroup[];
