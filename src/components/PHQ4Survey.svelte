@@ -25,6 +25,8 @@
     submitLabel = 'See results',
     showProgress = true,
     progress = $bindable(0),
+    initialAnswers,
+    attentionKeys,
   }: {
     onComplete?: () => void;
     submitLabel?: string;
@@ -32,11 +34,17 @@
     showProgress?: boolean;
     /** Bindable completion fraction (0–1), so an embedding parent can render it. */
     progress?: number;
+    /** Pre-fill answers (e.g. from an OMR-scanned sheet being confirmed). */
+    initialAnswers?: Record<string, number>;
+    /** Answer keys flagged by the OMR read; matching questions are highlighted. */
+    attentionKeys?: string[];
   } = $props();
 
   type AnswerKey = `${(typeof QUESTIONS)[number]['symptom']}_exp`;
 
-  let answers = $state<Partial<Record<AnswerKey, number>>>({});
+  let answers = $state<Partial<Record<AnswerKey, number>>>({
+    ...(initialAnswers as Partial<Record<AnswerKey, number>> | undefined),
+  });
   let comments = $state('');
   let submitAttempted = $state(false);
 
@@ -113,14 +121,21 @@
       {@const expKey = `${q.symptom}_exp` as AnswerKey}
       {@const expValue = answers[expKey] ?? null}
       {@const flagMissing = submitAttempted && expValue === null}
+      {@const flagged = (attentionKeys?.includes(expKey) ?? false) && expValue === null}
 
-      <li class="question" id={`q-${q.symptom}`}>
+      <li class="question" class:question--flagged={flagged} id={`q-${q.symptom}`}>
         <div class="question__head">
-          <span class="question__num">{i + 1}</span>
+          <span class="question__num" class:question__num--flagged={flagged}>{i + 1}</span>
           <div class="question__body">
             <h3 class="question__title">{q.symptomLabel}</h3>
             {#if q.description}
               <p class="question__desc">{q.description}</p>
+            {/if}
+            {#if flagged}
+              <span class="question__flag">
+                <span class="material-symbols-outlined" aria-hidden="true">error</span>
+                Scan unclear here — please confirm from your sheet
+              </span>
             {/if}
           </div>
         </div>
@@ -200,6 +215,34 @@
   .question {
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-5);
+  }
+
+  .question--flagged {
+    background: var(--color-warning-tint, #fdf6e3);
+    box-shadow: inset 3px 0 0 var(--color-warning, #b8860b);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+    margin: 0 calc(-1 * var(--space-4));
+    border-top-color: transparent;
+  }
+
+  .question__num--flagged {
+    background: var(--color-warning, #b8860b);
+    color: #fff;
+  }
+
+  .question__flag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-warning, #b8860b);
+  }
+
+  .question__flag .material-symbols-outlined {
+    font-size: 1rem;
   }
 
   .question__head {

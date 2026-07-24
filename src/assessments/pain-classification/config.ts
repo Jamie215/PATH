@@ -21,6 +21,9 @@
 
 import type { OmrTemplate } from '../omr/types';
 import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
+import { BRIEFSLANSS_OMR_TEMPLATE } from '../briefslanss/omr-template';
+import { FREBAQ_OMR_TEMPLATE } from '../frebaq/omr-template';
+import { PHQ4_OMR_TEMPLATE } from '../phq4/omr-template';
 
 export type PainType = 'acute' | 'chronic';
 
@@ -105,6 +108,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     resultKey: 'briefslanss:result',
     surveyUrl: '/briefslanss/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 4 }],
+    omrTemplate: BRIEFSLANSS_OMR_TEMPLATE,
     fromResult: (r) => {
       const total = num((r as Record<string, unknown> | null)?.total_score);
       return total === null ? null : { total_score: total };
@@ -117,6 +121,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     resultKey: 'frebaq:result',
     surveyUrl: '/frebaq/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 24 }],
+    omrTemplate: FREBAQ_OMR_TEMPLATE,
     fromResult: (r) => {
       const total = num((r as Record<string, unknown> | null)?.total_score);
       return total === null ? null : { total_score: total };
@@ -129,6 +134,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     resultKey: 'phq4:result',
     surveyUrl: '/phq4/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 12 }],
+    omrTemplate: PHQ4_OMR_TEMPLATE,
     fromResult: (r) => {
       const total = num((r as Record<string, unknown> | null)?.total_score);
       return total === null ? null : { total_score: total };

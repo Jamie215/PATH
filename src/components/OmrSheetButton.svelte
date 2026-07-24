@@ -8,9 +8,11 @@
    */
   import type { OmrTemplate } from '../assessments/omr/types';
 
-  let { template, label = 'Print blank answer sheet' }: {
+  let { template, label = 'Print blank answer sheet', compact = false }: {
     template: OmrTemplate;
     label?: string;
+    /** Hide the explanatory hint and shrink — for placing beside other buttons. */
+    compact?: boolean;
   } = $props();
 
   let busy = $state(false);
@@ -39,14 +41,16 @@
   }
 </script>
 
-<div class="omr-sheet">
-  <button type="button" class="btn btn--secondary" onclick={download} disabled={busy}>
+<div class="omr-sheet" class:omr-sheet--compact={compact}>
+  <button type="button" class="btn btn--secondary omr-sheet__btn" onclick={download} disabled={busy}>
     <span class="material-symbols-outlined" aria-hidden="true">print</span>
     {busy ? 'Preparing…' : label}
   </button>
-  <p class="omr-sheet__hint">
-    Print, fill out by hand, then scan or photograph it to enter results.
-  </p>
+  {#if !compact}
+    <p class="omr-sheet__hint">
+      Print, fill out by hand, then scan or photograph it to enter results.
+    </p>
+  {/if}
   {#if error}
     <p class="omr-sheet__error" role="alert">Could not generate the sheet: {error}</p>
   {/if}
@@ -62,6 +66,12 @@
 
   .omr-sheet .btn {
     gap: var(--space-2);
+  }
+
+  .omr-sheet--compact .omr-sheet__btn {
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.85rem;
+    width: 100%;
   }
 
   .material-symbols-outlined {

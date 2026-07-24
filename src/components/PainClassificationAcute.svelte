@@ -20,6 +20,7 @@
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
+  import OmrSheetButton from './OmrSheetButton.svelte';
   import {
     ACUTE_CHILDREN,
     KEYS,
@@ -240,6 +241,7 @@
                   >
                     {omrBusy === child.slug ? 'Reading scan…' : 'Upload scan / photo'}
                   </button>
+                  <OmrSheetButton template={child.omrTemplate} label="Print blank sheet" compact={true} />
                 {/if}
               </div>
             </header>
@@ -365,6 +367,30 @@
             {/if}
             {#if rv.child.slug === 'msi'}
               <MSISurvey
+                initialAnswers={rv.response}
+                attentionKeys={rv.attention}
+                onComplete={() => finishReview(rv.child)}
+                submitLabel="Confirm &amp; save"
+                showProgress={false}
+              />
+            {:else if rv.child.slug === 'briefslanss'}
+              <BriefSLANSSSurvey
+                initialAnswers={rv.response}
+                attentionKeys={rv.attention}
+                onComplete={() => finishReview(rv.child)}
+                submitLabel="Confirm &amp; save"
+                showProgress={false}
+              />
+            {:else if rv.child.slug === 'frebaq'}
+              <FreBAQSurvey
+                initialAnswers={rv.response}
+                attentionKeys={rv.attention}
+                onComplete={() => finishReview(rv.child)}
+                submitLabel="Confirm &amp; save"
+                showProgress={false}
+              />
+            {:else if rv.child.slug === 'phq4'}
+              <PHQ4Survey
                 initialAnswers={rv.response}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
