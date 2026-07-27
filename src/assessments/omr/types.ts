@@ -71,6 +71,13 @@ export interface OmrSection {
   /** Optional lead-in text shown above the title (wraps), e.g. a fill-in
    *  prompt or framing note. */
   preamble?: string;
+  /**
+   * An interactive fill-in blank drawn beneath the preamble — a free-text
+   * AcroForm field for a short answer the preamble asks for (e.g. FreBAQ's
+   * bothersome body part). `key` names the field; `hint` is faint example
+   * text shown beside it. Read back by the PDF-form reader, not scored.
+   */
+  preambleField?: { key: string; hint?: string };
   /** Lines decoding the option headers, e.g. '0 = Never   1 = Rarely   …'. */
   legend: string[];
   columnGroups: OmrColumnGroup[];

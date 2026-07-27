@@ -16,8 +16,8 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
   sectionTitle: 'With your bothersome area in mind, how often do you experience the following?',
-  preamble:
-    'The part of my body that has been bothering me the most is my ___________________  (e.g., right knee, left hand, neck).',
+  preamble: 'The part of my body that has been bothering me the most is my:',
+  preambleField: { key: 'bothersome_area', hint: 'e.g., right knee, left hand, neck' },
   groupLabel: 'How often?',
   // Word labels sit directly under each bubble (a self-describing radio group),
   // so no separate 0–4 decode legend is needed.
@@ -27,8 +27,9 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
   // Wider answer columns (narrower statement column) so the word labels fit.
   colSpacing: 46,
-  firstRowY: 390,
-  // Slightly tighter rows leave room for the comment box below the grid on
-  // the same page (statements are at most three lines, which still fit).
+  // Start a little lower so the preamble and its fill-in blank clear the
+  // name/date line; rows are tightened so the comment box still fits below the
+  // grid on the same page (statements are at most three lines, which still fit).
+  firstRowY: 400,
   rowSpacing: 48,
 });

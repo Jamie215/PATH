@@ -366,12 +366,32 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   });
   if (section.preamble) {
     // Same treatment as the section title (bold, dark), reading as a heading,
-    // with a blank-line gap so the two sentences don't run together.
+    // with a blank-line gap so the two sentences don't run together. When the
+    // preamble asks for a short answer, reserve a line under it for an
+    // interactive fill-in blank.
     const preLines = wrapText(section.preamble, contentW, ctx.fontBold, 13);
-    const preTopY = titleTopY + 34 + (preLines.length - 1) * 15;
+    const fieldRoom = section.preambleField ? 26 : 0;
+    const preTopY = titleTopY + 34 + fieldRoom + (preLines.length - 1) * 15;
     preLines.forEach((line, k) => {
       ctx.page.drawText(line, { x: MARGIN_X, y: preTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
     });
+    if (section.preambleField) {
+      const preBottomY = preTopY - (preLines.length - 1) * 15; // last preamble line
+      const fieldBaselineY = preBottomY - 20;
+      const hintText = section.preambleField.hint ? `(${section.preambleField.hint})` : '';
+      const hintW = hintText ? ctx.font.widthOfTextAtSize(hintText, 9) + 12 : 0;
+      const fieldW = Math.min(280, contentW - hintW - 8);
+      drawUnderlinedField(ctx, section.preambleField.key, MARGIN_X, fieldBaselineY, fieldW);
+      if (hintText) {
+        ctx.page.drawText(hintText, {
+          x: MARGIN_X + fieldW + 12,
+          y: fieldBaselineY,
+          size: 9,
+          font: ctx.font,
+          color: COLOR_MUTED,
+        });
+      }
+    }
   }
 
   // Light divider between two column groups, plus the header rule.

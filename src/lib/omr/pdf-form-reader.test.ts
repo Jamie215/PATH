@@ -92,6 +92,7 @@ describe('readPdfForm', () => {
     form.getRadioGroup(frebaqKeys[0]).select('1'); // at least one answer, so ok
     form.getTextField('patient_name').setText('Jane Doe');
     form.getTextField('patient_date').setText('2026-07-27');
+    form.getTextField('bothersome_area').setText('left knee');
     form.getTextField('other_comments').setText('Worse in the mornings.');
     const bytes = await doc.save();
 
@@ -100,6 +101,7 @@ describe('readPdfForm', () => {
     expect(result.ok).toBe(true);
     expect(result.text?.patient_name).toBe('Jane Doe');
     expect(result.text?.patient_date).toBe('2026-07-27');
+    expect(result.text?.bothersome_area).toBe('left knee');
     expect(result.text?.other_comments).toBe('Worse in the mornings.');
   });
 

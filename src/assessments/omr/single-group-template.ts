@@ -40,6 +40,8 @@ export interface SingleGroupConfig {
   sectionTitle: string;
   /** Optional lead-in text above the section heading (e.g. a fill-in prompt). */
   preamble?: string;
+  /** Optional interactive fill-in blank drawn beneath the preamble. */
+  preambleField?: { key: string; hint?: string };
   items: SingleGroupItem[];
   /** Spacing between answer columns (pt). */
   colSpacing?: number;
@@ -102,6 +104,7 @@ export function buildSingleGroupTemplate(cfg: SingleGroupConfig): OmrTemplate {
       {
         title: cfg.sectionTitle,
         preamble: cfg.preamble,
+        preambleField: cfg.preambleField,
         legend: cfg.legend,
         columnGroups: [
           {
