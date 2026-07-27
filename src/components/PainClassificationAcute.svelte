@@ -170,6 +170,9 @@
           (isPdf ? '' : ' Make sure the whole sheet is visible, well-lit, and reasonably flat.');
         return;
       }
+      // A comment typed into the PDF flows into the card's comment box, the
+      // same place a questionnaire's comment lands.
+      if (isPdf && result.text?.other_comments) setComment(child.slug, result.text.other_comments);
       // Role-gated children (MSI) need their role set before the survey renders.
       if (child.roleKey && role) storeSet(child.roleKey, role);
       omrReview = {

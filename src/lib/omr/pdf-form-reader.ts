@@ -12,7 +12,7 @@
  * `assembleRow`), so both channels feed one confirmation UI and one scorer.
  * There is no flattened image (`warped`) because nothing was scanned.
  */
-import { PDFDocument, PDFRadioGroup } from 'pdf-lib';
+import { PDFDocument, PDFRadioGroup, PDFTextField } from 'pdf-lib';
 import type { OmrTemplate } from '../../assessments/omr/types';
 import type { FieldRead, OmrReadResult } from './types';
 import { assembleRow } from './reader';
@@ -43,11 +43,18 @@ export async function readPdfForm(
     return fail('That file is not a readable PDF.');
   }
 
-  // Index the form's radio groups by name once. A PDF with no AcroForm yields
-  // an empty field list here rather than throwing.
+  // Index the form's radio groups by name once, and collect any free-text
+  // fields (name/date/comments). A PDF with no AcroForm yields an empty field
+  // list here rather than throwing.
   const groups = new Map<string, PDFRadioGroup>();
+  const text: Record<string, string> = {};
   for (const field of doc.getForm().getFields()) {
-    if (field instanceof PDFRadioGroup) groups.set(field.getName(), field);
+    if (field instanceof PDFRadioGroup) {
+      groups.set(field.getName(), field);
+    } else if (field instanceof PDFTextField) {
+      const value = field.getText()?.trim();
+      if (value) text[field.getName()] = value;
+    }
   }
   if (groups.size === 0) {
     return fail(
@@ -94,7 +101,14 @@ export async function readPdfForm(
     );
   }
 
-  return { ok: true, response, fields, warnings, attention };
+  return {
+    ok: true,
+    response,
+    fields,
+    warnings,
+    attention,
+    text: Object.keys(text).length ? text : undefined,
+  };
 }
 
 /** Convenience: read a filled interactive PDF straight from a File/Blob. */

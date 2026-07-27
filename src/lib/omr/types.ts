@@ -45,6 +45,12 @@ export interface OmrReadResult {
   error?: string;
   /** Structured response for the scorer (blank/ignored fields omitted). */
   response: Record<string, number>;
+  /**
+   * Free-text field values recovered from a filled PDF form, keyed by field
+   * name (e.g. `patient_name`, `other_comments`). Absent for scans, which
+   * carry no machine-read text. Empty fields are omitted.
+   */
+  text?: Record<string, string>;
   /** Per-field diagnostics, in template order. */
   fields: FieldRead[];
   /** The flattened, deskewed sheet — for the confirmation UI to display. */

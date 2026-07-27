@@ -86,6 +86,30 @@ describe('readPdfForm', () => {
     expect(result.attention).toContain(intKey);
   });
 
+  it('reads name, date, and comments text fields back', async () => {
+    const doc = await PDFDocument.load(await generateAnswerSheet(FREBAQ_OMR_TEMPLATE));
+    const form = doc.getForm();
+    form.getRadioGroup(frebaqKeys[0]).select('1'); // at least one answer, so ok
+    form.getTextField('patient_name').setText('Jane Doe');
+    form.getTextField('patient_date').setText('2026-07-27');
+    form.getTextField('other_comments').setText('Worse in the mornings.');
+    const bytes = await doc.save();
+
+    const result = await readPdfForm(bytes, FREBAQ_OMR_TEMPLATE);
+
+    expect(result.ok).toBe(true);
+    expect(result.text?.patient_name).toBe('Jane Doe');
+    expect(result.text?.patient_date).toBe('2026-07-27');
+    expect(result.text?.other_comments).toBe('Worse in the mornings.');
+  });
+
+  it('omits the text map when no text fields are filled', async () => {
+    const selections = Object.fromEntries(frebaqKeys.map((k) => [k, '0']));
+    const bytes = await fillSheet(FREBAQ_OMR_TEMPLATE, selections);
+    const result = await readPdfForm(bytes, FREBAQ_OMR_TEMPLATE);
+    expect(result.text).toBeUndefined();
+  });
+
   it('rejects an interactive sheet with nothing filled in', async () => {
     const bytes = await generateAnswerSheet(FREBAQ_OMR_TEMPLATE); // untouched
     const result = await readPdfForm(bytes, FREBAQ_OMR_TEMPLATE);

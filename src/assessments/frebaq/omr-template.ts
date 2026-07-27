@@ -28,5 +28,7 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   // Wider answer columns (narrower statement column) so the word labels fit.
   colSpacing: 46,
   firstRowY: 390,
-  rowSpacing: 52,
+  // Slightly tighter rows leave room for the comment box below the grid on
+  // the same page (statements are at most three lines, which still fit).
+  rowSpacing: 48,
 });
