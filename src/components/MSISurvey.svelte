@@ -32,6 +32,8 @@
     submitLabel = 'See results',
     showProgress = true,
     progress = $bindable(0),
+    initialAnswers,
+    attentionKeys,
   }: {
     onComplete?: () => void;
     submitLabel?: string;
@@ -39,13 +41,26 @@
     showProgress?: boolean;
     /** Bindable completion fraction (0–1), so an embedding parent can render it. */
     progress?: number;
+    /**
+     * Pre-fill the answers (e.g. from an OMR-scanned sheet the user is
+     * confirming). Keys are `<symptom>_freq` / `<symptom>_interference`.
+     */
+    initialAnswers?: Record<string, number>;
+    /**
+     * Answer keys the OMR read flagged for review (blank, contested, or a
+     * missing follow-up). The matching questions are highlighted until the
+     * user resolves them.
+     */
+    attentionKeys?: string[];
   } = $props();
 
   type AnswerKey =
     | `${(typeof QUESTIONS)[number]['symptom']}_freq`
     | `${(typeof QUESTIONS)[number]['symptom']}_interference`;
 
-  let answers = $state<Partial<Record<AnswerKey, number>>>({});
+  let answers = $state<Partial<Record<AnswerKey, number>>>({
+    ...(initialAnswers as Partial<Record<AnswerKey, number>> | undefined),
+  });
   let comments = $state('');
   let submitAttempted = $state(false);
   let roleConfirmed = $state(false);
@@ -149,16 +164,25 @@
         {@const showInterference = freqValue !== null && freqValue > 0}
         {@const flagMissingFreq = submitAttempted && freqValue === null}
         {@const flagMissingInt = submitAttempted && showInterference && interferenceValue === null}
+        {@const freqFlagged = (attentionKeys?.includes(freqKey) ?? false) && freqValue === null}
+        {@const intFlagged = (attentionKeys?.includes(interferenceKey) ?? false) && showInterference && interferenceValue === null}
+        {@const needsAttention = freqFlagged || intFlagged}
 
-        <li class="question" id={`q-${q.symptom}`}>
+        <li class="question" class:question--flagged={needsAttention} id={`q-${q.symptom}`}>
           <div class="question__head">
-            <span class="question__num">{i + 1}</span>
+            <span class="question__num" class:question__num--flagged={needsAttention}>{i + 1}</span>
             <div class="question__body">
               <h3 class="question__title">
                 How often do you experience &ldquo;{q.symptomLabel}&rdquo;?
               </h3>
               {#if q.description}
                 <p class="question__desc">{q.description}</p>
+              {/if}
+              {#if needsAttention}
+                <span class="question__flag">
+                  <span class="material-symbols-outlined" aria-hidden="true">error</span>
+                  Scan unclear here — please confirm from your sheet
+                </span>
               {/if}
             </div>
           </div>
@@ -175,7 +199,7 @@
           {/if}
 
           {#if showInterference}
-            <div class="question__followup">
+            <div class="question__followup" class:question__followup--flagged={intFlagged}>
               <h4 class="question__followup-title">
                 When &ldquo;{q.symptomLabel}&rdquo; occurs, how bothersome is it?
               </h4>
@@ -257,6 +281,41 @@
   .question {
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-5);
+  }
+
+  /* Highlight a question the OMR read flagged, until the user resolves it. */
+  .question--flagged {
+    background: var(--color-warning-tint, #fdf6e3);
+    box-shadow: inset 3px 0 0 var(--color-warning, #b8860b);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+    margin: 0 calc(-1 * var(--space-4));
+    border-top-color: transparent;
+  }
+
+  .question__num--flagged {
+    background: var(--color-warning, #b8860b);
+    color: #fff;
+  }
+
+  .question__flag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-warning, #b8860b);
+  }
+
+  .question__flag .material-symbols-outlined {
+    font-size: 1rem;
+  }
+
+  .question__followup--flagged {
+    box-shadow: inset 3px 0 0 var(--color-warning, #b8860b);
+    border-radius: var(--radius-md);
+    padding-left: var(--space-4);
   }
 
   .question__head {

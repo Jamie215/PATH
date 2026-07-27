@@ -1,7 +1,36 @@
 ---
 import Base from '../../layouts/Base.astro';
 import MSIIntake from '../../components/MSIIntake.svelte';
+import OmrSheetButton from '../../components/OmrSheetButton.svelte';
+import { MSI_OMR_TEMPLATE } from '../../assessments/msi/omr-template';
 ---
 <Base title="MSI" description="Multi-Dimensional Symptom Index" wide>
   <MSIIntake client:only="svelte" />
+  <section class="paper-option">
+    <h2 class="paper-option__heading">Using a paper copy?</h2>
+    <p class="paper-option__lede">
+      Print a blank answer sheet to fill out by hand. You'll be able to scan or
+      photograph the completed sheet to read the results back in.
+    </p>
+    <OmrSheetButton client:only="svelte" template={MSI_OMR_TEMPLATE} />
+  </section>
 </Base>
+
+<style>
+  .paper-option {
+    margin-top: var(--space-7);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .paper-option__heading {
+    font-size: 1.1rem;
+    margin: 0 0 var(--space-2) 0;
+  }
+
+  .paper-option__lede {
+    color: var(--color-text-muted);
+    margin: 0 0 var(--space-4) 0;
+    max-width: 52ch;
+  }
+</style>
