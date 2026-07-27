@@ -116,7 +116,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
   },
   {
     slug: 'frebaq',
-    title: 'Fremantle Back Awareness Questionnaire',
+    title: 'Fremantle Body Awareness Questionnaire',
     shortName: 'FreBAQ',
     resultKey: 'frebaq:result',
     surveyUrl: '/frebaq/',

@@ -223,7 +223,7 @@ function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, total: number
 function drawTitle(ctx: Ctx, patientName: string): void {
   drawText(ctx, 'FreBAQ', { bold: true, size: 18, color: COLOR_TEXT });
   moveDown(ctx, 22);
-  drawText(ctx, 'Fremantle Back Awareness Questionnaire — results report', {
+  drawText(ctx, 'Fremantle Body Awareness Questionnaire — results report', {
     size: 11,
     color: COLOR_MUTED,
   });
@@ -326,7 +326,7 @@ function drawScoreCard(ctx: Ctx, result: freBAQResult): void {
 
 function drawInterpretationNote(ctx: Ctx): void {
   const note =
-    `The FreBAQ measures disrupted back/body perception (body awareness); higher ` +
+    `The FreBAQ measures disrupted body perception (body awareness); higher ` +
     `scores indicate greater disruption. Scores at or above ${ELEVATED_THRESHOLD} ` +
     `(the upper half of the 0–24 range) are flagged as elevated. This is a ` +
     `screening result, not a diagnosis.`;

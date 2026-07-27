@@ -136,7 +136,7 @@
           oninput={saveName}
         />
         <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
-          {pdfBusy ? 'Printing…' : 'Print'}
+          {pdfBusy ? 'Downloading…' : 'Download PDF'}
         </button>
       </label>
     </section>

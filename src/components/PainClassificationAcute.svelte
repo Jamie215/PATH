@@ -230,7 +230,7 @@
               </div>
               <div class="card__actions">
                 <button type="button" class="btn btn--success card__btn" onclick={() => openQuestionnaire(child)}>
-                  Fill Out Questionnaire
+                  Take the test
                 </button>
                 {#if child.omrTemplate}
                   <button
@@ -241,7 +241,7 @@
                   >
                     {omrBusy === child.slug ? 'Reading scan…' : 'Upload scan / photo'}
                   </button>
-                  <OmrSheetButton template={child.omrTemplate} label="Print blank sheet" compact={true} />
+                  <OmrSheetButton template={child.omrTemplate} label="Download a copy" compact={true} />
                 {/if}
               </div>
             </header>

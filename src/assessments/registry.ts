@@ -46,7 +46,7 @@ export const assessments: AssessmentSummary[] = [
   },
   {
     slug: 'frebaq',
-    title: 'FreBAQ (Fremantle Back Awareness Questionnaire)',
+    title: 'FreBAQ (Fremantle Body Awareness Questionnaire)',
     shortName: 'FreBAQ',
     description:
       'A quantitative evaluation of area-specific self-perception.',
