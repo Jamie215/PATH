@@ -26,6 +26,7 @@
     showProgress = true,
     progress = $bindable(0),
     initialAnswers,
+    initialComments,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -36,6 +37,8 @@
     progress?: number;
     /** Pre-fill answers (e.g. from an OMR-scanned sheet being confirmed). */
     initialAnswers?: Record<string, number>;
+    /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
+    initialComments?: string;
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();
@@ -45,7 +48,7 @@
   let answers = $state<Partial<Record<AnswerKey, number>>>({
     ...(initialAnswers as Partial<Record<AnswerKey, number>> | undefined),
   });
-  let comments = $state('');
+  let comments = $state(initialComments ?? '');
   let submitAttempted = $state(false);
 
   function setAnswer(key: AnswerKey, value: number): void {

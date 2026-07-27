@@ -33,4 +33,9 @@ export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
   // clear the name/date line; the four short items leave plenty of room below.
   firstRowY: 450,
   rowSpacing: 46,
+  // Comment box region (pt, top-left) to crop from a scan for handwriting
+  // recognition — tracks where the generator draws the box below the grid.
+  scanTextFields: [
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 633, width: 504, height: 48 } },
+  ],
 });

@@ -394,13 +394,13 @@
         </header>
         <div class="modal__body">
           {#if child.slug === 'msi'}
-            <MSISurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <MSISurvey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'briefslanss'}
-            <BriefSLANSSSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <BriefSLANSSSurvey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'frebaq'}
             <FreBAQSurvey initialArea={areas[child.slug]} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'phq4'}
-            <PHQ4Survey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <PHQ4Survey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {/if}
         </div>
       </div>
@@ -465,6 +465,7 @@
             {#if rv.child.slug === 'msi'}
               <MSISurvey
                 initialAnswers={rv.response}
+                initialComments={rv.comments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -473,6 +474,7 @@
             {:else if rv.child.slug === 'briefslanss'}
               <BriefSLANSSSurvey
                 initialAnswers={rv.response}
+                initialComments={rv.comments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -491,6 +493,7 @@
             {:else if rv.child.slug === 'phq4'}
               <PHQ4Survey
                 initialAnswers={rv.response}
+                initialComments={rv.comments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"

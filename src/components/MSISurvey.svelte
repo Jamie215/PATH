@@ -33,6 +33,7 @@
     showProgress = true,
     progress = $bindable(0),
     initialAnswers,
+    initialComments,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -46,6 +47,8 @@
      * confirming). Keys are `<symptom>_freq` / `<symptom>_interference`.
      */
     initialAnswers?: Record<string, number>;
+    /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
+    initialComments?: string;
     /**
      * Answer keys the OMR read flagged for review (blank, contested, or a
      * missing follow-up). The matching questions are highlighted until the
@@ -61,7 +64,7 @@
   let answers = $state<Partial<Record<AnswerKey, number>>>({
     ...(initialAnswers as Partial<Record<AnswerKey, number>> | undefined),
   });
-  let comments = $state('');
+  let comments = $state(initialComments ?? '');
   let submitAttempted = $state(false);
   let roleConfirmed = $state(false);
 
