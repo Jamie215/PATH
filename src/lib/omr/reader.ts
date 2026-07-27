@@ -128,19 +128,43 @@ function cropGray(img: GrayImage, x: number, y: number, w: number, h: number): G
   return { width: cw, height: ch, data };
 }
 
-/** Crop each declared free-text region from the flattened sheet. */
+/** Fraction of clearly-dark pixels (ink) in a grayscale image. */
+function inkFraction(img: GrayImage): number {
+  if (img.data.length === 0) return 0;
+  let dark = 0;
+  for (let i = 0; i < img.data.length; i += 1) if (img.data[i] < 110) dark += 1;
+  return dark / img.data.length;
+}
+
+/** Above this fraction of dark pixels, a region is treated as written-in.
+ *  Kept low so a light pen still trips it; the cost of a false positive is
+ *  only that the reviewer is asked to confirm an empty field. */
+const INK_MIN_FRACTION = 0.006;
+
+/** Crop each declared free-text region from the flattened sheet, flagging
+ *  which ones appear to have handwriting in them. */
 function cropTextFields(
   warped: GrayImage,
   template: OmrTemplate,
   canonW: number,
   canonH: number,
 ): OmrTextCrop[] {
-  return (template.scanTextFields ?? []).map((f) => ({
-    key: f.key,
-    label: f.label,
-    kind: f.kind,
-    image: cropGray(warped, f.rect.x * canonW, f.rect.y * canonH, f.rect.width * canonW, f.rect.height * canonH),
-  }));
+  return (template.scanTextFields ?? []).map((f) => {
+    const image = cropGray(
+      warped,
+      f.rect.x * canonW,
+      f.rect.y * canonH,
+      f.rect.width * canonW,
+      f.rect.height * canonH,
+    );
+    return {
+      key: f.key,
+      label: f.label,
+      kind: f.kind,
+      image,
+      hasInk: inkFraction(image) >= INK_MIN_FRACTION,
+    };
+  });
 }
 
 /**

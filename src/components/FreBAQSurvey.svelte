@@ -42,6 +42,9 @@
     initialArea?: string;
     /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
     initialComments?: string;
+    /** Require the reviewer to fill these in (the scanned region had ink). */
+    requireArea?: boolean;
+    requireComments?: boolean;
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();
@@ -69,6 +72,10 @@
 
   const isComplete = $derived(missing.length === 0);
 
+  // Text fields the reviewer must fill because the scanned region had ink.
+  const areaMissing = $derived(submitAttempted && !!requireArea && area.trim().length === 0);
+  const commentsMissing = $derived(submitAttempted && !!requireComments && comments.trim().length === 0);
+
   const totalQuestions = QUESTIONS.length;
   const answeredQuestions = $derived(
     Object.values(answers).filter((v) => v !== undefined).length,
@@ -88,6 +95,11 @@
       const firstMissing = missing[0];
       const el = document.getElementById(`q-${firstMissing.symptom}`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if ((requireArea && !area.trim()) || (requireComments && !comments.trim())) {
+      const id = requireArea && !area.trim() ? 'bothersome_area' : 'other_comments';
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -129,14 +141,19 @@
   <div class="area">
     <label for="bothersome_area" class="area__label">
       The part of my body that has been bothering me the most is:
+      {#if requireArea}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
     </label>
     <input
       id="bothersome_area"
       class="area__input"
+      class:field--error={areaMissing}
       type="text"
       bind:value={area}
       placeholder="e.g., right knee, left hand, neck"
     />
+    {#if areaMissing}
+      <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+    {/if}
   </div>
 
   <ol class="survey__list">
@@ -180,14 +197,19 @@
   <div class="comments">
     <label for="other_comments" class="comments__label">
       If there is anything you would like to say about these or any other symptoms, please enter below.
+      {#if requireComments}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
     </label>
     <textarea
       id="other_comments"
       class="comments__input"
+      class:field--error={commentsMissing}
       rows="4"
       bind:value={comments}
-      placeholder="Optional"
+      placeholder={requireComments ? 'Please enter the comment from the scan' : 'Optional'}
     ></textarea>
+    {#if commentsMissing}
+      <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+    {/if}
   </div>
 
   <div class="actions">
@@ -309,6 +331,22 @@
   .question__error {
     color: var(--color-danger);
     font-size: 0.9rem;
+    margin: var(--space-2) 0 0 0;
+  }
+
+  .req {
+    color: var(--color-danger);
+    font-weight: 700;
+    margin-left: 2px;
+  }
+
+  .field--error {
+    border-color: var(--color-danger) !important;
+  }
+
+  .field__error {
+    color: var(--color-danger);
+    font-size: 0.85rem;
     margin: var(--space-2) 0 0 0;
   }
 

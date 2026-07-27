@@ -100,6 +100,9 @@
 
   const isComplete = $derived(missing.length === 0);
 
+  // The reviewer must fill comments when the scanned region had ink.
+  const commentsMissing = $derived(submitAttempted && !!requireComments && comments.trim().length === 0);
+
   const totalQuestions = $derived(
     QUESTIONS.length + QUESTIONS.filter((q) => (answers[`${q.symptom}_freq` as AnswerKey] ?? 0) > 0).length,
   );
@@ -121,6 +124,10 @@
       const firstMissing = missing[0];
       const el = document.getElementById(`q-${firstMissing.symptom}`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (requireComments && !comments.trim()) {
+      document.getElementById('other_comments')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -225,14 +232,19 @@
     <div class="comments">
       <label for="other_comments" class="comments__label">
         If there is anything you would like to say about these or any other symptoms, please enter below.
+        {#if requireComments}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
       </label>
       <textarea
         id="other_comments"
         class="comments__input"
+        class:field--error={commentsMissing}
         rows="4"
         bind:value={comments}
-        placeholder="Optional"
+        placeholder={requireComments ? 'Please enter the comment from the scan' : 'Optional'}
       ></textarea>
+      {#if commentsMissing}
+        <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+      {/if}
     </div>
 
     <div class="actions">
@@ -382,6 +394,22 @@
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-5);
     margin-bottom: var(--space-6);
+  }
+
+  .req {
+    color: var(--color-danger);
+    font-weight: 700;
+    margin-left: 2px;
+  }
+
+  .field--error {
+    border-color: var(--color-danger) !important;
+  }
+
+  .field__error {
+    color: var(--color-danger);
+    font-size: 0.85rem;
+    margin: var(--space-2) 0 0 0;
   }
 
   .comments__label {

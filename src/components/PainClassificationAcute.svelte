@@ -21,6 +21,7 @@
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
   import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
+  import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import {
     ACUTE_CHILDREN,
@@ -61,9 +62,12 @@
     /** Pre-filled comments, from a filled PDF, OCR, or prior entry. */
     comments?: string;
     /** Cropped handwriting regions (scan only) shown while OCR runs. */
-    crops?: { key: string; label: string; kind: 'line' | 'box'; dataUrl: string }[];
+    crops?: { key: string; label: string; kind: 'line' | 'box'; dataUrl: string; image: GrayImage; hasInk: boolean }[];
     /** True while handwriting recognition is still running on the crops. */
     ocrBusy?: boolean;
+    /** The scanned area/comments regions had ink, so the reviewer must fill them. */
+    requireArea?: boolean;
+    requireComments?: boolean;
     warnings: string[];
     attention: string[];
   } | null>(null);
@@ -201,6 +205,8 @@
               label: c.label,
               kind: c.kind,
               dataUrl: grayImageToDataURL(c.image),
+              image: c.image,
+              hasInk: c.hasInk,
             }))
           : undefined;
       omrReview = {
@@ -211,6 +217,10 @@
         comments: (isPdf ? result.text?.other_comments : undefined) ?? comments[child.slug],
         crops,
         ocrBusy: !!crops,
+        // A written-in region must be confirmed by the reviewer even if OCR
+        // can't read it.
+        requireArea: crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
+        requireComments: crops?.some((c) => c.key === 'other_comments' && c.hasInk),
         warnings: result.warnings,
         attention: result.attention,
       };
@@ -232,11 +242,11 @@
    * for manual entry. The survey renders once this finishes (or is skipped).
    */
   async function runHandwritingOcr(
-    crops: { key: string; label: string; kind: 'line' | 'box'; dataUrl: string }[],
+    crops: { key: string; kind: 'line' | 'box'; image: GrayImage }[],
   ): Promise<void> {
-    const { recognizeHandwriting } = await import('../lib/omr/handwriting');
+    const { recognizeCrop } = await import('../lib/omr/handwriting');
     for (const c of crops) {
-      const text = await recognizeHandwriting(c.dataUrl);
+      const text = await recognizeCrop(c.image, c.kind);
       if (!omrReview) return; // review was closed mid-recognition
       if (!text) continue;
       if (c.key === 'bothersome_area') omrReview = { ...omrReview, area: text };
@@ -466,6 +476,7 @@
               <MSISurvey
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
+                requireComments={rv.requireComments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -475,6 +486,7 @@
               <BriefSLANSSSurvey
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
+                requireComments={rv.requireComments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -485,6 +497,8 @@
                 initialAnswers={rv.response}
                 initialArea={rv.area}
                 initialComments={rv.comments}
+                requireArea={rv.requireArea}
+                requireComments={rv.requireComments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -494,6 +508,7 @@
               <PHQ4Survey
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
+                requireComments={rv.requireComments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"

@@ -47,6 +47,9 @@ export interface OmrTextCrop {
   kind: 'line' | 'box';
   /** The cropped grayscale image of the handwritten region. */
   image: GrayImage;
+  /** Whether the region appears to have been written in (ink detected), so the
+   *  confirmation UI can require the reviewer to fill it in. */
+  hasInk: boolean;
 }
 
 /** Full result of reading one sheet. */
