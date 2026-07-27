@@ -274,9 +274,10 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
     ctx.page.drawText(line, { x: MARGIN_X, y: titleTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
   });
   if (section.preamble) {
-    // Same treatment as the section title (bold, dark), reading as a heading.
+    // Same treatment as the section title (bold, dark), reading as a heading,
+    // with a blank-line gap so the two sentences don't run together.
     const preLines = wrapText(section.preamble, contentW, ctx.fontBold, 13);
-    const preTopY = titleTopY + 20 + (preLines.length - 1) * 15;
+    const preTopY = titleTopY + 34 + (preLines.length - 1) * 15;
     preLines.forEach((line, k) => {
       ctx.page.drawText(line, { x: MARGIN_X, y: preTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
     });

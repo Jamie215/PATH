@@ -23,6 +23,6 @@ export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
   legend: [EXPERIENCE_OPTIONS.map((o) => `${o.value} = ${o.label}`).join('     ')],
   items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
   colSpacing: 44,
-  firstRowY: 425,
+  firstRowY: 375,
   rowSpacing: 46,
 });
