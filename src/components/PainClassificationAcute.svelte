@@ -35,6 +35,8 @@
   // Per-child working state: numeric field values + an optional comment.
   let values = $state<Record<string, Record<string, number | undefined>>>({});
   let comments = $state<Record<string, string>>({});
+  // Free-text bothersome body region (FreBAQ only), surfaced on the card.
+  let areas = $state<Record<string, string>>({});
   // The child whose questionnaire is currently open in the modal, if any.
   let modalChild = $state<ChildAssessment | null>(null);
   // Completion fraction (0–1) of the open questionnaire, bound from the
@@ -54,6 +56,8 @@
      *  where the answers are exact and there is no image to show. */
     imageUrl: string | null;
     response: Record<string, number>;
+    /** Pre-filled bothersome area (FreBAQ), from a filled PDF or prior entry. */
+    area?: string;
     warnings: string[];
     attention: string[];
   } | null>(null);
@@ -70,6 +74,8 @@
       if (savedValues) values[child.slug] = { ...savedValues };
       const savedComment = storeGet<string>(KEYS.commentPrefix + child.slug);
       if (savedComment) comments[child.slug] = savedComment;
+      const savedResponse = storeGet<Record<string, unknown>>(child.slug + ':response');
+      if (typeof savedResponse?.bothersome_area === 'string') areas[child.slug] = savedResponse.bothersome_area;
     }
     loaded = true;
   });
@@ -132,6 +138,9 @@
     const response = storeGet<Record<string, unknown>>(child.slug + ':response');
     const comment = typeof response?.other_comments === 'string' ? response.other_comments : '';
     if (comment) setComment(child.slug, comment);
+    if (typeof response?.bothersome_area === 'string' && response.bothersome_area) {
+      areas = { ...areas, [child.slug]: response.bothersome_area };
+    }
     modalChild = null;
   }
 
@@ -170,15 +179,18 @@
           (isPdf ? '' : ' Make sure the whole sheet is visible, well-lit, and reasonably flat.');
         return;
       }
-      // A comment typed into the PDF flows into the card's comment box, the
-      // same place a questionnaire's comment lands.
+      // A comment / bothersome area typed into the PDF flows into the same
+      // places a questionnaire's would.
       if (isPdf && result.text?.other_comments) setComment(child.slug, result.text.other_comments);
+      const pdfArea = isPdf && typeof result.text?.bothersome_area === 'string' ? result.text.bothersome_area : '';
+      if (pdfArea) areas = { ...areas, [child.slug]: pdfArea };
       // Role-gated children (MSI) need their role set before the survey renders.
       if (child.roleKey && role) storeSet(child.roleKey, role);
       omrReview = {
         child,
         imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
         response: result.response,
+        area: pdfArea || areas[child.slug],
         warnings: result.warnings,
         attention: result.attention,
       };
@@ -261,6 +273,11 @@
             </header>
 
             <div class="card__body">
+            {#if areas[child.slug]}
+              <p class="card__area">
+                <span class="card__area-label">Most bothersome area:</span> {areas[child.slug]}
+              </p>
+            {/if}
             <div class="card__fields">
               {#each child.manualFields as f (f.key)}
                 <label class="field">
@@ -336,7 +353,7 @@
           {:else if child.slug === 'briefslanss'}
             <BriefSLANSSSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'frebaq'}
-            <FreBAQSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <FreBAQSurvey initialArea={areas[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'phq4'}
             <PHQ4Survey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {/if}
@@ -402,6 +419,7 @@
             {:else if rv.child.slug === 'frebaq'}
               <FreBAQSurvey
                 initialAnswers={rv.response}
+                initialArea={rv.area}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -527,6 +545,17 @@
 
   .card__body {
     padding: var(--space-5);
+  }
+
+  .card__area {
+    margin: 0 0 var(--space-4) 0;
+    font-size: 0.95rem;
+    color: var(--color-text);
+  }
+
+  .card__area-label {
+    font-weight: 600;
+    color: var(--color-text-muted);
   }
 
   .card__fields {

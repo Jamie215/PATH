@@ -26,6 +26,7 @@
     showProgress = true,
     progress = $bindable(0),
     initialAnswers,
+    initialArea,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -36,6 +37,8 @@
     progress?: number;
     /** Pre-fill answers (e.g. from an OMR-scanned sheet being confirmed). */
     initialAnswers?: Record<string, number>;
+    /** Pre-fill the bothersome-area text (e.g. from a filled/scanned sheet). */
+    initialArea?: string;
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();
@@ -45,6 +48,7 @@
   let answers = $state<Partial<Record<AnswerKey, number>>>({
     ...(initialAnswers as Partial<Record<AnswerKey, number>> | undefined),
   });
+  let area = $state(initialArea ?? '');
   let comments = $state('');
   let submitAttempted = $state(false);
 
@@ -87,6 +91,9 @@
     const response: Record<string, number | string> = {
       ...(answers as Record<string, number>),
     };
+    if (area.trim().length > 0) {
+      response.bothersome_area = area.trim();
+    }
     if (comments.trim().length > 0) {
       response.other_comments = comments.trim();
     }
@@ -115,6 +122,19 @@
   <p class="survey__intro">
     For each item below, rate your experience in the area of interest.
   </p>
+
+  <div class="area">
+    <label for="bothersome_area" class="area__label">
+      The part of my body that has been bothering me the most is:
+    </label>
+    <input
+      id="bothersome_area"
+      class="area__input"
+      type="text"
+      bind:value={area}
+      placeholder="e.g., right knee, left hand, neck"
+    />
+  </div>
 
   <ol class="survey__list">
     {#each QUESTIONS as q, i (q.symptom)}
@@ -287,6 +307,34 @@
     color: var(--color-danger);
     font-size: 0.9rem;
     margin: var(--space-2) 0 0 0;
+  }
+
+  .area {
+    margin-bottom: var(--space-6);
+  }
+
+  .area__label {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: var(--space-2);
+  }
+
+  .area__input {
+    width: 100%;
+    padding: var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 0.95rem;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .area__input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
   }
 
   .comments {

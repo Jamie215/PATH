@@ -14,6 +14,7 @@
   import type { freBAQResult } from '../assessments/frebaq/scoring';
 
   let result = $state<FreBAQ | null>(null);
+  let bothersomeArea = $state('');
   let loaded = $state(false);
   let parentContext = $state<Assessmentcontext | null>(null);
 
@@ -28,6 +29,8 @@
 
   onMount(() => {
     result = storeGet<freBAQResult>('frebaq:result');
+    const response = storeGet<Record<string, unknown>>('frebaq:response');
+    if (typeof response?.bothersome_area === 'string') bothersomeArea = response.bothersome_area;
     parentContext = getAssessmentContext();
     const savedName = storeGet<string>('frebaq:patientName');
     if (savedName) {
@@ -119,6 +122,14 @@
         <h2 class="name-display">{displayedName}</h2>
       {/if}
     </section>
+
+    {#if bothersomeArea}
+      <!-- Bothersome area -->
+      <section class="area-section" aria-labelledby="area-heading">
+        <h2 id="area-heading" class="section-heading">Most bothersome area</h2>
+        <p class="area-body">{bothersomeArea}</p>
+      </section>
+    {/if}
 
     <!-- Summary -->
     <section class="summary" aria-labelledby="summary-heading">
@@ -284,6 +295,17 @@
       align-items: flex-start;
       gap: var(--space-3);
     }
+  }
+
+  /* ----- Bothersome area ----- */
+  .area-body {
+    padding: var(--space-4);
+    background: var(--color-bg-alt);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    margin: 0;
+    color: var(--color-text);
+    font-weight: 500;
   }
 
   /* ----- Comments ----- */

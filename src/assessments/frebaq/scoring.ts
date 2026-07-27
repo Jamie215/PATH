@@ -35,6 +35,9 @@ export type Experience = 0 | 1 | 2 | 3 | 4;
  */
 export interface freBAQResponse {
   [key: `${Symptom}_exp`]: Experience;
+  /** Free-text body region the respondent named as most bothersome. Context
+   *  only — not scored. */
+  bothersome_area?: string;
   other_comments?: string;
 }
 
