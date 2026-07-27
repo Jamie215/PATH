@@ -55,6 +55,22 @@ export interface OmrRow {
   fields: OmrField[];
 }
 
+/**
+ * A free-text field on the sheet whose region is cropped from a scan for
+ * handwriting recognition. `rect` is in normalized page coordinates (top-left
+ * origin, like bubbles) and must cover where the generator draws the field, so
+ * print and read stay in sync. `key` doubles as the AcroForm field name (for
+ * the typed PDF path) and the response key.
+ */
+export interface OmrScanTextField {
+  key: string;
+  /** Label shown in the confirmation UI, e.g. 'Most bothersome area'. */
+  label: string;
+  /** Single-line (name/area) vs multi-line (comments) — hints OCR + display. */
+  kind: 'line' | 'box';
+  rect: { x: number; y: number; width: number; height: number };
+}
+
 /** Header metadata for one column group, printed above its bubbles. */
 export interface OmrColumnGroup {
   /** Group heading, e.g. 'FREQUENCY'. */
@@ -114,4 +130,10 @@ export interface OmrTemplate {
    */
   orientationMark: { center: OmrPoint; size: number };
   sections: OmrSection[];
+  /**
+   * Free-text fields to crop from a scan for handwriting recognition. Only
+   * fields on the first (scannable) page belong here; the reader crops each
+   * `rect` from the flattened sheet. Omit for forms with no scannable text.
+   */
+  scanTextFields?: OmrScanTextField[];
 }

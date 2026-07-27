@@ -37,6 +37,18 @@ export interface FieldRead {
   status: 'ok' | 'blank' | 'ambiguous';
 }
 
+/** A cropped free-text region from a scan, awaiting handwriting recognition
+ *  and the user's confirmation. */
+export interface OmrTextCrop {
+  /** Response key / AcroForm field name (e.g. `bothersome_area`). */
+  key: string;
+  /** Label for the confirmation UI. */
+  label: string;
+  kind: 'line' | 'box';
+  /** The cropped grayscale image of the handwritten region. */
+  image: GrayImage;
+}
+
 /** Full result of reading one sheet. */
 export interface OmrReadResult {
   /** True when the sheet was located (fiducials found) and sampled. */
@@ -55,6 +67,10 @@ export interface OmrReadResult {
   fields: FieldRead[];
   /** The flattened, deskewed sheet — for the confirmation UI to display. */
   warped?: GrayImage;
+  /** Cropped free-text regions (from `template.scanTextFields`) for handwriting
+   *  recognition + confirmation. Absent for filled PDFs, which carry exact
+   *  typed text instead. */
+  textCrops?: OmrTextCrop[];
   /** Non-fatal notes (e.g. low-confidence or missing required fields). */
   warnings: string[];
   /**

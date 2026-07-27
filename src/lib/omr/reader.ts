@@ -11,7 +11,7 @@
  * rather than guess silently. Thresholds are first-pass defaults to be tuned
  * against real photographed sheets.
  */
-import type { GrayImage, Mat3, Pt, FieldRead, OmrReadResult } from './types';
+import type { GrayImage, Mat3, Pt, FieldRead, OmrReadResult, OmrTextCrop } from './types';
 import type { OmrTemplate, OmrField } from '../../assessments/omr/types';
 import { homographyFromPoints } from './geometry';
 import { warpPerspective, discDarkness, annulusDarkness } from './image';
@@ -107,7 +107,40 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
     }
   }
 
-  return { ok: true, response, fields, warped, warnings, attention };
+  const textCrops = cropTextFields(warped, template, canonW, canonH);
+
+  return { ok: true, response, fields, warped, textCrops, warnings, attention };
+}
+
+/** Extract a rectangular sub-image (pixel coords), clamped to bounds. */
+function cropGray(img: GrayImage, x: number, y: number, w: number, h: number): GrayImage {
+  const x0 = Math.max(0, Math.round(x));
+  const y0 = Math.max(0, Math.round(y));
+  const x1 = Math.min(img.width, Math.round(x + w));
+  const y1 = Math.min(img.height, Math.round(y + h));
+  const cw = Math.max(1, x1 - x0);
+  const ch = Math.max(1, y1 - y0);
+  const data = new Uint8Array(cw * ch);
+  for (let row = 0; row < ch; row += 1) {
+    const src = (y0 + row) * img.width + x0;
+    data.set(img.data.subarray(src, src + cw), row * cw);
+  }
+  return { width: cw, height: ch, data };
+}
+
+/** Crop each declared free-text region from the flattened sheet. */
+function cropTextFields(
+  warped: GrayImage,
+  template: OmrTemplate,
+  canonW: number,
+  canonH: number,
+): OmrTextCrop[] {
+  return (template.scanTextFields ?? []).map((f) => ({
+    key: f.key,
+    label: f.label,
+    kind: f.kind,
+    image: cropGray(warped, f.rect.x * canonW, f.rect.y * canonH, f.rect.width * canonW, f.rect.height * canonH),
+  }));
 }
 
 /**

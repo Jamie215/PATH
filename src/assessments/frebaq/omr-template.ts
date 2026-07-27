@@ -32,4 +32,11 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   // grid on the same page (statements are at most three lines, which still fit).
   firstRowY: 400,
   rowSpacing: 48,
+  // Regions to crop from a scan for handwriting recognition. Rects (pt,
+  // top-left) must track where the generator draws these fields — see the
+  // preamble blank and comment box in omr-sheet.ts.
+  scanTextFields: [
+    { key: 'bothersome_area', label: 'Most bothersome area', kind: 'line', rect: { x: 46, y: 276, width: 292, height: 24 } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 52, y: 682, width: 508, height: 40 } },
+  ],
 });

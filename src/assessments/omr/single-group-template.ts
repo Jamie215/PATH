@@ -8,7 +8,7 @@
  * right-aligned, leaving a wide left column for the (often long) item text,
  * which the renderer wraps.
  */
-import type { OmrTemplate, OmrRow } from './types';
+import type { OmrTemplate, OmrRow, OmrScanTextField } from './types';
 
 const PAGE_W = 612;
 const PAGE_H = 792;
@@ -42,6 +42,14 @@ export interface SingleGroupConfig {
   preamble?: string;
   /** Optional interactive fill-in blank drawn beneath the preamble. */
   preambleField?: { key: string; hint?: string };
+  /** Free-text regions to crop from a scan, with rects in PostScript points
+   *  (top-left origin); normalized on the way out. */
+  scanTextFields?: {
+    key: string;
+    label: string;
+    kind: 'line' | 'box';
+    rect: { x: number; y: number; width: number; height: number };
+  }[];
   items: SingleGroupItem[];
   /** Spacing between answer columns (pt). */
   colSpacing?: number;
@@ -116,5 +124,18 @@ export function buildSingleGroupTemplate(cfg: SingleGroupConfig): OmrTemplate {
         rows,
       },
     ],
+    scanTextFields: cfg.scanTextFields?.map(
+      (f): OmrScanTextField => ({
+        key: f.key,
+        label: f.label,
+        kind: f.kind,
+        rect: {
+          x: nx(f.rect.x),
+          y: ny(f.rect.y),
+          width: nx(f.rect.width),
+          height: ny(f.rect.height),
+        },
+      }),
+    ),
   };
 }

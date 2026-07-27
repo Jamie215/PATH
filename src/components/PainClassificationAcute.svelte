@@ -56,8 +56,14 @@
      *  where the answers are exact and there is no image to show. */
     imageUrl: string | null;
     response: Record<string, number>;
-    /** Pre-filled bothersome area (FreBAQ), from a filled PDF or prior entry. */
+    /** Pre-filled bothersome area (FreBAQ), from a filled PDF, OCR, or prior entry. */
     area?: string;
+    /** Pre-filled comments, from a filled PDF, OCR, or prior entry. */
+    comments?: string;
+    /** Cropped handwriting regions (scan only) shown while OCR runs. */
+    crops?: { key: string; label: string; kind: 'line' | 'box'; dataUrl: string }[];
+    /** True while handwriting recognition is still running on the crops. */
+    ocrBusy?: boolean;
     warnings: string[];
     attention: string[];
   } | null>(null);
@@ -186,14 +192,29 @@
       if (pdfArea) areas = { ...areas, [child.slug]: pdfArea };
       // Role-gated children (MSI) need their role set before the survey renders.
       if (child.roleKey && role) storeSet(child.roleKey, role);
+      // A scan carries handwriting crops to recognize; a filled PDF carries
+      // exact typed text and no crops.
+      const crops =
+        !isPdf && result.textCrops?.length
+          ? result.textCrops.map((c) => ({
+              key: c.key,
+              label: c.label,
+              kind: c.kind,
+              dataUrl: grayImageToDataURL(c.image),
+            }))
+          : undefined;
       omrReview = {
         child,
         imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
         response: result.response,
         area: pdfArea || areas[child.slug],
+        comments: (isPdf ? result.text?.other_comments : undefined) ?? comments[child.slug],
+        crops,
+        ocrBusy: !!crops,
         warnings: result.warnings,
         attention: result.attention,
       };
+      if (crops) void runHandwritingOcr(crops);
     } catch (err) {
       omrError = err instanceof Error ? err.message : 'Could not read the file.';
     } finally {
@@ -203,6 +224,30 @@
 
   function closeReview(): void {
     omrReview = null;
+  }
+
+  /**
+   * Recognize handwriting in each cropped region and pre-fill the matching
+   * review field. Best-effort: unrecognized crops just leave the field blank
+   * for manual entry. The survey renders once this finishes (or is skipped).
+   */
+  async function runHandwritingOcr(
+    crops: { key: string; label: string; kind: 'line' | 'box'; dataUrl: string }[],
+  ): Promise<void> {
+    const { recognizeHandwriting } = await import('../lib/omr/handwriting');
+    for (const c of crops) {
+      const text = await recognizeHandwriting(c.dataUrl);
+      if (!omrReview) return; // review was closed mid-recognition
+      if (!text) continue;
+      if (c.key === 'bothersome_area') omrReview = { ...omrReview, area: text };
+      else if (c.key === 'other_comments') omrReview = { ...omrReview, comments: text };
+    }
+    if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
+  }
+
+  /** Stop waiting on recognition and confirm the answers manually. */
+  function skipOcr(): void {
+    if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
   }
 
   /** The user confirmed the scanned answers via the embedded survey (which
@@ -353,7 +398,7 @@
           {:else if child.slug === 'briefslanss'}
             <BriefSLANSSSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'frebaq'}
-            <FreBAQSurvey initialArea={areas[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <FreBAQSurvey initialArea={areas[child.slug]} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'phq4'}
             <PHQ4Survey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {/if}
@@ -392,6 +437,23 @@
             </div>
           {/if}
           <div class="review__form">
+            {#if rv.ocrBusy}
+              <div class="ocr-panel">
+                <p class="ocr-panel__status">
+                  <span class="ocr-panel__spinner" aria-hidden="true"></span>
+                  Reading handwriting… this can take a moment the first time.
+                </p>
+                {#each rv.crops ?? [] as c (c.key)}
+                  <figure class="ocr-crop">
+                    <figcaption class="ocr-crop__label">{c.label}</figcaption>
+                    <img class="ocr-crop__img" src={c.dataUrl} alt={`Scanned ${c.label}`} />
+                  </figure>
+                {/each}
+                <button type="button" class="btn btn--secondary" onclick={skipOcr}>
+                  Skip and enter manually
+                </button>
+              </div>
+            {:else}
             {#if rv.warnings.length > 0}
               <div class="review__note" role="alert">
                 <strong>Please double-check:</strong>
@@ -420,6 +482,7 @@
               <FreBAQSurvey
                 initialAnswers={rv.response}
                 initialArea={rv.area}
+                initialComments={rv.comments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -433,6 +496,7 @@
                 submitLabel="Confirm &amp; save"
                 showProgress={false}
               />
+            {/if}
             {/if}
           </div>
         </div>
@@ -791,6 +855,55 @@
   .review__form {
     flex: 1 1 auto;
     min-width: 0;
+  }
+
+  /* Handwriting-recognition panel: shown while OCR runs on scanned crops. */
+  .ocr-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    align-items: flex-start;
+  }
+
+  .ocr-panel__status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+  }
+
+  .ocr-panel__spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: ocr-spin 0.7s linear infinite;
+  }
+
+  @keyframes ocr-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .ocr-crop {
+    margin: 0;
+    width: 100%;
+  }
+
+  .ocr-crop__label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+  }
+
+  .ocr-crop__img {
+    max-width: 100%;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm, 4px);
+    background: #fff;
   }
 
   .review__note {
