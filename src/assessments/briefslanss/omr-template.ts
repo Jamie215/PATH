@@ -9,7 +9,7 @@ import { buildSingleGroupTemplate } from '../omr/single-group-template';
 export const BRIEFSLANSS_OMR_TEMPLATE = buildSingleGroupTemplate({
   id: 'briefslanss-v1',
   title: 'Brief S-LANSS Screening',
-  subtitle: 'Paper answer sheet',
+  subtitle: 'Scannable Form',
   instructions: [
     'For each item, fill in ONE bubble — Yes or No — for the painful area, using a dark pen.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',

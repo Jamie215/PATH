@@ -117,7 +117,7 @@ const INT_GROUP: OmrColumnGroup = {
 export const MSI_OMR_TEMPLATE: OmrTemplate = {
   id: 'msi-v1',
   title: 'Multi-Dimensional Symptom Index',
-  subtitle: 'Paper answer sheet',
+  subtitle: 'Scannable Form',
   instructions: [
     'For each symptom, fill in ONE bubble for how OFTEN you experience it, using a dark pen.',
     'If it occurs (more than "Never"), also fill in ONE bubble for how BOTHERSOME it is.',

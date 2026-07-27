@@ -8,7 +8,7 @@
    */
   import type { OmrTemplate } from '../assessments/omr/types';
 
-  let { template, label = 'Print blank answer sheet', compact = false }: {
+  let { template, label = 'Download a copy', compact = false }: {
     template: OmrTemplate;
     label?: string;
     /** Hide the explanatory hint and shrink — for placing beside other buttons. */

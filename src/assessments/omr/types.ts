@@ -2,7 +2,7 @@
  * Shared types for OMR (optical mark recognition) answer sheets.
  *
  * An `OmrTemplate` is the *single source of truth* for one assessment's
- * paper answer sheet. It is consumed by two sides that must never drift
+ * scannable form. It is consumed by two sides that must never drift
  * apart:
  *
  *   1. the sheet generator (`src/lib/omr-sheet.ts`), which renders a blank
