@@ -187,19 +187,24 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
     font: ctx.fontBold,
     color: COLOR_INK,
   });
-  ctx.page.drawText(template.subtitle, {
-    x: MARGIN_X,
-    y: at(98),
-    size: 10.5,
-    font: ctx.font,
-    color: COLOR_MUTED,
-  });
+  // Subtitle is optional; when omitted, the instructions box moves up to
+  // reclaim the space (used by MSI to fit its grid + comments on one page).
+  const hasSubtitle = template.subtitle.trim().length > 0;
+  if (hasSubtitle) {
+    ctx.page.drawText(template.subtitle, {
+      x: MARGIN_X,
+      y: at(98),
+      size: 10.5,
+      font: ctx.font,
+      color: COLOR_MUTED,
+    });
+  }
 
   // Instructions callout — a tinted, bordered panel so the fill-out rules
   // read as important, not fine print. Each instruction wraps within the box
   // so long lines don't spill past the border. Sits above the bubble grid, so
   // the background never touches a mark the reader has to sample.
-  const boxTop = 116;
+  const boxTop = hasSubtitle ? 116 : 100;
   const lineGap = 16;
   const exampleRowH = 22; // "How to mark" reference row at the box bottom
   const textWidth = contentW - 40; // bullet indent + right padding
@@ -357,10 +362,12 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   section.legend.forEach((line, k) => {
     ctx.page.drawText(line, { x: MARGIN_X, y: legendTopY - k * 12, size: 8.5, font: ctx.font, color: COLOR_MUTED });
   });
-  // Section title (wraps for long headings), bottom line at titleY.
+  // Section title (wraps for long headings), bottom line at titleY. Optional:
+  // an empty title is skipped and reserves no space, letting the grid sit
+  // higher (used by MSI's single-page layout).
   const titleY = section.legend.length ? legendTopY + 16 : groupHeaderY + 18;
-  const titleLines = wrapText(section.title, contentW, ctx.fontBold, 13);
-  const titleTopY = titleY + (titleLines.length - 1) * 15;
+  const titleLines = section.title.trim().length ? wrapText(section.title, contentW, ctx.fontBold, 13) : [];
+  const titleTopY = titleY + Math.max(0, titleLines.length - 1) * 15;
   titleLines.forEach((line, k) => {
     ctx.page.drawText(line, { x: MARGIN_X, y: titleTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
   });
