@@ -274,10 +274,11 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
     ctx.page.drawText(line, { x: MARGIN_X, y: titleTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
   });
   if (section.preamble) {
-    const preLines = wrapText(section.preamble, contentW, ctx.font, 9.5);
-    const preTopY = titleTopY + 18 + (preLines.length - 1) * 12;
+    // Same treatment as the section title (bold, dark), reading as a heading.
+    const preLines = wrapText(section.preamble, contentW, ctx.fontBold, 13);
+    const preTopY = titleTopY + 20 + (preLines.length - 1) * 15;
     preLines.forEach((line, k) => {
-      ctx.page.drawText(line, { x: MARGIN_X, y: preTopY - k * 12, size: 9.5, font: ctx.font, color: COLOR_MUTED });
+      ctx.page.drawText(line, { x: MARGIN_X, y: preTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
     });
   }
 

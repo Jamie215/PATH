@@ -23,6 +23,6 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   legend: [EXPERIENCE_OPTIONS.map((o) => `${o.value} = ${o.label}`).join('     ')],
   items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
   colSpacing: 36,
-  firstRowY: 390,
+  firstRowY: 415,
   rowSpacing: 52,
 });
