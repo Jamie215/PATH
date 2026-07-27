@@ -13,8 +13,8 @@
  * quiet margins, and four solid corner fiducials, all chosen to survive a
  * phone photo and re-register cleanly during reading.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
-import type { OmrTemplate, OmrSection } from '../assessments/omr/types';
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFForm } from 'pdf-lib';
+import type { OmrTemplate, OmrSection, OmrColumnGroup } from '../assessments/omr/types';
 
 const COLOR_INK = rgb(0, 0, 0);
 const COLOR_TEXT = rgb(0.12, 0.12, 0.12);
@@ -29,6 +29,7 @@ const MARGIN_X = 50;
 
 interface Ctx {
   page: PDFPage;
+  form: PDFForm;
   font: PDFFont;
   fontBold: PDFFont;
   pageW: number;
@@ -72,6 +73,30 @@ function drawCentered(
   ctx.page.drawText(text, { x: centerXpt - w / 2, y: yPt, size, font, color });
 }
 
+/**
+ * Draw a small example bubble at a point baseline, illustrating how a mark
+ * should look. `kind` picks the correctly-filled disc, an empty bubble, or a
+ * crossed-out (changed-answer) bubble. Returns nothing — purely decorative.
+ */
+function drawBubbleGlyph(
+  ctx: Ctx,
+  cxPt: number,
+  cyPt: number,
+  kind: 'filled' | 'empty' | 'crossed',
+  radiusPt = 5,
+): void {
+  ctx.page.drawCircle({ x: cxPt, y: cyPt, size: radiusPt, borderColor: COLOR_INK, borderWidth: 1 });
+  if (kind === 'filled') {
+    // A firm, complete mark: a solid disc that nearly fills the ring.
+    ctx.page.drawCircle({ x: cxPt, y: cyPt, size: radiusPt - 1.4, color: COLOR_INK });
+  } else if (kind === 'crossed') {
+    // A cancelled bubble: an X drawn across it, matching the "cross out" rule.
+    const d = radiusPt + 1.5;
+    ctx.page.drawLine({ start: { x: cxPt - d, y: cyPt - d }, end: { x: cxPt + d, y: cyPt + d }, thickness: 1, color: COLOR_INK });
+    ctx.page.drawLine({ start: { x: cxPt - d, y: cyPt + d }, end: { x: cxPt + d, y: cyPt - d }, thickness: 1, color: COLOR_INK });
+  }
+}
+
 export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`${template.title} — Answer Sheet`);
@@ -83,9 +108,11 @@ export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8A
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const page = doc.addPage([template.page.width, template.page.height]);
+  const form = doc.getForm();
 
   const ctx: Ctx = {
     page,
+    form,
     font,
     fontBold,
     pageW: template.page.width,
@@ -171,10 +198,11 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
   // the background never touches a mark the reader has to sample.
   const boxTop = 116;
   const lineGap = 16;
+  const exampleRowH = 22; // "How to mark" reference row at the box bottom
   const textWidth = contentW - 40; // bullet indent + right padding
   const wrapped = template.instructions.map((line) => wrapText(line, textWidth, ctx.font, 9.5));
   const totalLines = wrapped.reduce((n, lines) => n + lines.length, 0);
-  const boxHeight = 34 + totalLines * lineGap;
+  const boxHeight = 34 + totalLines * lineGap + exampleRowH;
   ctx.page.drawRectangle({
     x: MARGIN_X,
     y: at(boxTop + boxHeight),
@@ -202,6 +230,17 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
       lineIdx += 1;
     });
   }
+
+  // "How to mark" reference: show a correctly-filled bubble and a crossed-out
+  // (changed-answer) one, so respondents can see the intended marks at a glance.
+  const exY = at(boxTop + 38 + totalLines * lineGap + 4);
+  ctx.page.drawText('How to mark:', { x: MARGIN_X + 14, y: exY, size: 9.5, font: ctx.fontBold, color: COLOR_PRIMARY });
+  let exX = MARGIN_X + 14 + ctx.fontBold.widthOfTextAtSize('How to mark:', 9.5) + 14;
+  drawBubbleGlyph(ctx, exX + 5, exY + 3, 'filled');
+  ctx.page.drawText('Fill completely', { x: exX + 15, y: exY, size: 9.5, font: ctx.font, color: COLOR_TEXT });
+  exX += 15 + ctx.font.widthOfTextAtSize('Fill completely', 9.5) + 22;
+  drawBubbleGlyph(ctx, exX + 5, exY + 3, 'crossed');
+  ctx.page.drawText('Cross out to change', { x: exX + 16, y: exY, size: 9.5, font: ctx.font, color: COLOR_TEXT });
 
   // Freeform patient / date line (not machine-read).
   const nameY = at(boxTop + boxHeight + 30);
@@ -247,18 +286,43 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
       : 40;
   const topGap = Math.max(14, rowGapPt / 2);
   const ruleY = firstRowYpt + topGap;
-  const optionHeadersY = ruleY + 10;
-  const groupHeaderY = ruleY + 28;
 
-  // Group header + per-column option headers.
-  for (const group of section.columnGroups) {
+  // Per-column option headers wrap to their column width, so word labels
+  // (e.g. FreBAQ's "Occasionally", PHQ-4's "More than half the days") can sit
+  // directly under each bubble as a self-describing radio group instead of
+  // relying on a separate decode legend. Short/number headers stay one line.
+  const HEADER_SIZE = 9;
+  const HEADER_LH = 10;
+  const columnWidthPt = (group: OmrColumnGroup): number => {
+    if (group.columnX.length < 2) return 60;
+    let min = Infinity;
+    for (let i = 1; i < group.columnX.length; i += 1) {
+      min = Math.min(min, (group.columnX[i] - group.columnX[i - 1]) * ctx.pageW);
+    }
+    return min;
+  };
+  const wrappedHeaders = section.columnGroups.map((g) => {
+    const w = columnWidthPt(g) - 6;
+    return g.optionHeaders.map((h) => wrapText(h, w, ctx.font, HEADER_SIZE));
+  });
+  const maxHeaderLines = Math.max(1, ...wrappedHeaders.flat().map((l) => l.length));
+
+  const headersBottomY = ruleY + 8; // baseline of the lowest header line
+  const groupHeaderY = headersBottomY + maxHeaderLines * HEADER_LH + 6;
+
+  // Group heading, then each column's (possibly multi-line) header stacked
+  // upward from just above the rule.
+  section.columnGroups.forEach((group, gi) => {
     const centerX =
       (toX(ctx, group.columnX[0]) + toX(ctx, group.columnX[group.columnX.length - 1])) / 2;
     drawCentered(ctx, group.label, centerX, groupHeaderY, 10, ctx.fontBold, COLOR_PRIMARY);
-    group.optionHeaders.forEach((h, i) => {
-      drawCentered(ctx, h, toX(ctx, group.columnX[i]), optionHeadersY, 9, ctx.font, COLOR_MUTED);
+    wrappedHeaders[gi].forEach((lines, i) => {
+      lines.forEach((line, k) => {
+        const y = headersBottomY + (lines.length - 1 - k) * HEADER_LH;
+        drawCentered(ctx, line, toX(ctx, group.columnX[i]), y, HEADER_SIZE, ctx.font, COLOR_MUTED);
+      });
     });
-  }
+  });
 
   // Legend lines above the group header, then the section title, then an
   // optional wrapped preamble above that.
@@ -345,13 +409,26 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
     });
 
     for (const field of row.fields) {
+      // One radio group per field: the bubbles are mutually exclusive, so the
+      // sheet reads as a proper radio-button group and can be filled on-screen.
+      // Each group name is the field's scorer key, which is unique per sheet.
+      const group = ctx.form.createRadioGroup(field.key);
       for (const bubble of field.bubbles) {
-        ctx.page.drawCircle({
-          x: toX(ctx, bubble.center.x),
-          y: toY(ctx, bubble.center.y),
-          size: radiusPt,
-          borderColor: COLOR_INK,
-          borderWidth: 1,
+        const cx = toX(ctx, bubble.center.x);
+        const cy = toY(ctx, bubble.center.y);
+        // Printed bubble outline — the single truth the reader samples; left
+        // exactly as before so hand-filled, printed, and scanned sheets are
+        // unchanged.
+        ctx.page.drawCircle({ x: cx, y: cy, size: radiusPt, borderColor: COLOR_INK, borderWidth: 1 });
+        // Interactive radio widget overlaid on the same spot. Borderless, so a
+        // blank sheet looks identical on paper; selecting on-screen draws a
+        // centered dot inside the printed ring.
+        group.addOptionToPage(String(bubble.value), ctx.page, {
+          x: cx - radiusPt,
+          y: cy - radiusPt,
+          width: radiusPt * 2,
+          height: radiusPt * 2,
+          borderWidth: 0,
         });
       }
     }

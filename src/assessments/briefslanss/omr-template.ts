@@ -21,6 +21,6 @@ export const BRIEFSLANSS_OMR_TEMPLATE = buildSingleGroupTemplate({
   legend: [],
   items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
   colSpacing: 64,
-  firstRowY: 320,
+  firstRowY: 348,
   rowSpacing: 62,
 });

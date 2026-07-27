@@ -42,11 +42,11 @@ const FREQ_X = [276, 313, 350, 387];
  *  one run. Nudged left so the larger "Extremely" label stays in the margin. */
 const INT_X = [426, 463, 500, 537];
 
-/** First row's bubble center, and spacing between successive rows.
- *  Generous spacing: the grid sits below a taller header and spreads down
- *  the page so every row has room to breathe. */
-const FIRST_ROW_Y = 336;
-const ROW_SPACING = 42;
+/** First row's bubble center, and spacing between successive rows. Tuned so
+ *  the ten rows start below the taller header (instructions + "How to mark"
+ *  key) yet the last row still clears the bottom-left orientation mark. */
+const FIRST_ROW_Y = 352;
+const ROW_SPACING = 40;
 
 // Smaller bubble: a thin pen fills a larger fraction of a small circle, so a
 // quick firm mark registers without edge-to-edge inking.
