@@ -20,6 +20,7 @@
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
+  import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import {
     ACUTE_CHILDREN,
@@ -49,7 +50,9 @@
   // The scanned sheet awaiting the user's confirmation.
   let omrReview = $state<{
     child: ChildAssessment;
-    imageUrl: string;
+    /** The flattened scan to check answers against; null for a filled PDF,
+     *  where the answers are exact and there is no image to show. */
+    imageUrl: string | null;
     response: Record<string, number>;
     warnings: string[];
     attention: string[];
@@ -132,7 +135,7 @@
     modalChild = null;
   }
 
-  /** Open the file picker to upload a scan/photo for a child's OMR sheet. */
+  /** Open the file picker to upload a scan/photo or filled PDF for a child. */
   function startUpload(child: ChildAssessment): void {
     if (!child.omrTemplate || !fileInput) return;
     omrError = null;
@@ -141,7 +144,11 @@
     fileInput.click();
   }
 
-  /** Read the chosen image, then open the confirmation review on success. */
+  /**
+   * Read the chosen file, then open the confirmation review on success.
+   * A PDF is a form filled on a computer — read its radio answers back
+   * exactly; any other file is a scan/photo and goes through OMR.
+   */
   async function onFileChosen(e: Event): Promise<void> {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
@@ -149,27 +156,31 @@
     pendingUploadChild = null;
     if (!file || !child?.omrTemplate) return;
 
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
     omrError = null;
     omrBusy = child.slug;
     try {
-      const result = await readSheetFromBlob(file, child.omrTemplate);
-      if (!result.ok || !result.warped) {
+      const result = isPdf
+        ? await readPdfFormFromBlob(file, child.omrTemplate)
+        : await readSheetFromBlob(file, child.omrTemplate);
+      if (!result.ok) {
         omrError =
-          (result.error ?? 'Could not read the sheet.') +
-          ' Make sure the whole sheet is visible, well-lit, and reasonably flat.';
+          (result.error ?? 'Could not read the file.') +
+          (isPdf ? '' : ' Make sure the whole sheet is visible, well-lit, and reasonably flat.');
         return;
       }
       // Role-gated children (MSI) need their role set before the survey renders.
       if (child.roleKey && role) storeSet(child.roleKey, role);
       omrReview = {
         child,
-        imageUrl: grayImageToDataURL(result.warped),
+        imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
         response: result.response,
         warnings: result.warnings,
         attention: result.attention,
       };
     } catch (err) {
-      omrError = err instanceof Error ? err.message : 'Could not read the sheet.';
+      omrError = err instanceof Error ? err.message : 'Could not read the file.';
     } finally {
       omrBusy = null;
     }
@@ -214,7 +225,7 @@
     <input
       bind:this={fileInput}
       type="file"
-      accept="image/*"
+      accept="image/*,application/pdf"
       class="visually-hidden"
       onchange={onFileChosen}
     />
@@ -239,7 +250,7 @@
                     onclick={() => startUpload(child)}
                     disabled={omrBusy === child.slug}
                   >
-                    {omrBusy === child.slug ? 'Reading scan…' : 'Upload scan / photo'}
+                    {omrBusy === child.slug ? 'Reading…' : 'Upload scan, photo, or PDF'}
                   </button>
                   <OmrSheetButton template={child.omrTemplate} label="Download a copy" compact={true} />
                 {/if}
@@ -338,13 +349,15 @@
       role="presentation"
       onclick={(e) => { if (e.target === e.currentTarget) closeReview(); }}
     >
-      <div class="modal modal--review" role="dialog" aria-modal="true" aria-label={`Review scanned ${rv.child.shortName}`}>
+      <div class="modal modal--review" role="dialog" aria-modal="true" aria-label={`Review ${rv.child.shortName}`}>
         <header class="modal__head">
           <div class="modal__head-row">
             <div>
-              <h2 class="modal__title">Review scanned {rv.child.shortName}</h2>
+              <h2 class="modal__title">Review {rv.imageUrl ? 'scanned' : 'filled'} {rv.child.shortName}</h2>
               <p class="modal__subtitle">
-                We read your sheet — check the answers against the scan, correct any, then confirm.
+                {rv.imageUrl
+                  ? 'We read your sheet — check the answers against the scan, correct any, then confirm.'
+                  : 'We read your filled PDF — check the answers, correct any, then confirm.'}
               </p>
             </div>
             <button type="button" class="modal__close" aria-label="Close" onclick={closeReview}>
@@ -352,10 +365,12 @@
             </button>
           </div>
         </header>
-        <div class="modal__body review">
-          <div class="review__scan">
-            <img class="review__img" src={rv.imageUrl} alt={`Flattened scan of the ${rv.child.shortName} answer sheet`} />
-          </div>
+        <div class="modal__body review" class:review--noscan={!rv.imageUrl}>
+          {#if rv.imageUrl}
+            <div class="review__scan">
+              <img class="review__img" src={rv.imageUrl} alt={`Flattened scan of the ${rv.child.shortName} answer sheet`} />
+            </div>
+          {/if}
           <div class="review__form">
             {#if rv.warnings.length > 0}
               <div class="review__note" role="alert">
@@ -715,6 +730,15 @@
     display: flex;
     gap: var(--space-6);
     align-items: flex-start;
+  }
+
+  /* No scan to show (a filled PDF): center the form at a comfortable width
+     rather than stretching it across the wide review modal. */
+  .review--noscan {
+    justify-content: center;
+  }
+  .review--noscan .review__form {
+    max-width: 620px;
   }
 
   .review__scan {

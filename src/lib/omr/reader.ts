@@ -116,8 +116,12 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
  * `*_freq` is > 0. Rows without that pairing (the shorter assessments) just
  * take each present value. Missing required values become warnings — the
  * confirmation UI resolves them.
+ *
+ * Exported so every ingest channel — the scan reader here and the PDF-form
+ * reader — turns per-field reads into the same response/warnings/attention,
+ * regardless of how each field's value was obtained.
  */
-function assembleRow(
+export function assembleRow(
   label: string,
   reads: FieldRead[],
   response: Record<string, number>,
