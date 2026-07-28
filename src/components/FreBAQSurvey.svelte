@@ -30,6 +30,7 @@
     initialComments,
     requireArea,
     requireComments,
+    areaStruck,
     highlightArea,
     highlightComments,
     attentionKeys,
@@ -49,6 +50,9 @@
     /** Require the reviewer to fill these in (the scanned region had ink). */
     requireArea?: boolean;
     requireComments?: boolean;
+    /** The scanned bothersome area looks crossed out — warn and don't trust
+     *  any pre-filled text, so the reviewer types the final answer. */
+    areaStruck?: boolean;
     /** Highlight these as handwriting to verify (a scanned-sheet review). */
     highlightArea?: boolean;
     highlightComments?: boolean;
@@ -154,13 +158,18 @@
       id="bothersome_area"
       class="area__input"
       class:field--error={areaMissing}
-      class:field--flagged={highlightArea && !areaMissing}
+      class:field--flagged={(highlightArea || areaStruck) && !areaMissing}
       type="text"
       bind:value={area}
       placeholder="e.g., right knee, left hand, neck"
     />
     {#if areaMissing}
       <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+    {:else if areaStruck}
+      <p class="field__warn">
+        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+        A crossed-out correction was detected here — please type the final answer from the scan.
+      </p>
     {:else if highlightArea}
       <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
     {/if}
@@ -372,6 +381,20 @@
     color: var(--color-warning, #b8860b);
     font-size: 0.85rem;
     margin: var(--space-2) 0 0 0;
+  }
+
+  .field__warn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--color-warning, #b8860b);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: var(--space-2) 0 0 0;
+  }
+
+  .field__warn .material-symbols-outlined {
+    font-size: 1rem;
   }
 
   .area {

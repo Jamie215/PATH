@@ -141,6 +141,106 @@ function inkFraction(img: GrayImage): number {
  *  only that the reviewer is asked to confirm an empty field. */
 const INK_MIN_FRACTION = 0.006;
 
+/** Otsu's method: the grayscale level that best splits ink from paper by
+ *  maximizing between-class variance. Robust to the uneven lighting of phone
+ *  photos, where a single fixed threshold drifts. */
+function otsuThreshold(img: GrayImage): number {
+  const hist = new Array(256).fill(0);
+  for (let i = 0; i < img.data.length; i += 1) hist[img.data[i]] += 1;
+  const total = img.data.length;
+  let sum = 0;
+  for (let t = 0; t < 256; t += 1) sum += t * hist[t];
+  let sumB = 0;
+  let wB = 0;
+  let maxVar = -1;
+  let threshold = 127;
+  for (let t = 0; t < 256; t += 1) {
+    wB += hist[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > maxVar) {
+      maxVar = between;
+      threshold = t;
+    }
+  }
+  return threshold;
+}
+
+/**
+ * Heuristically detect a struck-out / crossed-out word in a single-line crop:
+ * a long, near-horizontal ink run through the vertical middle of the writing —
+ * longer than any legitimate glyph stroke (a t-crossbar or hyphen is short
+ * relative to the word). Restricting the search to the central band keeps a
+ * baseline rule or underline captured in the crop from tripping it.
+ *
+ * Best-effort and deliberately conservative: it aims to fire on an obvious
+ * strikethrough and stay quiet on ordinary handwriting, so a hit routes the
+ * field to the reviewer rather than silently dropping text. Diagonal "X"
+ * corrections are only partially covered (their strokes are near-horizontal
+ * only in part). Returns false for near-empty or tiny crops.
+ */
+export function detectStrikethrough(img: GrayImage): boolean {
+  const { width: W, height: H, data } = img;
+  if (W < 12 || H < 6) return false;
+
+  const threshold = otsuThreshold(img);
+  const ink = new Uint8Array(W * H);
+  let x0 = W;
+  let x1 = -1;
+  let y0 = H;
+  let y1 = -1;
+  let count = 0;
+  for (let y = 0; y < H; y += 1) {
+    for (let x = 0; x < W; x += 1) {
+      if (data[y * W + x] <= threshold) {
+        ink[y * W + x] = 1;
+        count += 1;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (count === 0 || x1 < x0 || y1 < y0) return false;
+  const inkW = x1 - x0 + 1;
+  const inkH = y1 - y0 + 1;
+  if (inkW < 12 || inkH < 6) return false; // too little to judge
+
+  // Scan only the central vertical band, so a printed rule at the baseline (or
+  // a guide line at the top) can't masquerade as a strike.
+  const bandTop = y0 + Math.floor(inkH * 0.2);
+  const bandBot = y0 + Math.ceil(inkH * 0.8);
+  let bestRun = 0;
+  for (let y = bandTop; y <= bandBot; y += 1) {
+    let run = 0;
+    for (let x = x0; x <= x1; x += 1) {
+      // Dilate one row vertically so a slightly slanted strike still reads as
+      // one continuous run — but stay inside the band, so a rule just below it
+      // (an underline at the baseline) isn't pulled in.
+      const on =
+        ink[y * W + x] ||
+        (y - 1 >= bandTop && ink[(y - 1) * W + x]) ||
+        (y + 1 <= bandBot && ink[(y + 1) * W + x]);
+      if (on) {
+        run += 1;
+        if (run > bestRun) bestRun = run;
+      } else {
+        run = 0;
+      }
+    }
+  }
+
+  // A strike spans most of the word (fraction of ink width) and is long
+  // relative to the line height (absolute), which short glyph strokes are not.
+  return bestRun >= inkW * 0.6 && bestRun >= inkH * 2.0;
+}
+
 /** Crop each declared free-text region from the flattened sheet, flagging
  *  which ones appear to have handwriting in them. */
 function cropTextFields(

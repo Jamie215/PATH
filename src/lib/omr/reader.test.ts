@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readSheet } from './reader';
+import { readSheet, detectStrikethrough } from './reader';
 import { warpPerspective } from './image';
 import { homographyFromPoints } from './geometry';
 import { renderSyntheticSheet } from './synth';
@@ -181,6 +181,51 @@ describe('readSheet — contested fields (double-mark / crossed-out answer)', ()
     expect(result.response.stiff_freq).toBe(1);
     expect(result.response.stiff_interference).toBeUndefined();
     expect(result.warnings.some((w) => w.includes('Stiffness') && /choose one/i.test(w))).toBe(true);
+  });
+});
+
+describe('detectStrikethrough — crossed-out word heuristic', () => {
+  const W = 120;
+  const H = 28;
+
+  const blank = (): GrayImage => ({ width: W, height: H, data: new Uint8Array(W * H).fill(255) });
+  const vbar = (img: GrayImage, x: number, y0: number, y1: number): void => {
+    for (let y = y0; y <= y1; y += 1) for (let dx = 0; dx < 2; dx += 1) img.data[y * W + (x + dx)] = 0;
+  };
+  const hline = (img: GrayImage, x0: number, x1: number, y: number): void => {
+    for (let x = x0; x <= x1; x += 1) for (let dy = 0; dy < 2; dy += 1) img.data[(y + dy) * W + x] = 0;
+  };
+  // A "word": several vertical pen strokes across x≈20..85, y=6..21 (16px tall).
+  const word = (): GrayImage => {
+    const img = blank();
+    for (let x = 20; x <= 84; x += 8) vbar(img, x, 6, 21);
+    return img;
+  };
+
+  it('flags a long horizontal strike through the middle of a word', () => {
+    const img = word();
+    hline(img, 20, 90, 13);
+    expect(detectStrikethrough(img)).toBe(true);
+  });
+
+  it('does not flag ordinary handwriting (no long horizontal run)', () => {
+    expect(detectStrikethrough(word())).toBe(false);
+  });
+
+  it('does not flag a short crossbar (e.g. the bar of a "t")', () => {
+    const img = word();
+    hline(img, 40, 52, 10);
+    expect(detectStrikethrough(img)).toBe(false);
+  });
+
+  it('ignores an underline/rule captured at the baseline', () => {
+    const img = word();
+    hline(img, 20, 90, 20); // sits below the central band
+    expect(detectStrikethrough(img)).toBe(false);
+  });
+
+  it('returns false for a near-empty crop', () => {
+    expect(detectStrikethrough(blank())).toBe(false);
   });
 });
 
