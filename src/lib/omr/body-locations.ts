@@ -80,6 +80,50 @@ const SIDE_FORMS: readonly { side: string; forms: readonly string[] }[] = [
   { side: 'bilateral', forms: ['bilateral', 'bilat', 'both', 'either'] },
 ];
 
+/**
+ * Digit vocabulary: which finger/toe a token names. `finger` / `toe` give the
+ * qualifier to use once the region is known (so `middle` becomes "middle
+ * finger" but is dropped for a toe, and `second` the reverse). `soloFinger`
+ * marks the unambiguously-finger names that imply a finger even when the word
+ * "finger" is omitted (e.g. bare `thumb`, `index`).
+ *
+ * Scope is deliberately bounded to digit *identity*: segments (tip, base,
+ * knuckle) and ambiguous finger ordinals (is "first finger" the thumb?) are
+ * not modelled — when present they dilute the match below the auto-fill bar,
+ * so the raw text is kept for the reviewer instead.
+ */
+interface DigitForm {
+  forms: readonly string[];
+  /** Qualifier when the region is a finger, e.g. `index` → "index finger". */
+  finger?: string;
+  /** Qualifier when the region is a toe, e.g. `big` → "big toe". */
+  toe?: string;
+  /** Implies a finger on its own (bare `thumb` → "thumb"). */
+  soloFinger?: boolean;
+}
+
+const DIGITS: readonly DigitForm[] = [
+  { forms: ['thumb'], finger: 'thumb', soloFinger: true },
+  { forms: ['index', 'pointer', 'forefinger'], finger: 'index', soloFinger: true },
+  { forms: ['middle'], finger: 'middle' },
+  { forms: ['ring'], finger: 'ring', soloFinger: true },
+  { forms: ['little', 'pinky', 'pinkie'], finger: 'little', toe: 'little' },
+  { forms: ['big', 'great'], toe: 'big' },
+  { forms: ['second', '2nd'], toe: 'second' },
+  { forms: ['third', '3rd'], toe: 'third' },
+  { forms: ['fourth', '4th'], toe: 'fourth' },
+  { forms: ['small'], toe: 'little' },
+  { forms: ['fifth', '5th'], toe: 'little' },
+];
+
+/** Region canonicals that accept a digit qualifier. */
+const DIGIT_REGIONS = new Set(['finger', 'toe']);
+
+/** Filler words stripped before parsing, so "tip of the index finger" and
+ *  "left side of neck" reduce to their meaningful tokens. Kept small: only
+ *  words that never name a body part in the vocabulary. */
+const STOPWORDS = new Set(['of', 'on', 'the', 'my', 'a', 'an', 'at', 'in', 'side', 'area', 'part', 'region']);
+
 /** Region score below which we offer no suggestion at all — better to keep
  *  the raw text (with the pinned crop to read) than a wrong guess. */
 const SCORE_THRESHOLD = 0.5;
@@ -187,35 +231,105 @@ function extractSide(tokens: string[]): { side: string | null; rest: string[] } 
   return { side, rest };
 }
 
-/**
- * Suggest the closest known body locations for a raw (possibly OCR-garbled)
- * entry, best first. Returns up to `limit` distinct labels scoring above the
- * confidence threshold, or `[]` when nothing is close enough — in which case
- * the caller keeps the reviewer's free text as-is.
- */
-export function matchBodyLocation(raw: string, limit = 3): BodyLocationMatch[] {
-  const norm = normalize(raw);
-  if (!norm) return [];
-  const tokens = norm.split(' ');
-  const { side, rest } = extractSide(tokens);
-  // If only a side was written, fall back to matching the whole input.
-  const queryTokens = rest.length ? rest : tokens;
+/** Copy of `tokens` with the first occurrence of `token` removed. */
+function removeFirst(tokens: string[], token: string): string[] {
+  const i = tokens.indexOf(token);
+  return i === -1 ? tokens.slice() : [...tokens.slice(0, i), ...tokens.slice(i + 1)];
+}
 
-  const scored: BodyLocationMatch[] = [];
+/** The region whose canonical name is `name`. */
+function regionByCanonical(name: string): BodyRegion | undefined {
+  return BODY_REGIONS.find((r) => r.canonical === name);
+}
+
+/** Score every region against the query tokens (best surface per region),
+ *  keeping those above the suggestion floor, best first. */
+function rankRegions(queryTokens: string[]): { region: BodyRegion; score: number }[] {
+  const scored: { region: BodyRegion; score: number }[] = [];
   for (const region of BODY_REGIONS) {
     let best = 0;
     for (const surface of region.surfaces) {
       best = Math.max(best, phraseSimilarity(queryTokens, surface));
     }
-    if (best < SCORE_THRESHOLD) continue;
-    const label = side && region.lateralized ? `${side} ${region.canonical}` : region.canonical;
-    scored.push({ label, score: best });
+    if (best >= SCORE_THRESHOLD) scored.push({ region, score: best });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
+
+/** Find the first token naming a finger/toe, with its digit entry so the
+ *  qualifier can be resolved once the region is known. */
+function findDigit(tokens: string[]): { token: string; entry: DigitForm } | null {
+  for (const token of tokens) {
+    for (const entry of DIGITS) {
+      for (const f of entry.forms) {
+        if (token === f || (f.length >= 4 && tokenSimilarity(token, f) >= 0.8)) {
+          return { token, entry };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** Build a display label from side + optional digit qualifier + region
+ *  (e.g. `left` + `index` + `finger` → "left index finger"; `thumb` alone). */
+function composeLabel(side: string | null, region: BodyRegion, qualifier: string | null): string {
+  const core =
+    qualifier === 'thumb' ? 'thumb' : qualifier ? `${qualifier} ${region.canonical}` : region.canonical;
+  return side && region.lateralized ? `${side} ${core}` : core;
+}
+
+/**
+ * Suggest the closest known body locations for a raw (possibly OCR-garbled)
+ * entry, best first. Understands a laterality prefix (left/right) and a
+ * finger/toe digit (index, middle, big toe, …); segments and other deep
+ * positional language are not modelled and simply lower the score. Returns up
+ * to `limit` distinct labels above the confidence threshold, or `[]` when
+ * nothing is close enough — in which case the caller keeps the free text.
+ */
+export function matchBodyLocation(raw: string, limit = 3): BodyLocationMatch[] {
+  const norm = normalize(raw);
+  if (!norm) return [];
+  const tokens = norm.split(' ').filter((t) => !STOPWORDS.has(t));
+  if (tokens.length === 0) return [];
+  const { side, rest } = extractSide(tokens);
+  // If only a side was written, fall back to matching the whole input.
+  const queryTokens = rest.length ? rest : tokens;
+
+  const candidates: BodyLocationMatch[] = [];
+
+  // Digit facet: if a finger/toe name is present, reveal the region from the
+  // remaining tokens. Region-gated, so a digit word that also reads as a
+  // region ("middle" ↔ mid back) only counts when a finger/toe is left over.
+  const digit = findDigit(queryTokens);
+  if (digit) {
+    const revealed = rankRegions(removeFirst(queryTokens, digit.token))[0];
+    let region: BodyRegion | undefined;
+    let score = 0;
+    if (revealed && DIGIT_REGIONS.has(revealed.region.canonical)) {
+      region = revealed.region;
+      score = revealed.score;
+    } else if (queryTokens.length === 1 && digit.entry.soloFinger) {
+      // Bare "thumb" / "index" with no "finger" written — imply a finger.
+      region = regionByCanonical('finger');
+      score = 0.85;
+    }
+    if (region) {
+      const qualifier = region.canonical === 'finger' ? digit.entry.finger : digit.entry.toe;
+      if (qualifier) candidates.push({ label: composeLabel(side, region, qualifier), score });
+    }
   }
 
-  scored.sort((a, b) => b.score - a.score);
+  // Plain region matches (no digit qualifier).
+  for (const { region, score } of rankRegions(queryTokens)) {
+    candidates.push({ label: composeLabel(side, region, null), score });
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
   const seen = new Set<string>();
   const out: BodyLocationMatch[] = [];
-  for (const m of scored) {
+  for (const m of candidates) {
     if (seen.has(m.label)) continue;
     seen.add(m.label);
     out.push(m);

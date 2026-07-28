@@ -75,4 +75,49 @@ describe('matchBodyLocation', () => {
     const matches = matchBodyLocation('left side of ribcage');
     for (const m of matches) expect(m.score).toBeGreaterThanOrEqual(0.5);
   });
+
+  describe('digit facet — fingers and toes', () => {
+    it('names the finger, keeping laterality', () => {
+      expect(top('left index finger')).toBe('left index finger');
+      expect(top('right ring finger')).toBe('right ring finger');
+      expect(top('middle finger')).toBe('middle finger');
+    });
+
+    it('names the toe', () => {
+      expect(top('big toe')).toBe('big toe');
+      expect(top('second toe')).toBe('second toe');
+      expect(top('left little toe')).toBe('left little toe');
+    });
+
+    it('implies a finger for an unambiguous bare digit', () => {
+      expect(top('thumb')).toBe('thumb');
+      expect(top('left thumb')).toBe('left thumb');
+      expect(top('index')).toBe('index finger');
+    });
+
+    it('strips filler words around the digit', () => {
+      expect(top('tip of the index finger')).toBe('index finger');
+    });
+
+    it('does not mistake "middle back" for a finger (region-gated)', () => {
+      expect(top('middle back')).toBe('mid back');
+    });
+
+    it('resolves a digit typo', () => {
+      expect(top('left idnex finger')).toBe('left index finger');
+    });
+
+    it('leaves ambiguous/out-of-scope positional text as raw (no auto-fill)', () => {
+      // "second finger" — finger ordinals are not modelled (thumb-counting
+      // ambiguity), so it stays below the auto-fill bar.
+      expect(autofillBodyLocation('second finger')).toBeNull();
+      // Segment language ("tip of") dilutes the match below the bar.
+      expect(autofillBodyLocation('tip of second toe')).toBeNull();
+    });
+
+    it('auto-fills a clean finger/toe read', () => {
+      expect(autofillBodyLocation('left index finger')).toBe('left index finger');
+      expect(autofillBodyLocation('big toe')).toBe('big toe');
+    });
+  });
 });
