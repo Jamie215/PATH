@@ -342,7 +342,8 @@
                     onclick={() => startUpload(child)}
                     disabled={omrBusy === child.slug}
                   >
-                    {omrBusy === child.slug ? 'Reading…' : 'Upload scan, photo, or PDF'}
+                    <span class="material-symbols-outlined" aria-hidden="true">upload</span>
+                    {omrBusy === child.slug ? 'Reading…' : 'Upload photo or PDF'}
                   </button>
                   <OmrSheetButton template={child.omrTemplate} label="Download a copy" compact={true} />
                 {/if}

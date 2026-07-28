@@ -43,7 +43,7 @@
 
 <div class="omr-sheet" class:omr-sheet--compact={compact}>
   <button type="button" class="btn btn--secondary omr-sheet__btn" onclick={download} disabled={busy}>
-    <span class="material-symbols-outlined" aria-hidden="true">print</span>
+    <span class="material-symbols-outlined" aria-hidden="true">download</span>
     {busy ? 'Preparing…' : label}
   </button>
   {#if !compact}
