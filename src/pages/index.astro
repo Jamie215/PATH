@@ -1,6 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
 import { assessments } from '../assessments/registry';
+
+// Some assessments (e.g. BriefSLANSS, PHQ-4) are only reached as part of a
+// composite and are intentionally not offered directly from the hub.
+const hubAssessments = assessments.filter((a) => !a.hideFromHub);
 ---
 <Base title="PATH" description="Pain Assessment Tools Hub — a collection of validated assessment tools." wide>
   <script is:inline>
@@ -12,7 +16,7 @@ import { assessments } from '../assessments/registry';
     <h1 id="picker-heading" class="picker__heading">Select the Tool You'd Like to Use</h1>
 
     <ul class="picker__grid">
-      {assessments.map((a) => {
+      {hubAssessments.map((a) => {
         const isAvailable = a.status === 'available';
         const Tag = isAvailable ? 'a' : 'div';
         const props = isAvailable ? { href: `/${a.slug}/` } : {};

@@ -72,6 +72,13 @@ export interface ChildAssessment {
    * feeds the composite. Only MSI has a sheet today.
    */
   omrTemplate?: OmrTemplate;
+  /**
+   * If set, the card shows an editable free-text field for a context value the
+   * child collects alongside its score — currently FreBAQ's "most bothersome
+   * area", mirroring the input offered in the scan/OCR review. The typed value
+   * is stored on the child's `${slug}:response` under `bothersome_area`.
+   */
+  areaField?: { label: string; placeholder: string };
 }
 
 function num(v: unknown): number | null {
@@ -122,6 +129,10 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     surveyUrl: '/frebaq/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 24 }],
     omrTemplate: FREBAQ_OMR_TEMPLATE,
+    areaField: {
+      label: 'The part of the body that has been bothering the most is:',
+      placeholder: 'e.g., right knee, left hand, neck',
+    },
     fromResult: (r) => {
       const total = num((r as Record<string, unknown> | null)?.total_score);
       return total === null ? null : { total_score: total };

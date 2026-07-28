@@ -36,7 +36,11 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   // top-left) must track where the generator draws these fields — see the
   // preamble blank and comment box in omr-sheet.ts.
   scanTextFields: [
-    { key: 'bothersome_area', label: 'Most bothersome area', kind: 'line', rect: { x: 46, y: 280, width: 292, height: 16 } },
+    // The fill-in blank's baseline (and printed rule) sit at ~y=294–298pt, so
+    // the crop must reach well below the rule to keep descenders (g, y, p, q, j)
+    // — a crop stopping at the baseline clips them and "g" reads as "a". The
+    // section title below doesn't start until ~y=334pt, so this stays clear of it.
+    { key: 'bothersome_area', label: 'Most bothersome area', kind: 'line', rect: { x: 46, y: 278, width: 292, height: 28 } },
     { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 52, y: 682, width: 508, height: 40 } },
   ],
 });
