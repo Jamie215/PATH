@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchBodyLocation } from './body-locations';
+import { matchBodyLocation, autofillBodyLocation } from './body-locations';
 
 /** Top suggested label for a raw entry, or undefined when nothing matched. */
 const top = (raw: string): string | undefined => matchBodyLocation(raw)[0]?.label;
@@ -47,6 +47,27 @@ describe('matchBodyLocation', () => {
     expect(matches.length).toBeLessThanOrEqual(3);
     expect(matches[0].label).toBe('knee');
     expect(matches[0].score).toBeGreaterThanOrEqual(matches[matches.length - 1].score);
+  });
+
+  describe('autofillBodyLocation — confidence-gated auto-fill', () => {
+    it('fills a confident read (exact term or long-word typo)', () => {
+      expect(autofillBodyLocation('left knee')).toBe('left knee');
+      expect(autofillBodyLocation('lefr kṇee')).toBe('left knee');
+      expect(autofillBodyLocation('lumbar')).toBe('lower back');
+      expect(autofillBodyLocation('sholder')).toBe('shoulder');
+    });
+
+    it('keeps raw text (returns null) for a low-confidence match', () => {
+      // A single typo in a 3-letter part ("hpi") is too uncertain to auto-fill,
+      // even though it still surfaces as a match.
+      expect(matchBodyLocation('rihgt hpi')[0]?.label).toBe('right hip');
+      expect(autofillBodyLocation('rihgt hpi')).toBeNull();
+    });
+
+    it('returns null when there is no match at all', () => {
+      expect(autofillBodyLocation('xzq###')).toBeNull();
+      expect(autofillBodyLocation('')).toBeNull();
+    });
   });
 
   it('does not invent a match for an unusual but plausible free-text answer', () => {

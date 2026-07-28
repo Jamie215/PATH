@@ -21,7 +21,7 @@
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
   import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
-  import { matchBodyLocation } from '../lib/omr/body-locations';
+  import { autofillBodyLocation } from '../lib/omr/body-locations';
   import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import {
@@ -279,11 +279,11 @@
       const text = await recognizeHandwriting(c.image);
       if (!omrReview) return; // review was closed mid-recognition
       if (text && c.key === 'bothersome_area') {
-        // Snap OCR noise ("lefr kṇee") to the closest known location
-        // ("left knee") and pre-fill the field with it. When nothing clears
-        // the matcher's threshold, keep the raw text. Either way the reviewer
-        // verifies against the pinned crop and can edit freely.
-        const area = matchBodyLocation(text)[0]?.label ?? text;
+        // Auto-fill only a confident match: a clean read ("lefr kṇee") snaps
+        // to the known location ("left knee"), while an uncertain one keeps
+        // the raw OCR text. Either way the reviewer verifies against the
+        // pinned crop and can edit freely.
+        const area = autofillBodyLocation(text) ?? text;
         omrReview = { ...omrReview, area };
       }
     }

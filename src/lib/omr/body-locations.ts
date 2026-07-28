@@ -80,9 +80,14 @@ const SIDE_FORMS: readonly { side: string; forms: readonly string[] }[] = [
   { side: 'bilateral', forms: ['bilateral', 'bilat', 'both', 'either'] },
 ];
 
-/** Region score below which we offer no suggestion — better a blank field
- *  (with the pinned crop to transcribe) than a confidently wrong guess. */
+/** Region score below which we offer no suggestion at all — better to keep
+ *  the raw text (with the pinned crop to read) than a wrong guess. */
 const SCORE_THRESHOLD = 0.5;
+
+/** Higher bar for *auto-filling* the field: a clean read (exact term, or a
+ *  single typo in a word of ~4+ letters) replaces the OCR text; anything less
+ *  certain is left as raw text for the reviewer to correct against the crop. */
+export const AUTOFILL_MIN_SCORE = 0.75;
 
 export interface BodyLocationMatch {
   /** Suggested label, laterality included where relevant (e.g. `left knee`). */
@@ -217,4 +222,16 @@ export function matchBodyLocation(raw: string, limit = 3): BodyLocationMatch[] {
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/**
+ * The single best body-location label for a raw entry, but only when the match
+ * is confident enough to replace the text automatically (see
+ * `AUTOFILL_MIN_SCORE`). Returns `null` for a low-confidence or absent match,
+ * so the caller keeps the raw OCR text for the reviewer to verify against the
+ * pinned crop.
+ */
+export function autofillBodyLocation(raw: string): string | null {
+  const [best] = matchBodyLocation(raw, 1);
+  return best && best.score >= AUTOFILL_MIN_SCORE ? best.label : null;
 }
