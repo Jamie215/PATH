@@ -21,6 +21,13 @@ export interface AssessmentSummary {
   icon: string;
   status: 'available' | 'planned';
   estimatedMinutes?: number;
+  /**
+   * When true, the assessment keeps its own page/route but is not shown as a
+   * card on the hub home screen. Used for assessments that are only meant to
+   * be reached as part of a composite (e.g. BriefSLANSS and PHQ-4, which are
+   * children of Pain Classification).
+   */
+  hideFromHub?: boolean;
 }
 
 export const assessments: AssessmentSummary[] = [
@@ -43,6 +50,7 @@ export const assessments: AssessmentSummary[] = [
     icon: 'neurology',
     status: 'available',
     estimatedMinutes: 2,
+    hideFromHub: true,
   },
   {
     slug: 'frebaq',
@@ -63,6 +71,7 @@ export const assessments: AssessmentSummary[] = [
     icon: 'stress_management',
     status: 'available',
     estimatedMinutes: 2,
+    hideFromHub: true,
   },
   {
     slug: 'pain-classification',

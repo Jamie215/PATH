@@ -123,6 +123,22 @@
     else storeRemove(KEYS.commentPrefix + slug);
   }
 
+  /**
+   * Persist the free-text bothersome area typed on the card (FreBAQ only)
+   * into the child's `${slug}:response`, the same place a completed
+   * questionnaire or scanned sheet writes it — so it survives a reload and
+   * pre-fills the questionnaire if opened.
+   */
+  function setArea(slug: string, text: string): void {
+    areas = { ...areas, [slug]: text };
+    const trimmed = text.trim();
+    const response = storeGet<Record<string, unknown>>(slug + ':response') ?? {};
+    if (trimmed) response.bothersome_area = trimmed;
+    else delete response.bothersome_area;
+    if (Object.keys(response).length > 0) storeSet(slug + ':response', response);
+    else storeRemove(slug + ':response');
+  }
+
   function openQuestionnaire(child: ChildAssessment): void {
     // Role-gated children (MSI) read their role from storage on mount, so it
     // must be set before the survey renders — otherwise the survey redirects.
@@ -304,13 +320,16 @@
     />
 
     <ul class="cards">
-      {#each ACUTE_CHILDREN as child (child.slug)}
+      {#each ACUTE_CHILDREN as child, i (child.slug)}
         <li class="assessment">
           <div class="card" class:card--done={childComplete(child)}>
             <header class="card__header">
-              <div class="card__heading">
-                <h2 class="card__title">{child.shortName}</h2>
-                <p class="card__subtitle">{child.title}</p>
+              <div class="card__lead">
+                <span class="card__num" class:card__num--done={childComplete(child)} aria-hidden="true">{i + 1}</span>
+                <div class="card__heading">
+                  <h2 class="card__title">{child.shortName}</h2>
+                  <p class="card__subtitle">{child.title}</p>
+                </div>
               </div>
               <div class="card__actions">
                 <button type="button" class="btn btn--success card__btn" onclick={() => openQuestionnaire(child)}>
@@ -331,10 +350,17 @@
             </header>
 
             <div class="card__body">
-            {#if areas[child.slug]}
-              <p class="card__area">
-                <span class="card__area-label">Most bothersome area:</span> {areas[child.slug]}
-              </p>
+            {#if child.areaField}
+              <label class="field field--area">
+                <span class="field__label">{child.areaField.label}</span>
+                <input
+                  class="field__input field__input--area"
+                  type="text"
+                  placeholder={child.areaField.placeholder}
+                  value={areas[child.slug] ?? ''}
+                  oninput={(e) => setArea(child.slug, (e.currentTarget as HTMLInputElement).value)}
+                />
+              </label>
             {/if}
             <div class="card__fields">
               {#each child.manualFields as f (f.key)}
@@ -595,6 +621,34 @@
     border-bottom-color: var(--color-success);
   }
 
+  /* Number badge + heading grouped on the left of the header band. */
+  .card__lead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  /* Numbered badge so each assessment reads as an ordered step. */
+  .card__num {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--color-primary-tint-ghost);
+    color: var(--color-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .card__num--done {
+    background: var(--color-success);
+    color: #fff;
+  }
+
   .card__heading {
     min-width: 0;
   }
@@ -629,15 +683,13 @@
     padding: var(--space-5);
   }
 
-  .card__area {
-    margin: 0 0 var(--space-4) 0;
-    font-size: 0.95rem;
-    color: var(--color-text);
+  .field--area {
+    margin-bottom: var(--space-4);
   }
 
-  .card__area-label {
-    font-weight: 600;
-    color: var(--color-text-muted);
+  .field__input--area {
+    width: 100%;
+    max-width: 28rem;
   }
 
   .card__fields {
