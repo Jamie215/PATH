@@ -63,8 +63,6 @@
     /** Zoomed crop of the scanned bothersome-area handwriting (scan only),
      *  pinned next to the field in review so it can be transcribed/verified. */
     areaCropUrl?: string;
-    /** Closest known body locations for the recognized area (scan only). */
-    areaSuggestions?: string[];
     /** Pre-filled comments, from a filled PDF, OCR, or prior entry. */
     comments?: string;
     /** Cropped handwriting regions (scan only) shown while OCR runs. */
@@ -281,11 +279,12 @@
       const text = await recognizeHandwriting(c.image);
       if (!omrReview) return; // review was closed mid-recognition
       if (text && c.key === 'bothersome_area') {
-        // Offer the closest known body locations as one-tap corrections; the
-        // reviewer keeps the raw text otherwise. Fuzzy matching snaps OCR
-        // noise ("lefr kṇee") back to a plausible term ("left knee").
-        const areaSuggestions = matchBodyLocation(text).map((m) => m.label);
-        omrReview = { ...omrReview, area: text, areaSuggestions };
+        // Snap OCR noise ("lefr kṇee") to the closest known location
+        // ("left knee") and pre-fill the field with it. When nothing clears
+        // the matcher's threshold, keep the raw text. Either way the reviewer
+        // verifies against the pinned crop and can edit freely.
+        const area = matchBodyLocation(text)[0]?.label ?? text;
+        omrReview = { ...omrReview, area };
       }
     }
     if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
@@ -543,7 +542,6 @@
                 highlightArea={rv.fromScan}
                 highlightComments={rv.fromScan}
                 areaCropUrl={rv.areaCropUrl}
-                areaSuggestions={rv.areaSuggestions}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"

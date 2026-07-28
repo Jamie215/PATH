@@ -33,7 +33,6 @@
     highlightArea,
     highlightComments,
     areaCropUrl,
-    areaSuggestions,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -55,11 +54,8 @@
     highlightArea?: boolean;
     highlightComments?: boolean;
     /** Zoomed crop of the scanned bothersome-area handwriting, pinned next to
-     *  the field so the reviewer can transcribe/verify it directly. */
+     *  the field so the reviewer can verify the auto-filled value directly. */
     areaCropUrl?: string;
-    /** Closest known body locations for the scanned area (from the fuzzy
-     *  matcher), offered as one-tap suggestions. Never overrides free text. */
-    areaSuggestions?: string[];
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();
@@ -78,12 +74,6 @@
     answers = { ...answers, [key]: value };
   }
 
-  // Apply a suggested body location to the field. Suggest-only: the reviewer
-  // can still edit or clear it afterwards.
-  function pickAreaSuggestion(value: string): void {
-    area = value;
-  }
-
   // Each symptom needs exactly one answer (no follow-ups).
   const missing = $derived(
     QUESTIONS.filter(
@@ -96,13 +86,6 @@
   // Text fields the reviewer must fill because the scanned region had ink.
   const areaMissing = $derived(submitAttempted && !!requireArea && area.trim().length === 0);
   const commentsMissing = $derived(submitAttempted && !!requireComments && comments.trim().length === 0);
-
-  // Closest known body location for the scanned area. Shown inline under the
-  // field as a "Did you mean …?" prompt, unless the field already holds it.
-  const topAreaSuggestion = $derived(areaSuggestions?.[0]);
-  const showAreaSuggestion = $derived(
-    !!topAreaSuggestion && area.trim().toLowerCase() !== (topAreaSuggestion ?? '').toLowerCase(),
-  );
 
   const totalQuestions = QUESTIONS.length;
   const answeredQuestions = $derived(
@@ -180,14 +163,6 @@
       bind:value={area}
       placeholder="e.g., right knee, left hand, neck"
     />
-    {#if showAreaSuggestion}
-      <p class="area__suggest">
-        Did you mean
-        <button type="button" class="area__suggest-btn" onclick={() => pickAreaSuggestion(topAreaSuggestion ?? '')}>
-          {topAreaSuggestion}
-        </button>?
-      </p>
-    {/if}
     {#if areaCropUrl}
       <figure class="area__crop">
         <figcaption class="area__crop-label">From the scanned sheet</figcaption>
@@ -456,28 +431,6 @@
     max-width: 100%;
     height: auto;
     image-rendering: crisp-edges;
-  }
-
-  .area__suggest {
-    margin: var(--space-2) 0 0 0;
-    font-size: 0.85rem;
-    color: var(--color-text-muted);
-  }
-
-  .area__suggest-btn {
-    padding: 0;
-    border: none;
-    background: none;
-    font-family: inherit;
-    font-size: inherit;
-    font-weight: 600;
-    color: var(--color-primary);
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .area__suggest-btn:hover {
-    text-decoration: none;
   }
 
   .comments {
