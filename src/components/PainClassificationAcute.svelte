@@ -209,22 +209,26 @@
               hasInk: c.hasInk,
             }))
           : undefined;
+      // Only recognize short single-line fields (the bothersome area) that
+      // actually have ink. Multi-line boxes (comments) are slow and low-value
+      // to OCR, so we skip them and require the reviewer to type them in.
+      const ocrCrops = crops?.filter((c) => c.kind === 'line' && c.hasInk);
       omrReview = {
         child,
         imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
         response: result.response,
         area: pdfArea || areas[child.slug],
         comments: (isPdf ? result.text?.other_comments : undefined) ?? comments[child.slug],
-        crops,
-        ocrBusy: !!crops,
-        // A written-in region must be confirmed by the reviewer even if OCR
-        // can't read it.
+        crops: ocrCrops?.length ? ocrCrops : undefined,
+        ocrBusy: !!ocrCrops?.length,
+        // A written-in region must be confirmed by the reviewer even if it
+        // wasn't recognized.
         requireArea: crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
         requireComments: crops?.some((c) => c.key === 'other_comments' && c.hasInk),
         warnings: result.warnings,
         attention: result.attention,
       };
-      if (crops) void runHandwritingOcr(crops);
+      if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
     } catch (err) {
       omrError = err instanceof Error ? err.message : 'Could not read the file.';
     } finally {
@@ -242,15 +246,13 @@
    * for manual entry. The survey renders once this finishes (or is skipped).
    */
   async function runHandwritingOcr(
-    crops: { key: string; kind: 'line' | 'box'; image: GrayImage }[],
+    crops: { key: string; image: GrayImage }[],
   ): Promise<void> {
-    const { recognizeCrop } = await import('../lib/omr/handwriting');
+    const { recognizeHandwriting } = await import('../lib/omr/handwriting');
     for (const c of crops) {
-      const text = await recognizeCrop(c.image, c.kind);
+      const text = await recognizeHandwriting(c.image);
       if (!omrReview) return; // review was closed mid-recognition
-      if (!text) continue;
-      if (c.key === 'bothersome_area') omrReview = { ...omrReview, area: text };
-      else if (c.key === 'other_comments') omrReview = { ...omrReview, comments: text };
+      if (text && c.key === 'bothersome_area') omrReview = { ...omrReview, area: text };
     }
     if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
   }
