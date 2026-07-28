@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readSheet, detectStrikethrough } from './reader';
+import { readSheet, detectStrikethrough, removeHorizontalRule } from './reader';
 import { warpPerspective } from './image';
 import { homographyFromPoints } from './geometry';
 import { renderSyntheticSheet } from './synth';
@@ -226,6 +226,57 @@ describe('detectStrikethrough — crossed-out word heuristic', () => {
 
   it('returns false for a near-empty crop', () => {
     expect(detectStrikethrough(blank())).toBe(false);
+  });
+});
+
+describe('removeHorizontalRule — strip the printed fill-in underline', () => {
+  const W = 120;
+  const H = 40;
+  const RULE_Y = 28; // baseline band, in the lower part of the crop
+
+  const blank = (): GrayImage => ({ width: W, height: H, data: new Uint8Array(W * H).fill(255) });
+  const vbar = (img: GrayImage, x: number, y0: number, y1: number): void => {
+    for (let y = y0; y <= y1; y += 1) for (let dx = 0; dx < 2; dx += 1) img.data[y * W + (x + dx)] = 0;
+  };
+  const rule = (img: GrayImage): void => {
+    for (let x = 0; x < W; x += 1) for (let dy = 0; dy < 2; dy += 1) img.data[(RULE_Y + dy) * W + x] = 0;
+  };
+  const isInk = (img: GrayImage, x: number, y: number): boolean => img.data[y * W + x] < 128;
+
+  // A word resting on the baseline: letter bodies at x≈20..60, plus a
+  // descender at x=40 that dips below the rule.
+  const scene = (): GrayImage => {
+    const img = blank();
+    for (let x = 20; x <= 60; x += 8) vbar(img, x, 14, RULE_Y); // bodies sit on the line
+    vbar(img, 40, 14, 36); // descender crosses the rule and continues below
+    rule(img);
+    return img;
+  };
+
+  it('erases the bare rule in the gaps beyond the word', () => {
+    const cleaned = removeHorizontalRule(scene());
+    expect(isInk(cleaned, 95, RULE_Y)).toBe(false); // bare rule, no stroke above/below
+    expect(isInk(cleaned, 95, RULE_Y + 1)).toBe(false);
+  });
+
+  it('preserves a descender that crosses the rule', () => {
+    const cleaned = removeHorizontalRule(scene());
+    expect(isInk(cleaned, 40, RULE_Y)).toBe(true); // supported above and below — kept
+    expect(isInk(cleaned, 40, 34)).toBe(true); // the descender tail below the line
+  });
+
+  it('leaves the letter bodies above the line intact', () => {
+    const cleaned = removeHorizontalRule(scene());
+    expect(isInk(cleaned, 20, 20)).toBe(true);
+    expect(isInk(cleaned, 28, 20)).toBe(true);
+  });
+
+  it('does not alter a crop with no long horizontal rule', () => {
+    const img = blank();
+    for (let x = 20; x <= 60; x += 8) vbar(img, x, 14, 28); // handwriting only
+    const before = Uint8Array.from(img.data);
+    const cleaned = removeHorizontalRule(img);
+    expect(cleaned.data).toEqual(before);
   });
 });
 

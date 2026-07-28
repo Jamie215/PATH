@@ -5,13 +5,15 @@
  * TrOCR reads one line at a time, which suits the few-word fields we recognize.
  * Multi-line boxes (comments) are intentionally NOT sent here — they're slow
  * and low-value to recognize; the reader flags them as written-in and the
- * reviewer types them. The crop is contrast-stretched, padded, and upscaled
- * before recognition. Everything is best-effort: any failure resolves to ''.
+ * reviewer types them. The crop has its printed fill-in rule stripped, then is
+ * contrast-stretched, padded, and upscaled before recognition. Everything is
+ * best-effort: any failure resolves to ''.
  *
  * Runs entirely in the browser — the patient's handwriting never leaves the
  * device.
  */
 import type { GrayImage } from './types';
+import { removeHorizontalRule } from './reader';
 
 type Recognizer = (
   input: string,
@@ -55,7 +57,10 @@ async function getRecognizer(): Promise<Recognizer> {
 /** Contrast-stretch a crop, pad it with white, upscale it, and return a PNG
  *  data URL suitable for the recognizer. Browser-only (uses a canvas). */
 function preprocess(img: GrayImage): string {
-  const { width: W, height: H, data } = img;
+  // Strip the printed fill-in rule first, so the recognizer sees only the
+  // handwriting — the crop deliberately reaches below the baseline to keep
+  // descenders, which pulls the underline into frame.
+  const { width: W, height: H, data } = removeHorizontalRule(img);
   const padV = 8;
   const padH = 12;
 

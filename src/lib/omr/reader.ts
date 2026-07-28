@@ -241,6 +241,90 @@ export function detectStrikethrough(img: GrayImage): boolean {
   return bestRun >= inkW * 0.6 && bestRun >= inkH * 2.0;
 }
 
+/**
+ * Remove a printed horizontal rule (the fill-in blank's underline) from a
+ * single-line crop before OCR, so the recognizer doesn't read the line as an
+ * extra stroke that merges letters or trails as a dash.
+ *
+ * Finds a thin band, in the lower part of the crop, whose rows are one long
+ * continuous horizontal ink run, then clears only the rule pixels that are NOT
+ * crossed by a vertical stroke: a descender (g, y, p, q, j) passing through
+ * the line has ink both above and below the band and is preserved, while the
+ * bare rule (and the stretch of it between and beyond letters) is erased.
+ *
+ * Returns a cleaned copy; the input is untouched. Conservative — if no
+ * rule-like band is found it returns an unchanged copy.
+ */
+export function removeHorizontalRule(img: GrayImage): GrayImage {
+  const { width: W, height: H, data } = img;
+  const out = new Uint8Array(data); // work on a copy; never mutate the input
+  const result: GrayImage = { width: W, height: H, data: out };
+  if (W < 12 || H < 8) return result;
+
+  const threshold = otsuThreshold(img);
+  const ink = new Uint8Array(W * H);
+  for (let i = 0; i < data.length; i += 1) if (data[i] <= threshold) ink[i] = 1;
+
+  // A rule row is one long horizontal run spanning most of the crop width.
+  const minRun = Math.round(W * 0.5);
+  const isRuleRow = new Uint8Array(H);
+  for (let y = 0; y < H; y += 1) {
+    let run = 0;
+    let best = 0;
+    for (let x = 0; x < W; x += 1) {
+      if (ink[y * W + x]) {
+        run += 1;
+        if (run > best) best = run;
+      } else {
+        run = 0;
+      }
+    }
+    if (best >= minRun) isRuleRow[y] = 1;
+  }
+
+  const maxThick = Math.max(2, Math.round(H * 0.12));
+  const supportGap = Math.max(2, Math.round(H * 0.1));
+
+  let y = 0;
+  while (y < H) {
+    if (!isRuleRow[y]) {
+      y += 1;
+      continue;
+    }
+    const r0 = y;
+    let r1 = y;
+    while (r1 + 1 < H && isRuleRow[r1 + 1]) r1 += 1;
+    const center = (r0 + r1) / 2;
+    // A printed rule is thin and sits at/below the baseline (lower part of the
+    // crop). Skip thick bands (dense text) or high ones (a strikethrough).
+    if (r1 - r0 + 1 <= maxThick && center >= H * 0.45) {
+      for (let x = 0; x < W; x += 1) {
+        let above = false;
+        for (let k = 1; k <= supportGap && r0 - k >= 0; k += 1) {
+          if (ink[(r0 - k) * W + x]) {
+            above = true;
+            break;
+          }
+        }
+        let below = false;
+        for (let k = 1; k <= supportGap && r1 + k < H; k += 1) {
+          if (ink[(r1 + k) * W + x]) {
+            below = true;
+            break;
+          }
+        }
+        if (above && below) continue; // a stroke crosses the line here — keep it
+        for (let ry = r0; ry <= r1; ry += 1) {
+          if (ink[ry * W + x]) out[ry * W + x] = 255; // erase the bare rule
+        }
+      }
+    }
+    y = r1 + 1;
+  }
+
+  return result;
+}
+
 /** Crop each declared free-text region from the flattened sheet, flagging
  *  which ones appear to have handwriting in them. */
 function cropTextFields(
