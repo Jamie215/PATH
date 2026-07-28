@@ -21,7 +21,6 @@
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
   import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
-  import { detectStrikethrough } from '../lib/omr/reader';
   import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import {
@@ -69,9 +68,6 @@
     /** The scanned area/comments regions had ink, so the reviewer must fill them. */
     requireArea?: boolean;
     requireComments?: boolean;
-    /** The scanned bothersome-area region looks crossed out, so the OCR text is
-     *  unreliable and the reviewer is asked to type the final answer. */
-    areaStruck?: boolean;
     /** The review is of a scanned sheet (open text fields are handwriting). */
     fromScan?: boolean;
     attention: string[];
@@ -234,10 +230,6 @@
       // actually have ink. Multi-line boxes (comments) are slow and low-value
       // to OCR, so we skip them and require the reviewer to type them in.
       const ocrCrops = crops?.filter((c) => c.kind === 'line' && c.hasInk);
-      // A crossed-out bothersome area means the recognized text can't be
-      // trusted, so don't pre-fill it — flag it for the reviewer to retype.
-      const areaStruck =
-        crops?.some((c) => c.key === 'bothersome_area' && c.hasInk && detectStrikethrough(c.image)) ?? false;
       omrReview = {
         child,
         imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
@@ -250,7 +242,6 @@
         // wasn't recognized.
         requireArea: crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
         requireComments: crops?.some((c) => c.key === 'other_comments' && c.hasInk),
-        areaStruck,
         fromScan: !isPdf,
         attention: result.attention,
       };
@@ -278,11 +269,7 @@
     for (const c of crops) {
       const text = await recognizeHandwriting(c.image);
       if (!omrReview) return; // review was closed mid-recognition
-      // Skip pre-filling a crossed-out area — the recognized text would include
-      // the struck word; the reviewer retypes it instead.
-      if (text && c.key === 'bothersome_area' && !omrReview.areaStruck) {
-        omrReview = { ...omrReview, area: text };
-      }
+      if (text && c.key === 'bothersome_area') omrReview = { ...omrReview, area: text };
     }
     if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
   }
@@ -535,7 +522,6 @@
                 initialComments={rv.comments}
                 requireArea={rv.requireArea}
                 requireComments={rv.requireComments}
-                areaStruck={rv.areaStruck}
                 highlightArea={rv.fromScan}
                 highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
