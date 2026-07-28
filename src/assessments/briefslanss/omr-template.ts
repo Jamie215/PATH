@@ -15,7 +15,7 @@ export const BRIEFSLANSS_OMR_TEMPLATE = buildSingleGroupTemplate({
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
   sectionTitle: 'In your painful area, do you also experience…',
-  groupLabel: 'Your answer',
+  groupLabel: '',
   optionHeaders: EXPERIENCE_OPTIONS.map((o) => o.label),
   optionValues: EXPERIENCE_OPTIONS.map((o) => o.value),
   legend: [],

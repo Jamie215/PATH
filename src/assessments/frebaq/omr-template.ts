@@ -18,7 +18,7 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   sectionTitle: 'With your bothersome area in mind, how often do you experience the following?',
   preamble: 'The part of my body that has been bothering me the most is my:',
   preambleField: { key: 'bothersome_area', hint: 'e.g., right knee, left hand, neck' },
-  groupLabel: 'How often?',
+  groupLabel: '',
   // Word labels sit directly under each bubble (a self-describing radio group),
   // so no separate 0–4 decode legend is needed.
   optionHeaders: EXPERIENCE_OPTIONS.map((o) => o.label),
