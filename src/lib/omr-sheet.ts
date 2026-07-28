@@ -13,8 +13,8 @@
  * quiet margins, and four solid corner fiducials, all chosen to survive a
  * phone photo and re-register cleanly during reading.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
-import type { OmrTemplate, OmrSection } from '../assessments/omr/types';
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFForm } from 'pdf-lib';
+import type { OmrTemplate, OmrSection, OmrColumnGroup } from '../assessments/omr/types';
 
 const COLOR_INK = rgb(0, 0, 0);
 const COLOR_TEXT = rgb(0.12, 0.12, 0.12);
@@ -28,7 +28,9 @@ const COLOR_TINT_BORDER = rgb(0.82, 0.76, 0.9); // callout border
 const MARGIN_X = 50;
 
 interface Ctx {
+  doc: PDFDocument;
   page: PDFPage;
+  form: PDFForm;
   font: PDFFont;
   fontBold: PDFFont;
   pageW: number;
@@ -72,6 +74,30 @@ function drawCentered(
   ctx.page.drawText(text, { x: centerXpt - w / 2, y: yPt, size, font, color });
 }
 
+/**
+ * Draw a small example bubble at a point baseline, illustrating how a mark
+ * should look. `kind` picks the correctly-filled disc, an empty bubble, or a
+ * crossed-out (changed-answer) bubble. Returns nothing — purely decorative.
+ */
+function drawBubbleGlyph(
+  ctx: Ctx,
+  cxPt: number,
+  cyPt: number,
+  kind: 'filled' | 'empty' | 'crossed',
+  radiusPt = 5,
+): void {
+  ctx.page.drawCircle({ x: cxPt, y: cyPt, size: radiusPt, borderColor: COLOR_INK, borderWidth: 1 });
+  if (kind === 'filled') {
+    // A firm, complete mark: a solid disc that nearly fills the ring.
+    ctx.page.drawCircle({ x: cxPt, y: cyPt, size: radiusPt - 1.4, color: COLOR_INK });
+  } else if (kind === 'crossed') {
+    // A cancelled bubble: an X drawn across it, matching the "cross out" rule.
+    const d = radiusPt + 1.5;
+    ctx.page.drawLine({ start: { x: cxPt - d, y: cyPt - d }, end: { x: cxPt + d, y: cyPt + d }, thickness: 1, color: COLOR_INK });
+    ctx.page.drawLine({ start: { x: cxPt - d, y: cyPt + d }, end: { x: cxPt + d, y: cyPt - d }, thickness: 1, color: COLOR_INK });
+  }
+}
+
 export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`${template.title} — Answer Sheet`);
@@ -83,9 +109,12 @@ export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8A
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const page = doc.addPage([template.page.width, template.page.height]);
+  const form = doc.getForm();
 
   const ctx: Ctx = {
+    doc,
     page,
+    form,
     font,
     fontBold,
     pageW: template.page.width,
@@ -96,6 +125,7 @@ export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8A
   drawHeader(ctx, template);
   for (const section of template.sections) drawSection(ctx, section, template);
   drawFooter(ctx, template);
+  drawCommentBox(ctx, template);
 
   return doc.save();
 }
@@ -157,24 +187,30 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
     font: ctx.fontBold,
     color: COLOR_INK,
   });
-  ctx.page.drawText(template.subtitle, {
-    x: MARGIN_X,
-    y: at(98),
-    size: 10.5,
-    font: ctx.font,
-    color: COLOR_MUTED,
-  });
+  // Subtitle is optional; when omitted, the instructions box moves up to
+  // reclaim the space (used by MSI to fit its grid + comments on one page).
+  const hasSubtitle = template.subtitle.trim().length > 0;
+  if (hasSubtitle) {
+    ctx.page.drawText(template.subtitle, {
+      x: MARGIN_X,
+      y: at(98),
+      size: 10.5,
+      font: ctx.font,
+      color: COLOR_MUTED,
+    });
+  }
 
   // Instructions callout — a tinted, bordered panel so the fill-out rules
   // read as important, not fine print. Each instruction wraps within the box
   // so long lines don't spill past the border. Sits above the bubble grid, so
   // the background never touches a mark the reader has to sample.
-  const boxTop = 116;
+  const boxTop = hasSubtitle ? 116 : 100;
   const lineGap = 16;
+  const exampleRowH = 22; // "How to mark" reference row at the box bottom
   const textWidth = contentW - 40; // bullet indent + right padding
   const wrapped = template.instructions.map((line) => wrapText(line, textWidth, ctx.font, 9.5));
   const totalLines = wrapped.reduce((n, lines) => n + lines.length, 0);
-  const boxHeight = 34 + totalLines * lineGap;
+  const boxHeight = 34 + totalLines * lineGap + exampleRowH;
   ctx.page.drawRectangle({
     x: MARGIN_X,
     y: at(boxTop + boxHeight),
@@ -203,21 +239,56 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
     });
   }
 
-  // Freeform patient / date line (not machine-read).
+  // "How to mark" reference: show a correctly-filled bubble and a crossed-out
+  // (changed-answer) one, so respondents can see the intended marks at a glance.
+  const exY = at(boxTop + 38 + totalLines * lineGap + 4);
+  ctx.page.drawText('How to mark:', { x: MARGIN_X + 14, y: exY, size: 9.5, font: ctx.fontBold, color: COLOR_PRIMARY });
+  let exX = MARGIN_X + 14 + ctx.fontBold.widthOfTextAtSize('How to mark:', 9.5) + 14;
+  drawBubbleGlyph(ctx, exX + 5, exY + 3, 'filled');
+  ctx.page.drawText('Fill completely', { x: exX + 15, y: exY, size: 9.5, font: ctx.font, color: COLOR_TEXT });
+  exX += 15 + ctx.font.widthOfTextAtSize('Fill completely', 9.5) + 22;
+  drawBubbleGlyph(ctx, exX + 5, exY + 3, 'crossed');
+  ctx.page.drawText('Cross out to change', { x: exX + 16, y: exY, size: 9.5, font: ctx.font, color: COLOR_TEXT });
+
+  // Patient / date line: printed labels with interactive, typeable fields
+  // (underlined so a hand-filled printout looks the same). Not machine-read
+  // from a scan; captured only when the PDF is filled on a computer.
   const nameY = at(boxTop + boxHeight + 30);
-  ctx.page.drawText('Name / ID: ______________________________', {
-    x: MARGIN_X,
-    y: nameY,
-    size: 9.5,
+  const nameLabel = 'Name / ID:';
+  const dateLabel = 'Date:';
+  const nameLabelW = ctx.font.widthOfTextAtSize(nameLabel, 9.5);
+  const dateLabelW = ctx.font.widthOfTextAtSize(dateLabel, 9.5);
+  const dateFieldW = 110;
+  const dateLabelX = ctx.pageW - MARGIN_X - dateFieldW - dateLabelW - 8;
+  const nameFieldX = MARGIN_X + nameLabelW + 8;
+  const nameFieldW = dateLabelX - nameFieldX - 24;
+
+  ctx.page.drawText(nameLabel, { x: MARGIN_X, y: nameY, size: 9.5, font: ctx.font, color: COLOR_INK });
+  drawUnderlinedField(ctx, 'patient_name', nameFieldX, nameY, nameFieldW);
+  ctx.page.drawText(dateLabel, { x: dateLabelX, y: nameY, size: 9.5, font: ctx.font, color: COLOR_INK });
+  drawUnderlinedField(ctx, 'patient_date', dateLabelX + dateLabelW + 8, nameY, dateFieldW);
+}
+
+/** A single-line interactive text field drawn as an underline, so the printed
+ *  sheet reads like a fill-in blank but the PDF is typeable on a computer. */
+function drawUnderlinedField(ctx: Ctx, name: string, xPt: number, baselineYpt: number, widthPt: number): void {
+  const field = ctx.form.createTextField(name);
+  field.setText('');
+  field.addToPage(ctx.page, {
+    x: xPt,
+    y: baselineYpt - 3,
+    width: widthPt,
+    height: 13,
+    borderWidth: 0,
     font: ctx.font,
-    color: COLOR_INK,
+    textColor: COLOR_INK,
   });
-  ctx.page.drawText('Date: ________________', {
-    x: ctx.pageW - MARGIN_X - 150,
-    y: nameY,
-    size: 9.5,
-    font: ctx.font,
-    color: COLOR_INK,
+  field.setFontSize(10);
+  ctx.page.drawLine({
+    start: { x: xPt, y: baselineYpt - 4 },
+    end: { x: xPt + widthPt, y: baselineYpt - 4 },
+    thickness: 0.75,
+    color: COLOR_SUBTLE,
   });
 }
 
@@ -247,18 +318,43 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
       : 40;
   const topGap = Math.max(14, rowGapPt / 2);
   const ruleY = firstRowYpt + topGap;
-  const optionHeadersY = ruleY + 10;
-  const groupHeaderY = ruleY + 28;
 
-  // Group header + per-column option headers.
-  for (const group of section.columnGroups) {
+  // Per-column option headers wrap to their column width, so word labels
+  // (e.g. FreBAQ's "Occasionally", PHQ-4's "More than half the days") can sit
+  // directly under each bubble as a self-describing radio group instead of
+  // relying on a separate decode legend. Short/number headers stay one line.
+  const HEADER_SIZE = 9;
+  const HEADER_LH = 10;
+  const columnWidthPt = (group: OmrColumnGroup): number => {
+    if (group.columnX.length < 2) return 60;
+    let min = Infinity;
+    for (let i = 1; i < group.columnX.length; i += 1) {
+      min = Math.min(min, (group.columnX[i] - group.columnX[i - 1]) * ctx.pageW);
+    }
+    return min;
+  };
+  const wrappedHeaders = section.columnGroups.map((g) => {
+    const w = columnWidthPt(g) - 6;
+    return g.optionHeaders.map((h) => wrapText(h, w, ctx.font, HEADER_SIZE));
+  });
+  const maxHeaderLines = Math.max(1, ...wrappedHeaders.flat().map((l) => l.length));
+
+  const headersBottomY = ruleY + 8; // baseline of the lowest header line
+  const groupHeaderY = headersBottomY + maxHeaderLines * HEADER_LH + 6;
+
+  // Group heading, then each column's (possibly multi-line) header stacked
+  // upward from just above the rule.
+  section.columnGroups.forEach((group, gi) => {
     const centerX =
       (toX(ctx, group.columnX[0]) + toX(ctx, group.columnX[group.columnX.length - 1])) / 2;
     drawCentered(ctx, group.label, centerX, groupHeaderY, 10, ctx.fontBold, COLOR_PRIMARY);
-    group.optionHeaders.forEach((h, i) => {
-      drawCentered(ctx, h, toX(ctx, group.columnX[i]), optionHeadersY, 9, ctx.font, COLOR_MUTED);
+    wrappedHeaders[gi].forEach((lines, i) => {
+      lines.forEach((line, k) => {
+        const y = headersBottomY + (lines.length - 1 - k) * HEADER_LH;
+        drawCentered(ctx, line, toX(ctx, group.columnX[i]), y, HEADER_SIZE, ctx.font, COLOR_MUTED);
+      });
     });
-  }
+  });
 
   // Legend lines above the group header, then the section title, then an
   // optional wrapped preamble above that.
@@ -266,21 +362,43 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   section.legend.forEach((line, k) => {
     ctx.page.drawText(line, { x: MARGIN_X, y: legendTopY - k * 12, size: 8.5, font: ctx.font, color: COLOR_MUTED });
   });
-  // Section title (wraps for long headings), bottom line at titleY.
+  // Section title (wraps for long headings), bottom line at titleY. Optional:
+  // an empty title is skipped and reserves no space, letting the grid sit
+  // higher (used by MSI's single-page layout).
   const titleY = section.legend.length ? legendTopY + 16 : groupHeaderY + 18;
-  const titleLines = wrapText(section.title, contentW, ctx.fontBold, 13);
-  const titleTopY = titleY + (titleLines.length - 1) * 15;
+  const titleLines = section.title.trim().length ? wrapText(section.title, contentW, ctx.fontBold, 13) : [];
+  const titleTopY = titleY + Math.max(0, titleLines.length - 1) * 15;
   titleLines.forEach((line, k) => {
     ctx.page.drawText(line, { x: MARGIN_X, y: titleTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
   });
   if (section.preamble) {
     // Same treatment as the section title (bold, dark), reading as a heading,
-    // with a blank-line gap so the two sentences don't run together.
+    // with a blank-line gap so the two sentences don't run together. When the
+    // preamble asks for a short answer, reserve a line under it for an
+    // interactive fill-in blank.
     const preLines = wrapText(section.preamble, contentW, ctx.fontBold, 13);
-    const preTopY = titleTopY + 34 + (preLines.length - 1) * 15;
+    const fieldRoom = section.preambleField ? 26 : 0;
+    const preTopY = titleTopY + 34 + fieldRoom + (preLines.length - 1) * 15;
     preLines.forEach((line, k) => {
       ctx.page.drawText(line, { x: MARGIN_X, y: preTopY - k * 15, size: 13, font: ctx.fontBold, color: COLOR_INK });
     });
+    if (section.preambleField) {
+      const preBottomY = preTopY - (preLines.length - 1) * 15; // last preamble line
+      const fieldBaselineY = preBottomY - 20;
+      const hintText = section.preambleField.hint ? `(${section.preambleField.hint})` : '';
+      const hintW = hintText ? ctx.font.widthOfTextAtSize(hintText, 9) + 12 : 0;
+      const fieldW = Math.min(280, contentW - hintW - 8);
+      drawUnderlinedField(ctx, section.preambleField.key, MARGIN_X, fieldBaselineY, fieldW);
+      if (hintText) {
+        ctx.page.drawText(hintText, {
+          x: MARGIN_X + fieldW + 12,
+          y: fieldBaselineY,
+          size: 9,
+          font: ctx.font,
+          color: COLOR_MUTED,
+        });
+      }
+    }
   }
 
   // Light divider between two column groups, plus the header rule.
@@ -345,13 +463,26 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
     });
 
     for (const field of row.fields) {
+      // One radio group per field: the bubbles are mutually exclusive, so the
+      // sheet reads as a proper radio-button group and can be filled on-screen.
+      // Each group name is the field's scorer key, which is unique per sheet.
+      const group = ctx.form.createRadioGroup(field.key);
       for (const bubble of field.bubbles) {
-        ctx.page.drawCircle({
-          x: toX(ctx, bubble.center.x),
-          y: toY(ctx, bubble.center.y),
-          size: radiusPt,
-          borderColor: COLOR_INK,
-          borderWidth: 1,
+        const cx = toX(ctx, bubble.center.x);
+        const cy = toY(ctx, bubble.center.y);
+        // Printed bubble outline — the single truth the reader samples; left
+        // exactly as before so hand-filled, printed, and scanned sheets are
+        // unchanged.
+        ctx.page.drawCircle({ x: cx, y: cy, size: radiusPt, borderColor: COLOR_INK, borderWidth: 1 });
+        // Interactive radio widget overlaid on the same spot. Borderless, so a
+        // blank sheet looks identical on paper; selecting on-screen draws a
+        // centered dot inside the printed ring.
+        group.addOptionToPage(String(bubble.value), ctx.page, {
+          x: cx - radiusPt,
+          y: cy - radiusPt,
+          width: radiusPt * 2,
+          height: radiusPt * 2,
+          borderWidth: 0,
         });
       }
     }
@@ -370,13 +501,101 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
 }
 
 function drawFooter(ctx: Ctx, template: OmrTemplate): void {
+  drawFooterOn(ctx, ctx.page, template);
+}
+
+function drawFooterOn(ctx: Ctx, page: PDFPage, template: OmrTemplate): void {
   const text = `${template.title} · Form ${template.id} · Generated by PATH — fill by hand, then scan`;
   const w = ctx.font.widthOfTextAtSize(text, 7.5);
-  ctx.page.drawText(text, {
+  page.drawText(text, {
     x: (ctx.pageW - w) / 2,
     y: 28,
     size: 7.5,
     font: ctx.font,
     color: COLOR_SUBTLE,
   });
+}
+
+/**
+ * An interactive multi-line "Comments (optional)" box, mirroring the free-text
+ * field on the on-screen surveys (its `other_comments` key matches, so a
+ * computer-filled sheet flows into the same place). Placed below the answer
+ * grid when there's room; on a grid that fills the page (MSI), it spills onto
+ * a second page so it never crowds the last rows or the fiducials.
+ */
+function drawCommentBox(ctx: Ctx, template: OmrTemplate): void {
+  const allY = template.sections.flatMap((s) =>
+    s.rows.flatMap((r) => r.fields.flatMap((f) => f.bubbles.map((b) => b.center.y))),
+  );
+  const radiusPt = template.bubbleRadius * ctx.pageW || RADIUS_TO_CONTENT;
+  const gridBottomYpt = toY(ctx, Math.max(...allY)) - radiusPt;
+
+  const contentW = ctx.pageW - 2 * MARGIN_X;
+  const labelGap = 6; // between label and box
+  // Gap between the grid and the label. Generous, because a row's wrapped text
+  // can descend below its bubble centers (which is what `gridBottomYpt` tracks).
+  const gapAboveLabel = 30;
+  const MAX_BOX_H = 56;
+  const MIN_BOX_H = 40;
+  // Keep the box clear of the bottom-left orientation mark and corner
+  // fiducials, so a written comment can never obscure a registration mark on
+  // the scannable page.
+  const SAFE_BOTTOM_Y = 68;
+
+  // How tall a box fits under the grid on this page, before overflowing.
+  const fitBoxH = gridBottomYpt - SAFE_BOTTOM_Y - gapAboveLabel - labelGap;
+
+  let page = ctx.page;
+  let boxH: number;
+  let labelBaselineY: number;
+  if (fitBoxH >= MIN_BOX_H) {
+    boxH = Math.min(fitBoxH, MAX_BOX_H);
+    labelBaselineY = gridBottomYpt - gapAboveLabel;
+  } else {
+    // A grid that fills the page (MSI) leaves no safe room — give comments
+    // their own page, at full height.
+    boxH = MAX_BOX_H;
+    page = ctx.doc.addPage([ctx.pageW, ctx.pageH]);
+    page.drawText('PATH', { x: MARGIN_X, y: ctx.pageH - 60, size: 13, font: ctx.fontBold, color: COLOR_PRIMARY });
+    page.drawText(`${template.title} — Comments`, {
+      x: MARGIN_X,
+      y: ctx.pageH - 88,
+      size: 13,
+      font: ctx.fontBold,
+      color: COLOR_INK,
+    });
+    drawFooterOn(ctx, page, template);
+    labelBaselineY = ctx.pageH - 120;
+  }
+
+  page.drawText('Comments (optional)', {
+    x: MARGIN_X,
+    y: labelBaselineY,
+    size: 9.5,
+    font: ctx.fontBold,
+    color: COLOR_PRIMARY,
+  });
+  const boxTopY = labelBaselineY - labelGap;
+  page.drawRectangle({
+    x: MARGIN_X,
+    y: boxTopY - boxH,
+    width: contentW,
+    height: boxH,
+    borderColor: COLOR_TINT_BORDER,
+    borderWidth: 1,
+  });
+
+  const field = ctx.form.createTextField('other_comments');
+  field.setText('');
+  field.enableMultiline();
+  field.addToPage(page, {
+    x: MARGIN_X + 4,
+    y: boxTopY - boxH + 4,
+    width: contentW - 8,
+    height: boxH - 8,
+    borderWidth: 0,
+    font: ctx.font,
+    textColor: COLOR_INK,
+  });
+  field.setFontSize(10);
 }

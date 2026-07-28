@@ -42,11 +42,11 @@ const FREQ_X = [276, 313, 350, 387];
  *  one run. Nudged left so the larger "Extremely" label stays in the margin. */
 const INT_X = [426, 463, 500, 537];
 
-/** First row's bubble center, and spacing between successive rows.
- *  Generous spacing: the grid sits below a taller header and spreads down
- *  the page so every row has room to breathe. */
-const FIRST_ROW_Y = 336;
-const ROW_SPACING = 42;
+/** First row's bubble center, and spacing between successive rows. Tightened
+ *  so all ten rows plus a comment box fit on one page — made possible by
+ *  dropping the subtitle, one instruction, and the "Symptoms" heading. */
+const FIRST_ROW_Y = 307;
+const ROW_SPACING = 36;
 
 // Smaller bubble: a thin pen fills a larger fraction of a small circle, so a
 // quick firm mark registers without edge-to-edge inking.
@@ -117,11 +117,10 @@ const INT_GROUP: OmrColumnGroup = {
 export const MSI_OMR_TEMPLATE: OmrTemplate = {
   id: 'msi-v1',
   title: 'Multi-Dimensional Symptom Index',
-  subtitle: 'Scannable Form',
+  subtitle: '',
   instructions: [
     'For each symptom, fill in ONE bubble for how OFTEN you experience it, using a dark pen.',
     'If it occurs (more than "Never"), also fill in ONE bubble for how BOTHERSOME it is.',
-    'Consider only symptoms you believe are due to the condition you are seeking treatment for.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
   page: { width: PAGE_W, height: PAGE_H },
@@ -142,10 +141,15 @@ export const MSI_OMR_TEMPLATE: OmrTemplate = {
   },
   sections: [
     {
-      title: 'Symptoms',
+      title: '',
       legend: [],
       columnGroups: [FREQ_GROUP, INT_GROUP],
       rows: buildRows(),
     },
+  ],
+  // Comment box region (pt, top-left) to crop from a scan for handwriting
+  // recognition — now on page 1, tracking the box the generator draws.
+  scanTextFields: [
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: nx(54), y: ny(676), width: nx(504), height: ny(44) } },
   ],
 };

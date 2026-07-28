@@ -1,0 +1,120 @@
+/**
+ * PDF-form ingest adapter — the "computer-typed" channel for radio answers.
+ *
+ * The scannable answer sheets carry interactive AcroForm radio groups, one
+ * per response field, each named by the field's scorer key (see
+ * `src/lib/omr-sheet.ts`). When someone fills the PDF on a computer instead
+ * of printing it, the answers are already structured data: this reads those
+ * radio selections straight back — no image, no fiducials, no recognition.
+ *
+ * It returns the SAME `OmrReadResult` the scan reader produces (keyed by
+ * scorer key, with identical blank/required-field warnings via the shared
+ * `assembleRow`), so both channels feed one confirmation UI and one scorer.
+ * There is no flattened image (`warped`) because nothing was scanned.
+ */
+import { PDFDocument, PDFRadioGroup, PDFTextField } from 'pdf-lib';
+import type { OmrTemplate } from '../../assessments/omr/types';
+import type { FieldRead, OmrReadResult } from './types';
+import { assembleRow } from './reader';
+
+const fail = (error: string): OmrReadResult => ({
+  ok: false,
+  error,
+  response: {},
+  fields: [],
+  warnings: [],
+  attention: [],
+});
+
+/**
+ * Read a filled interactive answer-sheet PDF against its template.
+ *
+ * DOM-free (pdf-lib runs in Node), so the round trip generate → fill → read
+ * is unit-testable headlessly.
+ */
+export async function readPdfForm(
+  bytes: Uint8Array | ArrayBuffer,
+  template: OmrTemplate,
+): Promise<OmrReadResult> {
+  let doc: PDFDocument;
+  try {
+    doc = await PDFDocument.load(bytes);
+  } catch {
+    return fail('That file is not a readable PDF.');
+  }
+
+  // Index the form's radio groups by name once, and collect any free-text
+  // fields (name/date/comments). A PDF with no AcroForm yields an empty field
+  // list here rather than throwing.
+  const groups = new Map<string, PDFRadioGroup>();
+  const text: Record<string, string> = {};
+  for (const field of doc.getForm().getFields()) {
+    if (field instanceof PDFRadioGroup) {
+      groups.set(field.getName(), field);
+    } else if (field instanceof PDFTextField) {
+      const value = field.getText()?.trim();
+      if (value) text[field.getName()] = value;
+    }
+  }
+  if (groups.size === 0) {
+    return fail(
+      'This PDF has no fillable answer fields. Upload the interactive answer ' +
+        'sheet (the one you fill in on a computer), or upload a photo/scan instead.',
+    );
+  }
+
+  const response: Record<string, number> = {};
+  const fields: FieldRead[] = [];
+  const warnings: string[] = [];
+  const attention: string[] = [];
+  let anySelected = false;
+
+  for (const section of template.sections) {
+    for (const row of section.rows) {
+      const reads: FieldRead[] = row.fields.map((field): FieldRead => {
+        const selected = groups.get(field.key)?.getSelected();
+        // Map the selected export value back to its bubble value, so we honor
+        // whatever the template encoded rather than assuming a plain integer.
+        const bubble =
+          selected != null ? field.bubbles.find((b) => String(b.value) === selected) : undefined;
+        const value = bubble ? bubble.value : null;
+        if (value !== null) anySelected = true;
+        // A radio group holds at most one selection, so a filled field is
+        // unambiguous and a missing one is simply blank — never 'ambiguous'.
+        return {
+          key: field.key,
+          value,
+          darknesses: [],
+          confidence: value !== null ? 1 : 0,
+          status: value !== null ? 'ok' : 'blank',
+        };
+      });
+      for (const r of reads) fields.push(r);
+      assembleRow(row.label, reads, response, warnings, attention);
+    }
+  }
+
+  if (!anySelected) {
+    return fail(
+      'This PDF form has no answers filled in yet. Fill in the bubbles on a ' +
+        'computer and save the PDF, then upload it — or upload a photo/scan.',
+    );
+  }
+
+  return {
+    ok: true,
+    response,
+    fields,
+    warnings,
+    attention,
+    text: Object.keys(text).length ? text : undefined,
+  };
+}
+
+/** Convenience: read a filled interactive PDF straight from a File/Blob. */
+export async function readPdfFormFromBlob(
+  blob: Blob,
+  template: OmrTemplate,
+): Promise<OmrReadResult> {
+  return readPdfForm(await blob.arrayBuffer(), template);
+}

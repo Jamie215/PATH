@@ -26,6 +26,12 @@
     showProgress = true,
     progress = $bindable(0),
     initialAnswers,
+    initialArea,
+    initialComments,
+    requireArea,
+    requireComments,
+    highlightArea,
+    highlightComments,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -36,6 +42,16 @@
     progress?: number;
     /** Pre-fill answers (e.g. from an OMR-scanned sheet being confirmed). */
     initialAnswers?: Record<string, number>;
+    /** Pre-fill the bothersome-area text (e.g. from a filled/scanned sheet). */
+    initialArea?: string;
+    /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
+    initialComments?: string;
+    /** Require the reviewer to fill these in (the scanned region had ink). */
+    requireArea?: boolean;
+    requireComments?: boolean;
+    /** Highlight these as handwriting to verify (a scanned-sheet review). */
+    highlightArea?: boolean;
+    highlightComments?: boolean;
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();
@@ -45,7 +61,8 @@
   let answers = $state<Partial<Record<AnswerKey, number>>>({
     ...(initialAnswers as Partial<Record<AnswerKey, number>> | undefined),
   });
-  let comments = $state('');
+  let area = $state(initialArea ?? '');
+  let comments = $state(initialComments ?? '');
   let submitAttempted = $state(false);
 
   function setAnswer(key: AnswerKey, value: number): void {
@@ -61,6 +78,10 @@
   );
 
   const isComplete = $derived(missing.length === 0);
+
+  // Text fields the reviewer must fill because the scanned region had ink.
+  const areaMissing = $derived(submitAttempted && !!requireArea && area.trim().length === 0);
+  const commentsMissing = $derived(submitAttempted && !!requireComments && comments.trim().length === 0);
 
   const totalQuestions = QUESTIONS.length;
   const answeredQuestions = $derived(
@@ -83,10 +104,18 @@
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    if ((requireArea && !area.trim()) || (requireComments && !comments.trim())) {
+      const id = requireArea && !area.trim() ? 'bothersome_area' : 'other_comments';
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
 
     const response: Record<string, number | string> = {
       ...(answers as Record<string, number>),
     };
+    if (area.trim().length > 0) {
+      response.bothersome_area = area.trim();
+    }
     if (comments.trim().length > 0) {
       response.other_comments = comments.trim();
     }
@@ -115,6 +144,27 @@
   <p class="survey__intro">
     For each item below, rate your experience in the area of interest.
   </p>
+
+  <div class="area">
+    <label for="bothersome_area" class="area__label">
+      The part of my body that has been bothering me the most is:
+      {#if requireArea}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
+    </label>
+    <input
+      id="bothersome_area"
+      class="area__input"
+      class:field--error={areaMissing}
+      class:field--flagged={highlightArea && !areaMissing}
+      type="text"
+      bind:value={area}
+      placeholder="e.g., right knee, left hand, neck"
+    />
+    {#if areaMissing}
+      <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+    {:else if highlightArea}
+      <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
+    {/if}
+  </div>
 
   <ol class="survey__list">
     {#each QUESTIONS as q, i (q.symptom)}
@@ -157,14 +207,22 @@
   <div class="comments">
     <label for="other_comments" class="comments__label">
       If there is anything you would like to say about these or any other symptoms, please enter below.
+      {#if requireComments}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
     </label>
     <textarea
       id="other_comments"
       class="comments__input"
+      class:field--error={commentsMissing}
+      class:field--flagged={highlightComments && !commentsMissing}
       rows="4"
       bind:value={comments}
-      placeholder="Optional"
+      placeholder={requireComments ? 'Please enter the comment from the scan' : 'Optional'}
     ></textarea>
+    {#if commentsMissing}
+      <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+    {:else if highlightComments}
+      <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
+    {/if}
   </div>
 
   <div class="actions">
@@ -287,6 +345,61 @@
     color: var(--color-danger);
     font-size: 0.9rem;
     margin: var(--space-2) 0 0 0;
+  }
+
+  .req {
+    color: var(--color-danger);
+    font-weight: 700;
+    margin-left: 2px;
+  }
+
+  .field--error {
+    border-color: var(--color-danger) !important;
+  }
+
+  .field__error {
+    color: var(--color-danger);
+    font-size: 0.85rem;
+    margin: var(--space-2) 0 0 0;
+  }
+
+  .field--flagged {
+    border-color: var(--color-warning, #b8860b) !important;
+    background: var(--color-warning-tint, #fdf6e3);
+  }
+
+  .field__hint {
+    color: var(--color-warning, #b8860b);
+    font-size: 0.85rem;
+    margin: var(--space-2) 0 0 0;
+  }
+
+  .area {
+    margin-bottom: var(--space-6);
+  }
+
+  .area__label {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: var(--space-2);
+  }
+
+  .area__input {
+    width: 100%;
+    padding: var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 0.95rem;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .area__input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
   }
 
   .comments {

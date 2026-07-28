@@ -37,6 +37,21 @@ export interface FieldRead {
   status: 'ok' | 'blank' | 'ambiguous';
 }
 
+/** A cropped free-text region from a scan, awaiting handwriting recognition
+ *  and the user's confirmation. */
+export interface OmrTextCrop {
+  /** Response key / AcroForm field name (e.g. `bothersome_area`). */
+  key: string;
+  /** Label for the confirmation UI. */
+  label: string;
+  kind: 'line' | 'box';
+  /** The cropped grayscale image of the handwritten region. */
+  image: GrayImage;
+  /** Whether the region appears to have been written in (ink detected), so the
+   *  confirmation UI can require the reviewer to fill it in. */
+  hasInk: boolean;
+}
+
 /** Full result of reading one sheet. */
 export interface OmrReadResult {
   /** True when the sheet was located (fiducials found) and sampled. */
@@ -45,10 +60,20 @@ export interface OmrReadResult {
   error?: string;
   /** Structured response for the scorer (blank/ignored fields omitted). */
   response: Record<string, number>;
+  /**
+   * Free-text field values recovered from a filled PDF form, keyed by field
+   * name (e.g. `patient_name`, `other_comments`). Absent for scans, which
+   * carry no machine-read text. Empty fields are omitted.
+   */
+  text?: Record<string, string>;
   /** Per-field diagnostics, in template order. */
   fields: FieldRead[];
   /** The flattened, deskewed sheet — for the confirmation UI to display. */
   warped?: GrayImage;
+  /** Cropped free-text regions (from `template.scanTextFields`) for handwriting
+   *  recognition + confirmation. Absent for filled PDFs, which carry exact
+   *  typed text instead. */
+  textCrops?: OmrTextCrop[];
   /** Non-fatal notes (e.g. low-confidence or missing required fields). */
   warnings: string[];
   /**

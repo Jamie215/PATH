@@ -11,7 +11,7 @@
  * rather than guess silently. Thresholds are first-pass defaults to be tuned
  * against real photographed sheets.
  */
-import type { GrayImage, Mat3, Pt, FieldRead, OmrReadResult } from './types';
+import type { GrayImage, Mat3, Pt, FieldRead, OmrReadResult, OmrTextCrop } from './types';
 import type { OmrTemplate, OmrField } from '../../assessments/omr/types';
 import { homographyFromPoints } from './geometry';
 import { warpPerspective, discDarkness, annulusDarkness } from './image';
@@ -107,7 +107,64 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
     }
   }
 
-  return { ok: true, response, fields, warped, warnings, attention };
+  const textCrops = cropTextFields(warped, template, canonW, canonH);
+
+  return { ok: true, response, fields, warped, textCrops, warnings, attention };
+}
+
+/** Extract a rectangular sub-image (pixel coords), clamped to bounds. */
+function cropGray(img: GrayImage, x: number, y: number, w: number, h: number): GrayImage {
+  const x0 = Math.max(0, Math.round(x));
+  const y0 = Math.max(0, Math.round(y));
+  const x1 = Math.min(img.width, Math.round(x + w));
+  const y1 = Math.min(img.height, Math.round(y + h));
+  const cw = Math.max(1, x1 - x0);
+  const ch = Math.max(1, y1 - y0);
+  const data = new Uint8Array(cw * ch);
+  for (let row = 0; row < ch; row += 1) {
+    const src = (y0 + row) * img.width + x0;
+    data.set(img.data.subarray(src, src + cw), row * cw);
+  }
+  return { width: cw, height: ch, data };
+}
+
+/** Fraction of clearly-dark pixels (ink) in a grayscale image. */
+function inkFraction(img: GrayImage): number {
+  if (img.data.length === 0) return 0;
+  let dark = 0;
+  for (let i = 0; i < img.data.length; i += 1) if (img.data[i] < 110) dark += 1;
+  return dark / img.data.length;
+}
+
+/** Above this fraction of dark pixels, a region is treated as written-in.
+ *  Kept low so a light pen still trips it; the cost of a false positive is
+ *  only that the reviewer is asked to confirm an empty field. */
+const INK_MIN_FRACTION = 0.006;
+
+/** Crop each declared free-text region from the flattened sheet, flagging
+ *  which ones appear to have handwriting in them. */
+function cropTextFields(
+  warped: GrayImage,
+  template: OmrTemplate,
+  canonW: number,
+  canonH: number,
+): OmrTextCrop[] {
+  return (template.scanTextFields ?? []).map((f) => {
+    const image = cropGray(
+      warped,
+      f.rect.x * canonW,
+      f.rect.y * canonH,
+      f.rect.width * canonW,
+      f.rect.height * canonH,
+    );
+    return {
+      key: f.key,
+      label: f.label,
+      kind: f.kind,
+      image,
+      hasInk: inkFraction(image) >= INK_MIN_FRACTION,
+    };
+  });
 }
 
 /**
@@ -116,8 +173,12 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
  * `*_freq` is > 0. Rows without that pairing (the shorter assessments) just
  * take each present value. Missing required values become warnings — the
  * confirmation UI resolves them.
+ *
+ * Exported so every ingest channel — the scan reader here and the PDF-form
+ * reader — turns per-field reads into the same response/warnings/attention,
+ * regardless of how each field's value was obtained.
  */
-function assembleRow(
+export function assembleRow(
   label: string,
   reads: FieldRead[],
   response: Record<string, number>,

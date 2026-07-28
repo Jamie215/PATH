@@ -1,7 +1,8 @@
 /**
  * FreBAQ optical-mark answer-sheet template. Six statement items, each a 0–4
- * ordinal scale. Statements are long, so the item column is wide and wraps;
- * the 0–4 columns are headed by value with a decode legend.
+ * ordinal scale. Statements are long but the item column is kept narrow so the
+ * answer columns can carry their word labels (Never…Always) directly under
+ * each bubble, no decode legend needed.
  */
 import { QUESTIONS, EXPERIENCE_OPTIONS } from './questions';
 import { buildSingleGroupTemplate } from '../omr/single-group-template';
@@ -15,14 +16,27 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
   sectionTitle: 'With your bothersome area in mind, how often do you experience the following?',
-  preamble:
-    'The part of my body that has been bothering me the most is my ___________________  (e.g., right knee, left hand, neck).',
+  preamble: 'The part of my body that has been bothering me the most is my:',
+  preambleField: { key: 'bothersome_area', hint: 'e.g., right knee, left hand, neck' },
   groupLabel: 'How often?',
-  optionHeaders: EXPERIENCE_OPTIONS.map((o) => String(o.value)),
+  // Word labels sit directly under each bubble (a self-describing radio group),
+  // so no separate 0–4 decode legend is needed.
+  optionHeaders: EXPERIENCE_OPTIONS.map((o) => o.label),
   optionValues: EXPERIENCE_OPTIONS.map((o) => o.value),
-  legend: [EXPERIENCE_OPTIONS.map((o) => `${o.value} = ${o.label}`).join('     ')],
+  legend: [],
   items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
-  colSpacing: 36,
-  firstRowY: 390,
-  rowSpacing: 52,
+  // Wider answer columns (narrower statement column) so the word labels fit.
+  colSpacing: 46,
+  // Start a little lower so the preamble and its fill-in blank clear the
+  // name/date line; rows are tightened so the comment box still fits below the
+  // grid on the same page (statements are at most three lines, which still fit).
+  firstRowY: 400,
+  rowSpacing: 48,
+  // Regions to crop from a scan for handwriting recognition. Rects (pt,
+  // top-left) must track where the generator draws these fields — see the
+  // preamble blank and comment box in omr-sheet.ts.
+  scanTextFields: [
+    { key: 'bothersome_area', label: 'Most bothersome area', kind: 'line', rect: { x: 46, y: 280, width: 292, height: 16 } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 52, y: 682, width: 508, height: 40 } },
+  ],
 });

@@ -4,6 +4,7 @@ import { warpPerspective } from './image';
 import { homographyFromPoints } from './geometry';
 import { renderSyntheticSheet } from './synth';
 import { MSI_OMR_TEMPLATE as T } from '../../assessments/msi/omr-template';
+import { FREBAQ_OMR_TEMPLATE } from '../../assessments/frebaq/omr-template';
 import { score } from '../../assessments/msi/scoring';
 import type { GrayImage, Pt } from './types';
 
@@ -63,6 +64,31 @@ describe('readSheet — axis-aligned synthetic sheet', () => {
     const r = score(result.response as never);
     expect(Number.isFinite(r.somatic)).toBe(true);
     expect(Number.isFinite(r.nonsomatic)).toBe(true);
+  });
+});
+
+describe('readSheet — free-text field crops', () => {
+  const answers: Record<string, number> = {};
+  for (const row of FREBAQ_OMR_TEMPLATE.sections[0].rows) answers[row.fields[0].key] = 0;
+  const img = renderSyntheticSheet(FREBAQ_OMR_TEMPLATE, answers, 2);
+  const result = readSheet(img, FREBAQ_OMR_TEMPLATE);
+
+  it('returns one crop per declared scan text field', () => {
+    expect(result.ok).toBe(true);
+    expect(result.textCrops?.map((c) => c.key)).toEqual(['bothersome_area', 'other_comments']);
+  });
+
+  it('crops each region at the expected size and preserves its kind', () => {
+    const canonW = FREBAQ_OMR_TEMPLATE.page.width * 2;
+    const canonH = FREBAQ_OMR_TEMPLATE.page.height * 2;
+    for (const field of FREBAQ_OMR_TEMPLATE.scanTextFields ?? []) {
+      const crop = result.textCrops?.find((c) => c.key === field.key);
+      expect(crop).toBeDefined();
+      expect(crop!.kind).toBe(field.kind);
+      expect(Math.abs(crop!.image.width - field.rect.width * canonW)).toBeLessThanOrEqual(2);
+      expect(Math.abs(crop!.image.height - field.rect.height * canonH)).toBeLessThanOrEqual(2);
+      expect(crop!.image.data.length).toBe(crop!.image.width * crop!.image.height);
+    }
   });
 });
 

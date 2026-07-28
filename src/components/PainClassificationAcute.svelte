@@ -20,6 +20,8 @@
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
+  import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
+  import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import {
     ACUTE_CHILDREN,
@@ -34,6 +36,8 @@
   // Per-child working state: numeric field values + an optional comment.
   let values = $state<Record<string, Record<string, number | undefined>>>({});
   let comments = $state<Record<string, string>>({});
+  // Free-text bothersome body region (FreBAQ only), surfaced on the card.
+  let areas = $state<Record<string, string>>({});
   // The child whose questionnaire is currently open in the modal, if any.
   let modalChild = $state<ChildAssessment | null>(null);
   // Completion fraction (0–1) of the open questionnaire, bound from the
@@ -49,9 +53,23 @@
   // The scanned sheet awaiting the user's confirmation.
   let omrReview = $state<{
     child: ChildAssessment;
-    imageUrl: string;
+    /** The flattened scan to check answers against; null for a filled PDF,
+     *  where the answers are exact and there is no image to show. */
+    imageUrl: string | null;
     response: Record<string, number>;
-    warnings: string[];
+    /** Pre-filled bothersome area (FreBAQ), from a filled PDF, OCR, or prior entry. */
+    area?: string;
+    /** Pre-filled comments, from a filled PDF, OCR, or prior entry. */
+    comments?: string;
+    /** Cropped handwriting regions (scan only) shown while OCR runs. */
+    crops?: { key: string; label: string; kind: 'line' | 'box'; dataUrl: string; image: GrayImage; hasInk: boolean }[];
+    /** True while handwriting recognition is still running on the crops. */
+    ocrBusy?: boolean;
+    /** The scanned area/comments regions had ink, so the reviewer must fill them. */
+    requireArea?: boolean;
+    requireComments?: boolean;
+    /** The review is of a scanned sheet (open text fields are handwriting). */
+    fromScan?: boolean;
     attention: string[];
   } | null>(null);
 
@@ -67,6 +85,8 @@
       if (savedValues) values[child.slug] = { ...savedValues };
       const savedComment = storeGet<string>(KEYS.commentPrefix + child.slug);
       if (savedComment) comments[child.slug] = savedComment;
+      const savedResponse = storeGet<Record<string, unknown>>(child.slug + ':response');
+      if (typeof savedResponse?.bothersome_area === 'string') areas[child.slug] = savedResponse.bothersome_area;
     }
     loaded = true;
   });
@@ -129,10 +149,13 @@
     const response = storeGet<Record<string, unknown>>(child.slug + ':response');
     const comment = typeof response?.other_comments === 'string' ? response.other_comments : '';
     if (comment) setComment(child.slug, comment);
+    if (typeof response?.bothersome_area === 'string' && response.bothersome_area) {
+      areas = { ...areas, [child.slug]: response.bothersome_area };
+    }
     modalChild = null;
   }
 
-  /** Open the file picker to upload a scan/photo for a child's OMR sheet. */
+  /** Open the file picker to upload a scan/photo or filled PDF for a child. */
   function startUpload(child: ChildAssessment): void {
     if (!child.omrTemplate || !fileInput) return;
     omrError = null;
@@ -141,7 +164,11 @@
     fileInput.click();
   }
 
-  /** Read the chosen image, then open the confirmation review on success. */
+  /**
+   * Read the chosen file, then open the confirmation review on success.
+   * A PDF is a form filled on a computer — read its radio answers back
+   * exactly; any other file is a scan/photo and goes through OMR.
+   */
   async function onFileChosen(e: Event): Promise<void> {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
@@ -149,27 +176,62 @@
     pendingUploadChild = null;
     if (!file || !child?.omrTemplate) return;
 
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
     omrError = null;
     omrBusy = child.slug;
     try {
-      const result = await readSheetFromBlob(file, child.omrTemplate);
-      if (!result.ok || !result.warped) {
+      const result = isPdf
+        ? await readPdfFormFromBlob(file, child.omrTemplate)
+        : await readSheetFromBlob(file, child.omrTemplate);
+      if (!result.ok) {
         omrError =
-          (result.error ?? 'Could not read the sheet.') +
-          ' Make sure the whole sheet is visible, well-lit, and reasonably flat.';
+          (result.error ?? 'Could not read the file.') +
+          (isPdf ? '' : ' Make sure the whole sheet is visible, well-lit, and reasonably flat.');
         return;
       }
+      // A comment / bothersome area typed into the PDF flows into the same
+      // places a questionnaire's would.
+      if (isPdf && result.text?.other_comments) setComment(child.slug, result.text.other_comments);
+      const pdfArea = isPdf && typeof result.text?.bothersome_area === 'string' ? result.text.bothersome_area : '';
+      if (pdfArea) areas = { ...areas, [child.slug]: pdfArea };
       // Role-gated children (MSI) need their role set before the survey renders.
       if (child.roleKey && role) storeSet(child.roleKey, role);
+      // A scan carries handwriting crops to recognize; a filled PDF carries
+      // exact typed text and no crops.
+      const crops =
+        !isPdf && result.textCrops?.length
+          ? result.textCrops.map((c) => ({
+              key: c.key,
+              label: c.label,
+              kind: c.kind,
+              dataUrl: grayImageToDataURL(c.image),
+              image: c.image,
+              hasInk: c.hasInk,
+            }))
+          : undefined;
+      // Only recognize short single-line fields (the bothersome area) that
+      // actually have ink. Multi-line boxes (comments) are slow and low-value
+      // to OCR, so we skip them and require the reviewer to type them in.
+      const ocrCrops = crops?.filter((c) => c.kind === 'line' && c.hasInk);
       omrReview = {
         child,
-        imageUrl: grayImageToDataURL(result.warped),
+        imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
         response: result.response,
-        warnings: result.warnings,
+        area: pdfArea || areas[child.slug],
+        comments: (isPdf ? result.text?.other_comments : undefined) ?? comments[child.slug],
+        crops: ocrCrops?.length ? ocrCrops : undefined,
+        ocrBusy: !!ocrCrops?.length,
+        // A written-in region must be confirmed by the reviewer even if it
+        // wasn't recognized.
+        requireArea: crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
+        requireComments: crops?.some((c) => c.key === 'other_comments' && c.hasInk),
+        fromScan: !isPdf,
         attention: result.attention,
       };
+      if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
     } catch (err) {
-      omrError = err instanceof Error ? err.message : 'Could not read the sheet.';
+      omrError = err instanceof Error ? err.message : 'Could not read the file.';
     } finally {
       omrBusy = null;
     }
@@ -177,6 +239,28 @@
 
   function closeReview(): void {
     omrReview = null;
+  }
+
+  /**
+   * Recognize handwriting in each cropped region and pre-fill the matching
+   * review field. Best-effort: unrecognized crops just leave the field blank
+   * for manual entry. The survey renders once this finishes (or is skipped).
+   */
+  async function runHandwritingOcr(
+    crops: { key: string; image: GrayImage }[],
+  ): Promise<void> {
+    const { recognizeHandwriting } = await import('../lib/omr/handwriting');
+    for (const c of crops) {
+      const text = await recognizeHandwriting(c.image);
+      if (!omrReview) return; // review was closed mid-recognition
+      if (text && c.key === 'bothersome_area') omrReview = { ...omrReview, area: text };
+    }
+    if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
+  }
+
+  /** Stop waiting on recognition and confirm the answers manually. */
+  function skipOcr(): void {
+    if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
   }
 
   /** The user confirmed the scanned answers via the embedded survey (which
@@ -214,7 +298,7 @@
     <input
       bind:this={fileInput}
       type="file"
-      accept="image/*"
+      accept="image/*,application/pdf"
       class="visually-hidden"
       onchange={onFileChosen}
     />
@@ -239,7 +323,7 @@
                     onclick={() => startUpload(child)}
                     disabled={omrBusy === child.slug}
                   >
-                    {omrBusy === child.slug ? 'Reading scan…' : 'Upload scan / photo'}
+                    {omrBusy === child.slug ? 'Reading…' : 'Upload scan, photo, or PDF'}
                   </button>
                   <OmrSheetButton template={child.omrTemplate} label="Download a copy" compact={true} />
                 {/if}
@@ -247,6 +331,11 @@
             </header>
 
             <div class="card__body">
+            {#if areas[child.slug]}
+              <p class="card__area">
+                <span class="card__area-label">Most bothersome area:</span> {areas[child.slug]}
+              </p>
+            {/if}
             <div class="card__fields">
               {#each child.manualFields as f (f.key)}
                 <label class="field">
@@ -318,13 +407,13 @@
         </header>
         <div class="modal__body">
           {#if child.slug === 'msi'}
-            <MSISurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <MSISurvey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'briefslanss'}
-            <BriefSLANSSSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <BriefSLANSSSurvey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'frebaq'}
-            <FreBAQSurvey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <FreBAQSurvey initialArea={areas[child.slug]} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'phq4'}
-            <PHQ4Survey onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <PHQ4Survey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {/if}
         </div>
       </div>
@@ -338,13 +427,15 @@
       role="presentation"
       onclick={(e) => { if (e.target === e.currentTarget) closeReview(); }}
     >
-      <div class="modal modal--review" role="dialog" aria-modal="true" aria-label={`Review scanned ${rv.child.shortName}`}>
+      <div class="modal modal--review" role="dialog" aria-modal="true" aria-label={`Review ${rv.child.shortName}`}>
         <header class="modal__head">
           <div class="modal__head-row">
             <div>
-              <h2 class="modal__title">Review scanned {rv.child.shortName}</h2>
+              <h2 class="modal__title">Review {rv.imageUrl ? 'scanned' : 'filled'} {rv.child.shortName}</h2>
               <p class="modal__subtitle">
-                We read your sheet — check the answers against the scan, correct any, then confirm.
+                {rv.imageUrl
+                  ? 'We read your sheet — check the answers against the scan, correct any, then confirm.'
+                  : 'We read your filled PDF — check the answers, correct any, then confirm.'}
               </p>
             </div>
             <button type="button" class="modal__close" aria-label="Close" onclick={closeReview}>
@@ -352,22 +443,36 @@
             </button>
           </div>
         </header>
-        <div class="modal__body review">
-          <div class="review__scan">
-            <img class="review__img" src={rv.imageUrl} alt={`Flattened scan of the ${rv.child.shortName} answer sheet`} />
-          </div>
+        <div class="modal__body review" class:review--noscan={!rv.imageUrl}>
+          {#if rv.imageUrl}
+            <div class="review__scan">
+              <img class="review__img" src={rv.imageUrl} alt={`Flattened scan of the ${rv.child.shortName} answer sheet`} />
+            </div>
+          {/if}
           <div class="review__form">
-            {#if rv.warnings.length > 0}
-              <div class="review__note" role="alert">
-                <strong>Please double-check:</strong>
-                <ul class="review__note-list">
-                  {#each rv.warnings as w (w)}<li>{w}</li>{/each}
-                </ul>
+            {#if rv.ocrBusy}
+              <div class="ocr-panel">
+                <p class="ocr-panel__status">
+                  <span class="ocr-panel__spinner" aria-hidden="true"></span>
+                  Reading handwriting… this can take a moment the first time.
+                </p>
+                {#each rv.crops ?? [] as c (c.key)}
+                  <figure class="ocr-crop">
+                    <figcaption class="ocr-crop__label">{c.label}</figcaption>
+                    <img class="ocr-crop__img" src={c.dataUrl} alt={`Scanned ${c.label}`} />
+                  </figure>
+                {/each}
+                <button type="button" class="btn btn--secondary" onclick={skipOcr}>
+                  Skip and enter manually
+                </button>
               </div>
-            {/if}
+            {:else}
             {#if rv.child.slug === 'msi'}
               <MSISurvey
                 initialAnswers={rv.response}
+                initialComments={rv.comments}
+                requireComments={rv.requireComments}
+                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -376,6 +481,9 @@
             {:else if rv.child.slug === 'briefslanss'}
               <BriefSLANSSSurvey
                 initialAnswers={rv.response}
+                initialComments={rv.comments}
+                requireComments={rv.requireComments}
+                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -384,6 +492,12 @@
             {:else if rv.child.slug === 'frebaq'}
               <FreBAQSurvey
                 initialAnswers={rv.response}
+                initialArea={rv.area}
+                initialComments={rv.comments}
+                requireArea={rv.requireArea}
+                requireComments={rv.requireComments}
+                highlightArea={rv.fromScan}
+                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -392,11 +506,15 @@
             {:else if rv.child.slug === 'phq4'}
               <PHQ4Survey
                 initialAnswers={rv.response}
+                initialComments={rv.comments}
+                requireComments={rv.requireComments}
+                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
                 showProgress={false}
               />
+            {/if}
             {/if}
           </div>
         </div>
@@ -509,6 +627,17 @@
 
   .card__body {
     padding: var(--space-5);
+  }
+
+  .card__area {
+    margin: 0 0 var(--space-4) 0;
+    font-size: 0.95rem;
+    color: var(--color-text);
+  }
+
+  .card__area-label {
+    font-weight: 600;
+    color: var(--color-text-muted);
   }
 
   .card__fields {
@@ -717,6 +846,15 @@
     align-items: flex-start;
   }
 
+  /* No scan to show (a filled PDF): center the form at a comfortable width
+     rather than stretching it across the wide review modal. */
+  .review--noscan {
+    justify-content: center;
+  }
+  .review--noscan .review__form {
+    max-width: 620px;
+  }
+
   .review__scan {
     flex: 0 0 40%;
     position: sticky;
@@ -737,18 +875,53 @@
     min-width: 0;
   }
 
-  .review__note {
-    background: var(--color-warning-tint, #fdf6e3);
-    border: 1px solid var(--color-warning, #b8860b);
-    border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
-    margin-bottom: var(--space-5);
-    font-size: 0.9rem;
+  /* Handwriting-recognition panel: shown while OCR runs on scanned crops. */
+  .ocr-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    align-items: flex-start;
   }
 
-  .review__note-list {
-    margin: var(--space-2) 0 0 0;
-    padding-left: var(--space-5);
+  .ocr-panel__status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+  }
+
+  .ocr-panel__spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: ocr-spin 0.7s linear infinite;
+  }
+
+  @keyframes ocr-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .ocr-crop {
+    margin: 0;
+    width: 100%;
+  }
+
+  .ocr-crop__label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+  }
+
+  .ocr-crop__img {
+    max-width: 100%;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm, 4px);
+    background: #fff;
   }
 
   .modal--narrow {
