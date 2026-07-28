@@ -40,7 +40,7 @@ async function getRecognizer(): Promise<Recognizer> {
         try {
           const recognizer = await loadRecognizer(options);
           // Confirms which acceleration path actually loaded (webgpu vs cpu).
-          if (import.meta.env.DEV) console.info('[handwriting] recognizer loaded:', options);
+          console.info('[handwriting] recognizer loaded:', options);
           return recognizer;
         } catch {
           /* try the next configuration */
