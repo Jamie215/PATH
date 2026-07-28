@@ -38,7 +38,10 @@ async function getRecognizer(): Promise<Recognizer> {
     recognizerPromise = (async () => {
       for (const options of [{ device: 'webgpu', dtype: 'q8' }, { dtype: 'q8' }, {}]) {
         try {
-          return await loadRecognizer(options);
+          const recognizer = await loadRecognizer(options);
+          // Confirms which acceleration path actually loaded (webgpu vs cpu).
+          if (import.meta.env.DEV) console.info('[handwriting] recognizer loaded:', options);
+          return recognizer;
         } catch {
           /* try the next configuration */
         }
