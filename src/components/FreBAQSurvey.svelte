@@ -97,6 +97,13 @@
   const areaMissing = $derived(submitAttempted && !!requireArea && area.trim().length === 0);
   const commentsMissing = $derived(submitAttempted && !!requireComments && comments.trim().length === 0);
 
+  // Closest known body location for the scanned area. Shown inline under the
+  // field as a "Did you mean …?" prompt, unless the field already holds it.
+  const topAreaSuggestion = $derived(areaSuggestions?.[0]);
+  const showAreaSuggestion = $derived(
+    !!topAreaSuggestion && area.trim().toLowerCase() !== (topAreaSuggestion ?? '').toLowerCase(),
+  );
+
   const totalQuestions = QUESTIONS.length;
   const answeredQuestions = $derived(
     Object.values(answers).filter((v) => v !== undefined).length,
@@ -173,26 +180,19 @@
       bind:value={area}
       placeholder="e.g., right knee, left hand, neck"
     />
+    {#if showAreaSuggestion}
+      <p class="area__suggest">
+        Did you mean
+        <button type="button" class="area__suggest-btn" onclick={() => pickAreaSuggestion(topAreaSuggestion ?? '')}>
+          {topAreaSuggestion}
+        </button>?
+      </p>
+    {/if}
     {#if areaCropUrl}
       <figure class="area__crop">
         <figcaption class="area__crop-label">From the scanned sheet</figcaption>
         <img class="area__crop-img" src={areaCropUrl} alt="Scanned handwriting for the most bothersome area" />
       </figure>
-    {/if}
-    {#if areaSuggestions && areaSuggestions.length > 0}
-      <div class="area__suggestions">
-        <span class="area__suggestions-label">Did you mean:</span>
-        {#each areaSuggestions as s (s)}
-          <button
-            type="button"
-            class="area__chip"
-            class:area__chip--active={area.trim().toLowerCase() === s.toLowerCase()}
-            onclick={() => pickAreaSuggestion(s)}
-          >
-            {s}
-          </button>
-        {/each}
-      </div>
     {/if}
     {#if areaMissing}
       <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
@@ -458,40 +458,26 @@
     image-rendering: crisp-edges;
   }
 
-  .area__suggestions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
-  }
-
-  .area__suggestions-label {
+  .area__suggest {
+    margin: var(--space-2) 0 0 0;
     font-size: 0.85rem;
     color: var(--color-text-muted);
   }
 
-  .area__chip {
-    padding: var(--space-1) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: 999px;
-    background: var(--color-bg);
-    color: var(--color-text);
+  .area__suggest-btn {
+    padding: 0;
+    border: none;
+    background: none;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: inherit;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: underline;
     cursor: pointer;
   }
 
-  .area__chip:hover {
-    border-color: var(--color-primary);
-    background: var(--color-primary-tint-soft);
-  }
-
-  .area__chip--active {
-    border-color: var(--color-primary);
-    background: var(--color-primary-tint-ghost);
-    color: var(--color-primary);
-    font-weight: 600;
+  .area__suggest-btn:hover {
+    text-decoration: none;
   }
 
   .comments {
