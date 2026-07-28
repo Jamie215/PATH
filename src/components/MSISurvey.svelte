@@ -35,6 +35,7 @@
     initialAnswers,
     initialComments,
     requireComments,
+    highlightComments,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -52,6 +53,8 @@
     initialComments?: string;
     /** Require the reviewer to fill comments (the scanned region had ink). */
     requireComments?: boolean;
+    /** Highlight comments as handwriting to verify (a scanned-sheet review). */
+    highlightComments?: boolean;
     /**
      * Answer keys the OMR read flagged for review (blank, contested, or a
      * missing follow-up). The matching questions are highlighted until the
@@ -241,12 +244,15 @@
         id="other_comments"
         class="comments__input"
         class:field--error={commentsMissing}
+        class:field--flagged={highlightComments && !commentsMissing}
         rows="4"
         bind:value={comments}
         placeholder={requireComments ? 'Please enter the comment from the scan' : 'Optional'}
       ></textarea>
       {#if commentsMissing}
         <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+      {:else if highlightComments}
+        <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
       {/if}
     </div>
 
@@ -411,6 +417,17 @@
 
   .field__error {
     color: var(--color-danger);
+    font-size: 0.85rem;
+    margin: var(--space-2) 0 0 0;
+  }
+
+  .field--flagged {
+    border-color: var(--color-warning, #b8860b) !important;
+    background: var(--color-warning-tint, #fdf6e3);
+  }
+
+  .field__hint {
+    color: var(--color-warning, #b8860b);
     font-size: 0.85rem;
     margin: var(--space-2) 0 0 0;
   }

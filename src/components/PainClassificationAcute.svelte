@@ -68,7 +68,8 @@
     /** The scanned area/comments regions had ink, so the reviewer must fill them. */
     requireArea?: boolean;
     requireComments?: boolean;
-    warnings: string[];
+    /** The review is of a scanned sheet (open text fields are handwriting). */
+    fromScan?: boolean;
     attention: string[];
   } | null>(null);
 
@@ -225,7 +226,7 @@
         // wasn't recognized.
         requireArea: crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
         requireComments: crops?.some((c) => c.key === 'other_comments' && c.hasInk),
-        warnings: result.warnings,
+        fromScan: !isPdf,
         attention: result.attention,
       };
       if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
@@ -466,19 +467,12 @@
                 </button>
               </div>
             {:else}
-            {#if rv.warnings.length > 0}
-              <div class="review__note" role="alert">
-                <strong>Please double-check:</strong>
-                <ul class="review__note-list">
-                  {#each rv.warnings as w (w)}<li>{w}</li>{/each}
-                </ul>
-              </div>
-            {/if}
             {#if rv.child.slug === 'msi'}
               <MSISurvey
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
                 requireComments={rv.requireComments}
+                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -489,6 +483,7 @@
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
                 requireComments={rv.requireComments}
+                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -501,6 +496,8 @@
                 initialComments={rv.comments}
                 requireArea={rv.requireArea}
                 requireComments={rv.requireComments}
+                highlightArea={rv.fromScan}
+                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -511,6 +508,7 @@
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
                 requireComments={rv.requireComments}
+                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -924,20 +922,6 @@
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm, 4px);
     background: #fff;
-  }
-
-  .review__note {
-    background: var(--color-warning-tint, #fdf6e3);
-    border: 1px solid var(--color-warning, #b8860b);
-    border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
-    margin-bottom: var(--space-5);
-    font-size: 0.9rem;
-  }
-
-  .review__note-list {
-    margin: var(--space-2) 0 0 0;
-    padding-left: var(--space-5);
   }
 
   .modal--narrow {
