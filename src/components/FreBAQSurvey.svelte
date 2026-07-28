@@ -32,6 +32,8 @@
     requireComments,
     highlightArea,
     highlightComments,
+    areaCropUrl,
+    areaSuggestions,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -52,6 +54,12 @@
     /** Highlight these as handwriting to verify (a scanned-sheet review). */
     highlightArea?: boolean;
     highlightComments?: boolean;
+    /** Zoomed crop of the scanned bothersome-area handwriting, pinned next to
+     *  the field so the reviewer can transcribe/verify it directly. */
+    areaCropUrl?: string;
+    /** Closest known body locations for the scanned area (from the fuzzy
+     *  matcher), offered as one-tap suggestions. Never overrides free text. */
+    areaSuggestions?: string[];
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();
@@ -68,6 +76,12 @@
   function setAnswer(key: AnswerKey, value: number): void {
     // Fresh object so Svelte 5 picks up the change reliably
     answers = { ...answers, [key]: value };
+  }
+
+  // Apply a suggested body location to the field. Suggest-only: the reviewer
+  // can still edit or clear it afterwards.
+  function pickAreaSuggestion(value: string): void {
+    area = value;
   }
 
   // Each symptom needs exactly one answer (no follow-ups).
@@ -159,6 +173,27 @@
       bind:value={area}
       placeholder="e.g., right knee, left hand, neck"
     />
+    {#if areaCropUrl}
+      <figure class="area__crop">
+        <figcaption class="area__crop-label">From the scanned sheet</figcaption>
+        <img class="area__crop-img" src={areaCropUrl} alt="Scanned handwriting for the most bothersome area" />
+      </figure>
+    {/if}
+    {#if areaSuggestions && areaSuggestions.length > 0}
+      <div class="area__suggestions">
+        <span class="area__suggestions-label">Did you mean:</span>
+        {#each areaSuggestions as s (s)}
+          <button
+            type="button"
+            class="area__chip"
+            class:area__chip--active={area.trim().toLowerCase() === s.toLowerCase()}
+            onclick={() => pickAreaSuggestion(s)}
+          >
+            {s}
+          </button>
+        {/each}
+      </div>
+    {/if}
     {#if areaMissing}
       <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
     {:else if highlightArea}
@@ -400,6 +435,63 @@
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
+  }
+
+  .area__crop {
+    margin: var(--space-2) 0 0 0;
+    padding: var(--space-2);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-subtle, #f8f8f8);
+  }
+
+  .area__crop-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+  }
+
+  .area__crop-img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    image-rendering: crisp-edges;
+  }
+
+  .area__suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+  }
+
+  .area__suggestions-label {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+  }
+
+  .area__chip {
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: 999px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .area__chip:hover {
+    border-color: var(--color-primary);
+    background: var(--color-primary-tint-soft);
+  }
+
+  .area__chip--active {
+    border-color: var(--color-primary);
+    background: var(--color-primary-tint-ghost);
+    color: var(--color-primary);
+    font-weight: 600;
   }
 
   .comments {
