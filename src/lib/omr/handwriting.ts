@@ -15,19 +15,39 @@ import type { GrayImage } from './types';
 
 type Recognizer = (
   input: string,
+  options?: Record<string, unknown>,
 ) => Promise<Array<{ generated_text?: string }> | { generated_text?: string }>;
 
 let recognizerPromise: Promise<Recognizer> | null = null;
 
+async function loadRecognizer(options: Record<string, unknown>): Promise<Recognizer> {
+  const { pipeline } = await import('@huggingface/transformers');
+  return (await pipeline(
+    'image-to-text',
+    'Xenova/trocr-small-handwritten',
+    options,
+  )) as unknown as Recognizer;
+}
+
 async function getRecognizer(): Promise<Recognizer> {
   if (!recognizerPromise) {
+    // Prefer the small quantized model on the GPU (fastest, smallest download),
+    // then quantized on CPU, then whatever the default is — so an unsupported
+    // option degrades to a slower path instead of failing. Reset on total
+    // failure so a later attempt can retry.
     recognizerPromise = (async () => {
-      const { pipeline } = await import('@huggingface/transformers');
-      return (await pipeline(
-        'image-to-text',
-        'Xenova/trocr-small-handwritten',
-      )) as unknown as Recognizer;
-    })();
+      for (const options of [{ device: 'webgpu', dtype: 'q8' }, { dtype: 'q8' }, {}]) {
+        try {
+          return await loadRecognizer(options);
+        } catch {
+          /* try the next configuration */
+        }
+      }
+      throw new Error('handwriting model could not be loaded');
+    })().catch((err) => {
+      recognizerPromise = null;
+      throw err;
+    });
   }
   return recognizerPromise;
 }
@@ -83,7 +103,9 @@ function preprocess(img: GrayImage): string {
 export async function recognizeHandwriting(image: GrayImage): Promise<string> {
   try {
     const recognize = await getRecognizer();
-    const out = await recognize(preprocess(image));
+    // The fields are a few words, so cap decoding — far fewer autoregressive
+    // steps than the default, which is the bulk of the per-crop time.
+    const out = await recognize(preprocess(image), { max_new_tokens: 24 });
     const first = Array.isArray(out) ? out[0] : out;
     return (first?.generated_text ?? '').trim();
   } catch {

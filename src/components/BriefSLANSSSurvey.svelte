@@ -27,6 +27,7 @@
     progress = $bindable(0),
     initialAnswers,
     initialComments,
+    requireComments,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -39,6 +40,8 @@
     initialAnswers?: Record<string, number>;
     /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
     initialComments?: string;
+    /** Require the reviewer to fill comments (the scanned region had ink). */
+    requireComments?: boolean;
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();

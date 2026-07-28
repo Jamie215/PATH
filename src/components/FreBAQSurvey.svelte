@@ -28,6 +28,8 @@
     initialAnswers,
     initialArea,
     initialComments,
+    requireArea,
+    requireComments,
     attentionKeys,
   }: {
     onComplete?: () => void;
