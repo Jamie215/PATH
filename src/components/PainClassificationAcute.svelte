@@ -21,6 +21,7 @@
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
   import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
+  import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
   import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import {
@@ -138,7 +139,7 @@
    */
   function setArea(slug: string, text: string): void {
     areas = { ...areas, [slug]: text };
-    const trimmed = text.trim();
+    const trimmed = sanitizeBothersomeArea(text);
     const response = storeGet<Record<string, unknown>>(slug + ':response') ?? {};
     if (trimmed) response.bothersome_area = trimmed;
     else delete response.bothersome_area;

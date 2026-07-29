@@ -12,6 +12,7 @@
     EXPERIENCE_OPTIONS,
   } from '../assessments/frebaq/questions';
   import { score, type freBAQResponse } from '../assessments/frebaq/scoring';
+  import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
   import { set as storeSet } from '../lib/storage';
 
   /**
@@ -122,8 +123,9 @@
     const response: Record<string, number | string> = {
       ...(answers as Record<string, number>),
     };
-    if (area.trim().length > 0) {
-      response.bothersome_area = area.trim();
+    const cleanedArea = sanitizeBothersomeArea(area);
+    if (cleanedArea.length > 0) {
+      response.bothersome_area = cleanedArea;
     }
     if (comments.trim().length > 0) {
       response.other_comments = comments.trim();
