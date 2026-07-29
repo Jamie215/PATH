@@ -529,7 +529,7 @@
                 requireComments={rv.requireComments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel="Confirm &amp; save"
+                submitLabel="Confirm"
                 showProgress={false}
               />
             {:else if rv.child.slug === 'briefslanss'}
@@ -539,7 +539,7 @@
                 requireComments={rv.requireComments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel="Confirm &amp; save"
+                submitLabel="Confirm"
                 showProgress={false}
               />
             {:else if rv.child.slug === 'frebaq'}
@@ -553,7 +553,7 @@
                 areaCorrection={rv.areaCorrection}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel="Confirm &amp; save"
+                submitLabel="Confirm"
                 showProgress={false}
               />
             {:else if rv.child.slug === 'phq4'}
@@ -563,7 +563,7 @@
                 requireComments={rv.requireComments}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel="Confirm &amp; save"
+                submitLabel="Confirm"
                 showProgress={false}
               />
             {/if}
