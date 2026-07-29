@@ -33,6 +33,7 @@
     highlightArea,
     highlightComments,
     areaCropUrl,
+    areaCorrection,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -54,8 +55,12 @@
     highlightArea?: boolean;
     highlightComments?: boolean;
     /** Zoomed crop of the scanned bothersome-area handwriting, pinned next to
-     *  the field so the reviewer can verify the auto-filled value directly. */
+     *  the field so the reviewer can transcribe/verify it directly. */
     areaCropUrl?: string;
+    /** Correction-mark outcome for the area crop: `cleaned` = marks were
+     *  removed before reading (verify); `unread` = marks dominated, so it must
+     *  be entered from the crop. Drives the field's hint text. */
+    areaCorrection?: 'cleaned' | 'unread';
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();
@@ -171,6 +176,10 @@
     {/if}
     {#if areaMissing}
       <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+    {:else if areaCorrection === 'unread'}
+      <p class="field__hint">Correction marks made this hard to read automatically — please enter it from the scan above.</p>
+    {:else if areaCorrection === 'cleaned'}
+      <p class="field__hint">Possible correction marks were removed before reading — please verify against the scan.</p>
     {:else if highlightArea}
       <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
     {/if}

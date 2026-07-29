@@ -12,6 +12,17 @@
  * device.
  */
 import type { GrayImage } from './types';
+import { stripCorrections } from './correction';
+
+/** Recognition outcome for one crop. */
+export interface HandwritingResult {
+  /** Recognized text (empty on failure, or when corrections dominate). */
+  text: string;
+  /** Correction marks were detected and removed before recognition. */
+  corrected: boolean;
+  /** Corrections dominate the crop — no OCR was attempted; enter from the crop. */
+  dominated: boolean;
+}
 
 type Recognizer = (
   input: string,
@@ -98,17 +109,23 @@ function preprocess(img: GrayImage): string {
   return dest.toDataURL('image/png');
 }
 
-/** Recognize a single line of handwriting from a cropped region. Returns the
- *  trimmed text, or '' on any failure (so callers fall back to manual entry). */
-export async function recognizeHandwriting(image: GrayImage): Promise<string> {
+/**
+ * Recognize a single line of handwriting from a cropped region. First detects
+ * and removes correction marks (strike-through / X / scribble); if they
+ * dominate the crop, skips OCR entirely so the reviewer transcribes from the
+ * pinned crop instead of confirming a guess. Text is '' on any failure.
+ */
+export async function recognizeHandwriting(image: GrayImage): Promise<HandwritingResult> {
+  const { image: cleaned, corrected, dominated } = stripCorrections(image);
+  if (dominated) return { text: '', corrected, dominated };
   try {
     const recognize = await getRecognizer();
     // The fields are a few words, so cap decoding — far fewer autoregressive
     // steps than the default, which is the bulk of the per-crop time.
-    const out = await recognize(preprocess(image), { max_new_tokens: 24 });
+    const out = await recognize(preprocess(cleaned), { max_new_tokens: 24 });
     const first = Array.isArray(out) ? out[0] : out;
-    return (first?.generated_text ?? '').trim();
+    return { text: (first?.generated_text ?? '').trim(), corrected, dominated };
   } catch {
-    return '';
+    return { text: '', corrected, dominated };
   }
 }

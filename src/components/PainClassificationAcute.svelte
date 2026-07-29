@@ -21,7 +21,6 @@
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
   import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
-  import { autofillBodyLocation } from '../lib/omr/body-locations';
   import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import {
@@ -63,6 +62,10 @@
     /** Zoomed crop of the scanned bothersome-area handwriting (scan only),
      *  pinned next to the field in review so it can be transcribed/verified. */
     areaCropUrl?: string;
+    /** Correction-mark outcome for the area crop: `cleaned` = marks were
+     *  removed before reading (verify); `unread` = marks dominated, so nothing
+     *  was auto-read and it must be entered from the crop. */
+    areaCorrection?: 'cleaned' | 'unread';
     /** Pre-filled comments, from a filled PDF, OCR, or prior entry. */
     comments?: string;
     /** Cropped handwriting regions (scan only) shown while OCR runs. */
@@ -276,15 +279,18 @@
   ): Promise<void> {
     const { recognizeHandwriting } = await import('../lib/omr/handwriting');
     for (const c of crops) {
-      const text = await recognizeHandwriting(c.image);
+      const { text, corrected, dominated } = await recognizeHandwriting(c.image);
       if (!omrReview) return; // review was closed mid-recognition
-      if (text && c.key === 'bothersome_area') {
-        // Auto-fill only a confident match: a clean read ("lefr kṇee") snaps
-        // to the known location ("left knee"), while an uncertain one keeps
-        // the raw OCR text. Either way the reviewer verifies against the
-        // pinned crop and can edit freely.
-        const area = autofillBodyLocation(text) ?? text;
-        omrReview = { ...omrReview, area };
+      if (c.key === 'bothersome_area') {
+        // Faithful transcription: pre-fill exactly what OCR read from the
+        // correction-cleaned crop — no vocabulary interpretation. When
+        // correction marks dominate, leave the field empty and flag it so the
+        // reviewer reads it from the pinned crop instead of confirming a guess.
+        omrReview = {
+          ...omrReview,
+          area: dominated ? '' : text,
+          areaCorrection: dominated ? 'unread' : corrected ? 'cleaned' : undefined,
+        };
       }
     }
     if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
@@ -542,6 +548,7 @@
                 highlightArea={rv.fromScan}
                 highlightComments={rv.fromScan}
                 areaCropUrl={rv.areaCropUrl}
+                areaCorrection={rv.areaCorrection}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
