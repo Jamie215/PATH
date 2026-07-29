@@ -217,7 +217,10 @@
       // A comment / bothersome area typed into the PDF flows into the same
       // places a questionnaire's would.
       if (isPdf && result.text?.other_comments) setComment(child.slug, result.text.other_comments);
-      const pdfArea = isPdf && typeof result.text?.bothersome_area === 'string' ? result.text.bothersome_area : '';
+      const pdfArea =
+        isPdf && typeof result.text?.bothersome_area === 'string'
+          ? sanitizeBothersomeArea(result.text.bothersome_area)
+          : '';
       if (pdfArea) areas = { ...areas, [child.slug]: pdfArea };
       // Role-gated children (MSI) need their role set before the survey renders.
       if (child.roleKey && role) storeSet(child.roleKey, role);
@@ -289,7 +292,7 @@
         // reviewer reads it from the pinned crop instead of confirming a guess.
         omrReview = {
           ...omrReview,
-          area: dominated ? '' : text,
+          area: dominated ? '' : sanitizeBothersomeArea(text),
           areaCorrection: dominated ? 'unread' : corrected ? 'cleaned' : undefined,
         };
       }
