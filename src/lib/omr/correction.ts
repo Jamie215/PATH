@@ -220,11 +220,13 @@ function measure(mask: Uint8Array, w: number, x0: number, x1: number, h: number)
   return { seg, ink, scribble };
 }
 
-/** Whiten the given segments (full height) and rows in a copy of the crop. */
-function whiten(img: GrayImage, segments: Segment[], rows: number[]): GrayImage {
+/** Whiten the given segments (full height, which also clears the printed rule
+ *  under them) in a copy of the crop. The rule elsewhere is left in place — it
+ *  helps OCR read the surviving words, and is only used internally (for
+ *  segmentation), never scrubbed from a crop we didn't otherwise change. */
+function whiten(img: GrayImage, segments: Segment[]): GrayImage {
   const { width: w, height: h } = img;
   const data = Uint8Array.from(img.data);
-  for (const y of rows) for (let x = 0; x < w; x += 1) data[y * w + x] = 255;
   for (const s of segments) {
     for (let y = 0; y < h; y += 1) {
       const row = y * w;
@@ -235,22 +237,21 @@ function whiten(img: GrayImage, segments: Segment[], rows: number[]): GrayImage 
 }
 
 /**
- * Detect correction marks (strike-through / X / scribble), whiten those
- * regions (and the printed rule), and report whether what's left is enough to
- * read. Callers OCR the returned `image`; when `dominated`, they should skip
- * OCR and require manual entry from the crop instead.
+ * Detect a scribbled-out word, whiten it, and report whether enough clean text
+ * remains to read. The printed rule is stripped *internally* (to separate
+ * words for detection) but never from the returned image unless a scribble is
+ * also removed — so when nothing is found, OCR gets the original crop
+ * untouched, rather than a de-ruled image it may read worse. Callers OCR the
+ * returned `image`; when `dominated`, they should skip OCR and require manual
+ * entry from the crop instead.
  */
 export function stripCorrections(img: GrayImage): CorrectionResult {
   const { width: w, height: h } = img;
   if (w === 0 || h === 0) return { image: img, corrected: false, dominated: false };
 
   const mask = inkMask(img, otsuThreshold(img));
-  const ruleRows = stripRules(mask, w, h);
+  stripRules(mask, w, h); // internal only: un-bridge words for segmentation
   const segments = segment(columnInk(mask, w, h), w, h);
-  if (segments.length === 0) {
-    // Only a rule was present — whiten it so OCR isn't fed the baseline.
-    return { image: ruleRows.length ? whiten(img, [], ruleRows) : img, corrected: false, dominated: false };
-  }
 
   const drop: Segment[] = [];
   let totalInk = 0;
@@ -261,10 +262,9 @@ export function stripCorrections(img: GrayImage): CorrectionResult {
     else keptInk += f.ink;
   }
 
-  if (drop.length === 0) {
-    return { image: ruleRows.length ? whiten(img, [], ruleRows) : img, corrected: false, dominated: false };
-  }
+  // Nothing to remove → return the crop untouched (don't alter OCR's input).
+  if (drop.length === 0) return { image: img, corrected: false, dominated: false };
 
   const dominated = totalInk === 0 || keptInk < KEEP_MIN * totalInk;
-  return { image: whiten(img, drop, ruleRows), corrected: true, dominated };
+  return { image: whiten(img, drop), corrected: true, dominated };
 }
