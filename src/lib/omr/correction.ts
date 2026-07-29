@@ -2,22 +2,21 @@
  * Correction-mark handling for a handwriting crop (the FreBAQ bothersome-area
  * line), run *before* OCR — "detect, drop, and read".
  *
- * People cancel a miswritten word in visually unrelated ways: a strike-through,
- * an "X" over it, or a scribble across it. Those share no common *shape*, so
- * keying on stroke orientation only ever catches one of them. What they do
- * share is *busyness*: a cancel piles overlapping ink into a word-sized region,
- * so relative to a normal word it has higher density, fills more of its
- * bounding box (an X reaches the corners; a scribble fills it), and its strokes
- * cross themselves far more often. This module keys on those, so strike, X, and
- * scribble are all handled the same way.
+ * The sheet instructs one correction gesture: if you miswrite the body area,
+ * scribble over it until it can no longer be read. So this only has to detect a
+ * scribble — a word-sized region of heavy, overlapping ink — which is a high
+ * ink density (and/or many stroke-crossings for a looser scribble). We no
+ * longer try to handle strike-throughs or X-outs; standardizing the gesture
+ * removes the ambiguous cases that lightweight detection couldn't separate from
+ * a merely bold word.
  *
  * Two things have to happen first, or nothing downstream works:
  *  - The crop includes the printed fill-in rule (and any hand-drawn underline).
  *    A full-width rule bridges every word into one segment, so it's removed
  *    before segmenting.
- *  - The intended text is whatever survives once cancelled regions are whitened
- *    (the replacement written beside the cancel). We do not try to reconstruct
- *    the glyphs *under* an X/scribble — that ink is destroyed.
+ *  - The intended text is whatever survives once the scribble is whitened (the
+ *    replacement written beside it). We do not try to reconstruct the glyphs
+ *    under the scribble — that ink is destroyed, which is the point.
  *
  * When cancels dominate the crop (nothing clean remains, or a correction
  * overlaps the intended word), we report `dominated` and the caller falls back
@@ -50,18 +49,12 @@ const MIN_SEG = 0.12;
 /** A cancel spans a word; a segment narrower than this (× height) is a letter
  *  or stroke, never a correction, however busy it looks on its own. */
 const MIN_CORRECTION_W = 0.6;
-/** Below this ink density a region is too sparse to be any kind of cancel. */
+/** Below this ink density a region is too sparse to be a scribble. */
 const DENSITY_MIN = 0.2;
-/** Ink density (× content box) that alone reads as a scribble/blob. */
+/** Ink density (× content box) that reads as a scribbled-out word. */
 const DENSITY_HI = 0.4;
-/** A segment this much denser than the lightest word on the line reads as a
- *  cancel piled onto a word (catches an X-out, whose density lift is modest
- *  but whose neighbours are plain words). */
-const DENSITY_RATIO = 1.6;
-/** Floor for the ratio test, so a merely-bold word isn't flagged as a cancel. */
-const DENSITY_RATIO_MIN = 0.34;
-/** Mean vertical ink-runs per column that reads as self-crossing strokes;
- *  letters pass a column through ~1–2 strokes, a loose scribble through more. */
+/** Mean vertical ink-runs per column that reads as a looser scribble whose
+ *  strokes cross often; plain letters pass a column through ~1–2 strokes. */
 const CROSSINGS_HI = 2.5;
 /** If kept ink falls below this fraction of total ink, corrections dominate. */
 const KEEP_MIN = 0.15;
@@ -195,15 +188,12 @@ function crossings(mask: Uint8Array, w: number, x0: number, x1: number, yTop: nu
 interface SegmentFeatures {
   seg: Segment;
   ink: number;
-  /** Word-width and dense enough to be a cancel candidate at all. */
-  candidate: boolean;
-  density: number;
-  crossings: number;
-  /** A near-full-width row with word ink above and below (a strike-through). */
-  strike: boolean;
+  /** Whether this segment is a scribble (a scribbled-out word). */
+  scribble: boolean;
 }
 
-/** Measure one segment: ink, density, self-crossings, and a strike-through band. */
+/** Measure one segment and decide whether it is a scribbled-out word: word-wide
+ *  (not a lone letter) and either heavily inked or full of stroke-crossings. */
 function measure(mask: Uint8Array, w: number, x0: number, x1: number, h: number): SegmentFeatures {
   const seg = { x0, x1 };
   const segW = x1 - x0 + 1;
@@ -219,21 +209,15 @@ function measure(mask: Uint8Array, w: number, x0: number, x1: number, h: number)
       ink += count;
     }
   }
-  if (yBot < 0) return { seg, ink: 0, candidate: false, density: 0, crossings: 0, strike: false };
+  if (yBot < 0) return { seg, ink: 0, scribble: false };
 
-  const segH = yBot - yTop + 1;
-  const density = ink / (segW * segH);
-  // A cancel spans a word (not a lone letter) and is at least moderately dense.
-  const candidate = segW >= MIN_CORRECTION_W * h && density >= DENSITY_MIN;
+  const density = ink / (segW * (yBot - yTop + 1));
+  const scribble =
+    segW >= MIN_CORRECTION_W * h &&
+    density >= DENSITY_MIN &&
+    (density >= DENSITY_HI || crossings(mask, w, x0, x1, yTop, yBot) >= CROSSINGS_HI);
 
-  let strike = false;
-  for (let y = yTop; y <= yBot && !strike; y += 1) {
-    if (widestRun(mask, w, y, x0, x1) >= 0.7 * segW && y - yTop > 0.15 * segH && yBot - y > 0.15 * segH) {
-      strike = true;
-    }
-  }
-
-  return { seg, ink, candidate, density, crossings: crossings(mask, w, x0, x1, yTop, yBot), strike };
+  return { seg, ink, scribble };
 }
 
 /** Whiten the given segments (full height) and rows in a copy of the crop. */
@@ -268,26 +252,12 @@ export function stripCorrections(img: GrayImage): CorrectionResult {
     return { image: ruleRows.length ? whiten(img, [], ruleRows) : img, corrected: false, dominated: false };
   }
 
-  const feats = segments.map((s) => measure(mask, w, s.x0, s.x1, h));
-
-  // Baseline = the lightest candidate word on the line. A cancel piled onto a
-  // word (e.g. an X-out) is markedly denser than the plain words beside it, so
-  // this ratio catches it even when its absolute density is unremarkable.
-  const candidateDensities = feats.filter((f) => f.candidate).map((f) => f.density);
-  const baseline = candidateDensities.length ? Math.min(...candidateDensities) : 0;
-
   const drop: Segment[] = [];
   let totalInk = 0;
   let keptInk = 0;
-  for (const f of feats) {
+  for (const f of segments.map((s) => measure(mask, w, s.x0, s.x1, h))) {
     totalInk += f.ink;
-    const correction =
-      f.candidate &&
-      (f.density >= DENSITY_HI ||
-        f.crossings >= CROSSINGS_HI ||
-        f.strike ||
-        (baseline > 0 && f.density >= DENSITY_RATIO * baseline && f.density >= DENSITY_RATIO_MIN));
-    if (correction) drop.push(f.seg);
+    if (f.scribble) drop.push(f.seg);
     else keptInk += f.ink;
   }
 
