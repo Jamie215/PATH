@@ -14,6 +14,7 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   instructions: [
     'Each statement is about your body (the affected area). Fill in ONE bubble for how often each is true, using a dark pen.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
+    'If you make a mistake writing the body area, scribble over it until it can no longer be read, then write it again.',
   ],
   sectionTitle: 'With your bothersome area in mind, how often do you experience the following?',
   preamble: 'The part of my body that has been bothering me the most is my:',
