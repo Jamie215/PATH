@@ -14,9 +14,8 @@
  *   2. Manual entry — the user types the child's result directly.
  *
  * This file is the single source of truth shared by the collection page and
- * the (forthcoming) scoring module, so wiring a child differently — or
- * adjusting the manual-entry fields once the acute weights are finalized —
- * is a one-place change.
+ * the scoring module (./scoring.ts), so wiring a child differently — or
+ * adjusting the manual-entry fields — is a one-place change.
  */
 
 import type { OmrTemplate } from '../omr/types';
@@ -54,9 +53,8 @@ export interface ChildAssessment {
    */
   roleKey?: string;
   /**
-   * Manual-entry fields. PROVISIONAL: these mirror the primary numbers each
-   * child produces today; revisit once the acute weights pin down exactly
-   * which inputs the composite consumes.
+   * Manual-entry fields — the raw sub-scores the composite model consumes
+   * (see ./scoring.ts): MSI somatic/central, and each screener's total.
    */
   manualFields: ManualField[];
   /**

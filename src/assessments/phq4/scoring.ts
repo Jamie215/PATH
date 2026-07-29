@@ -10,18 +10,6 @@ export const SYMPTOMS = [
 
 export type Symptom = (typeof SYMPTOMS)[number];
 
-const SYMPTOM_SCORES: Record<Symptom, number> = {
-  nervousOrAnxious: 1, worrying: 1, depressedOrHopeless: 1, littleInterestOrPleasure: 1,
-};
-
-/** Human-readable labels */
-export const SYMPTOM_LABELS: Record<Symptom, string> = {
-  nervousOrAnxious: 'Nervous or anxious',
-  worrying: 'Worrying',
-  depressedOrHopeless: 'Depressed or hopeless',
-  littleInterestOrPleasure: 'Little interest or pleasure',
-};
-
 // --- Types -------------------------------------------------------------------
 
 /** Ordinal rating per item: 0=Not at all … 3=Nearly every day. Four items → total 0–12. */
@@ -54,24 +42,15 @@ export interface phq4Result {
   comments: string;
 }
 
-/** Look up the score for a single (symptom, experience) */
-function symptomScore(
-  symptom: Symptom,
-  exp: Experience,
-): number {
-  return SYMPTOM_SCORES[symptom] * exp;
-}
-
 /**
- * Score an PHQ-4 survey response
+ * Score an PHQ-4 survey response. Each item contributes its raw ordinal rating
+ * (0–3); the total is their sum.
  */
 export function score(response: phq4Response): phq4Result {
   let total_score = 0;
 
   for (const symptom of SYMPTOMS) {
-    const exp = (response[`${symptom}_exp`] ?? 0) as Experience;
-    const value = symptomScore(symptom, exp);
-    total_score += value;
+    total_score += (response[`${symptom}_exp`] ?? 0) as Experience;
   }
 
   const comments =

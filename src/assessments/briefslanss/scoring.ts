@@ -10,18 +10,6 @@ export const SYMPTOMS = [
 
 export type Symptom = (typeof SYMPTOMS)[number];
 
-const SYMPTOM_SCORES: Record<Symptom, number> = {
-  numb: 1, skinDiff: 1, sensitive: 1, discomfort: 1,
-};
-
-/** Human-readable labels */
-export const SYMPTOM_LABELS: Record<Symptom, string> = {
-  numb: 'Numbness or pins & needles',
-  skinDiff: 'Skin appearance changes',
-  sensitive: 'Increased sensitivity',
-  discomfort: 'Discomfort or distress',
-};
-
 // --- Types -------------------------------------------------------------------
 
 /** Experience rating: 0=No, 1=Yes */
@@ -46,24 +34,15 @@ export interface briefSLANSSResult {
   comments: string;
 }
 
-/** Look up the score for a single (symptom, experience) */
-function symptomScore(
-  symptom: Symptom,
-  exp: Experience,
-): number {
-  return SYMPTOM_SCORES[symptom] * exp;
-}
-
 /**
- * Score an briefSLANSS survey response
+ * Score an briefSLANSS survey response. Each symptom is a Yes/No (0/1); the
+ * total is the count of Yes answers.
  */
 export function score(response: briefSLANSSResponse): briefSLANSSResult {
   let total_score = 0;
 
   for (const symptom of SYMPTOMS) {
-    const exp = (response[`${symptom}_exp`] ?? 0) as Experience;
-    const value = symptomScore(symptom, exp);
-    total_score += value;
+    total_score += (response[`${symptom}_exp`] ?? 0) as Experience;
   }
 
   const comments =

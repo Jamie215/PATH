@@ -2,9 +2,9 @@
  * Registry of all assessments available on the hub.
  *
  * To add a new assessment:
- *   1. Create a folder under src/assessments/<slug>/
+ *   1. Create a folder under src/assessments/<slug>/ with its config/scoring
  *   2. Add an entry to this registry
- *   3. (Later milestones) implement the assessment's config/scoring/results
+ *   3. Add the assessment's pages/results components
  *
  * `status: 'available'` means the assessment is fully implemented and
  * navigable from the hub. `status: 'planned'` shows a "coming soon" card.

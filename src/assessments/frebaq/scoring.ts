@@ -10,20 +10,6 @@ export const SYMPTOMS = [
 
 export type Symptom = (typeof SYMPTOMS)[number];
 
-const SYMPTOM_SCORES: Record<Symptom, number> = {
-  notPart: 1, withoutControl: 1, withoutKnowingMoving: 1, withoutKnowingPosition: 1, cantPerceiveOutline: 1, feelsLopsided: 1,
-};
-
-/** Human-readable labels */
-export const SYMPTOM_LABELS: Record<Symptom, string> = {
-  notPart: 'Not part of my body',
-  withoutControl: 'Move on its own',
-  withoutKnowingMoving: 'Move without knowing',
-  withoutKnowingPosition: 'Position without knowing',
-  cantPerceiveOutline: 'Cannot perceive outline',
-  feelsLopsided: 'Feels very lopsided', 
-};
-
 // --- Types -------------------------------------------------------------------
 
 /** Ordinal rating per item: 0=Never … 4=Always. Six items → total 0–24. */
@@ -51,24 +37,15 @@ export interface freBAQResult {
   comments: string;
 }
 
-/** Look up the score for a single (symptom, experience) */
-function symptomScore(
-  symptom: Symptom,
-  exp: Experience,
-): number {
-  return SYMPTOM_SCORES[symptom] * exp;
-}
-
 /**
- * Score an freBAQ survey response
+ * Score an freBAQ survey response. Each item contributes its raw ordinal
+ * rating (0–4); the total is their sum.
  */
 export function score(response: freBAQResponse): freBAQResult {
   let total_score = 0;
 
   for (const symptom of SYMPTOMS) {
-    const exp = (response[`${symptom}_exp`] ?? 0) as Experience;
-    const value = symptomScore(symptom, exp);
-    total_score += value;
+    total_score += (response[`${symptom}_exp`] ?? 0) as Experience;
   }
 
   const comments =
