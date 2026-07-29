@@ -43,7 +43,7 @@ const RULE_W = 0.75;
 /** Column counts as inked when at least this fraction of its height is ink. */
 const INK_MIN_COL = 0.04;
 /** Column gaps narrower than this (× height) are within a word, so merge. */
-const MERGE_GAP = 0.5;
+const MERGE_GAP = 0.22;
 /** Ignore ink runs narrower than this (× height) — specks, not words. */
 const MIN_SEG = 0.12;
 /** A cancel spans a word; a segment narrower than this (× height) is a letter
@@ -54,8 +54,8 @@ const DENSITY_MIN = 0.2;
 /** Ink density (× content box) that reads as a scribbled-out word. */
 const DENSITY_HI = 0.4;
 /** Mean vertical ink-runs per column that reads as a looser scribble whose
- *  strokes cross often; plain letters pass a column through ~1–2 strokes. */
-const CROSSINGS_HI = 2.5;
+ *  strokes cross often; real cursive words measure ~2.0–2.4, a scribble ~4. */
+const CROSSINGS_HI = 3.0;
 /** If kept ink falls below this fraction of total ink, corrections dominate. */
 const KEEP_MIN = 0.15;
 
