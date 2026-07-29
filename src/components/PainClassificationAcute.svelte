@@ -73,11 +73,10 @@
     crops?: { key: string; label: string; kind: 'line' | 'box'; dataUrl: string; image: GrayImage; hasInk: boolean }[];
     /** True while handwriting recognition is still running on the crops. */
     ocrBusy?: boolean;
-    /** The scanned area/comments regions had ink, so the reviewer must fill them. */
+    /** The area/comments regions carried content (ink on a scan, typed text in
+     *  a PDF), so the reviewer must confirm them and the fields are highlighted. */
     requireArea?: boolean;
     requireComments?: boolean;
-    /** The review is of a scanned sheet (open text fields are handwriting). */
-    fromScan?: boolean;
     attention: string[];
   } | null>(null);
 
@@ -254,11 +253,14 @@
         comments: (isPdf ? result.text?.other_comments : undefined) ?? comments[child.slug],
         crops: ocrCrops?.length ? ocrCrops : undefined,
         ocrBusy: !!ocrCrops?.length,
-        // A written-in region must be confirmed by the reviewer even if it
-        // wasn't recognized.
-        requireArea: crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
-        requireComments: crops?.some((c) => c.key === 'other_comments' && c.hasInk),
-        fromScan: !isPdf,
+        // A region carrying content must be confirmed by the reviewer: ink on a
+        // scan (even if OCR couldn't read it) or typed text in a filled PDF.
+        requireArea: isPdf
+          ? !!pdfArea
+          : crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
+        requireComments: isPdf
+          ? !!result.text?.other_comments
+          : crops?.some((c) => c.key === 'other_comments' && c.hasInk),
         attention: result.attention,
       };
       if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
@@ -525,7 +527,6 @@
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
                 requireComments={rv.requireComments}
-                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -536,7 +537,6 @@
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
                 requireComments={rv.requireComments}
-                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
@@ -549,8 +549,6 @@
                 initialComments={rv.comments}
                 requireArea={rv.requireArea}
                 requireComments={rv.requireComments}
-                highlightArea={rv.fromScan}
-                highlightComments={rv.fromScan}
                 areaCropUrl={rv.areaCropUrl}
                 areaCorrection={rv.areaCorrection}
                 attentionKeys={rv.attention}
@@ -563,7 +561,6 @@
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
                 requireComments={rv.requireComments}
-                highlightComments={rv.fromScan}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"

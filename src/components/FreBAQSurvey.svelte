@@ -31,8 +31,6 @@
     initialComments,
     requireArea,
     requireComments,
-    highlightArea,
-    highlightComments,
     areaCropUrl,
     areaCorrection,
     attentionKeys,
@@ -49,12 +47,10 @@
     initialArea?: string;
     /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
     initialComments?: string;
-    /** Require the reviewer to fill these in (the scanned region had ink). */
+    /** These regions carried content on the scan/PDF, so the reviewer must
+     *  confirm them: highlight the fields and require them to stay filled. */
     requireArea?: boolean;
     requireComments?: boolean;
-    /** Highlight these as handwriting to verify (a scanned-sheet review). */
-    highlightArea?: boolean;
-    highlightComments?: boolean;
     /** Zoomed crop of the scanned bothersome-area handwriting, pinned next to
      *  the field so the reviewer can transcribe/verify it directly. */
     areaCropUrl?: string;
@@ -165,7 +161,7 @@
       id="bothersome_area"
       class="area__input"
       class:field--error={areaMissing}
-      class:field--flagged={highlightArea && !areaMissing}
+      class:field--flagged={requireArea && !areaMissing}
       type="text"
       bind:value={area}
       placeholder="e.g., right knee, left hand, neck"
@@ -182,7 +178,7 @@
       <p class="field__hint">Correction marks made this hard to read automatically — please enter it from the scan above.</p>
     {:else if areaCorrection === 'cleaned'}
       <p class="field__hint">Possible correction marks were removed before reading — please verify against the scan.</p>
-    {:else if highlightArea}
+    {:else if requireArea}
       <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
     {/if}
   </div>
@@ -234,14 +230,14 @@
       id="other_comments"
       class="comments__input"
       class:field--error={commentsMissing}
-      class:field--flagged={highlightComments && !commentsMissing}
+      class:field--flagged={requireComments && !commentsMissing}
       rows="4"
       bind:value={comments}
       placeholder={requireComments ? 'Please enter the comment from the scan' : 'Optional'}
     ></textarea>
     {#if commentsMissing}
       <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
-    {:else if highlightComments}
+    {:else if requireComments}
       <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
     {/if}
   </div>
