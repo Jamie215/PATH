@@ -12,6 +12,7 @@
     EXPERIENCE_OPTIONS,
   } from '../assessments/frebaq/questions';
   import { score, type freBAQResponse } from '../assessments/frebaq/scoring';
+  import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
   import { set as storeSet } from '../lib/storage';
 
   /**
@@ -32,6 +33,8 @@
     requireComments,
     highlightArea,
     highlightComments,
+    areaCropUrl,
+    areaCorrection,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -52,6 +55,13 @@
     /** Highlight these as handwriting to verify (a scanned-sheet review). */
     highlightArea?: boolean;
     highlightComments?: boolean;
+    /** Zoomed crop of the scanned bothersome-area handwriting, pinned next to
+     *  the field so the reviewer can transcribe/verify it directly. */
+    areaCropUrl?: string;
+    /** Correction-mark outcome for the area crop: `cleaned` = marks were
+     *  removed before reading (verify); `unread` = marks dominated, so it must
+     *  be entered from the crop. Drives the field's hint text. */
+    areaCorrection?: 'cleaned' | 'unread';
     /** Answer keys flagged by the OMR read; matching questions are highlighted. */
     attentionKeys?: string[];
   } = $props();
@@ -113,8 +123,9 @@
     const response: Record<string, number | string> = {
       ...(answers as Record<string, number>),
     };
-    if (area.trim().length > 0) {
-      response.bothersome_area = area.trim();
+    const cleanedArea = sanitizeBothersomeArea(area);
+    if (cleanedArea.length > 0) {
+      response.bothersome_area = cleanedArea;
     }
     if (comments.trim().length > 0) {
       response.other_comments = comments.trim();
@@ -159,8 +170,18 @@
       bind:value={area}
       placeholder="e.g., right knee, left hand, neck"
     />
+    {#if areaCropUrl}
+      <figure class="area__crop">
+        <figcaption class="area__crop-label">From the scanned sheet</figcaption>
+        <img class="area__crop-img" src={areaCropUrl} alt="Scanned handwriting for the most bothersome area" />
+      </figure>
+    {/if}
     {#if areaMissing}
       <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+    {:else if areaCorrection === 'unread'}
+      <p class="field__hint">Correction marks made this hard to read automatically — please enter it from the scan above.</p>
+    {:else if areaCorrection === 'cleaned'}
+      <p class="field__hint">Possible correction marks were removed before reading — please verify against the scan.</p>
     {:else if highlightArea}
       <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
     {/if}
@@ -400,6 +421,27 @@
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
+  }
+
+  .area__crop {
+    margin: var(--space-2) 0 0 0;
+    padding: var(--space-2);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-subtle, #f8f8f8);
+  }
+
+  .area__crop-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+  }
+
+  .area__crop-img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    image-rendering: crisp-edges;
   }
 
   .comments {

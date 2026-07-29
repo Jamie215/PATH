@@ -21,6 +21,7 @@
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
   import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
+  import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
   import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import {
@@ -59,6 +60,13 @@
     response: Record<string, number>;
     /** Pre-filled bothersome area (FreBAQ), from a filled PDF, OCR, or prior entry. */
     area?: string;
+    /** Zoomed crop of the scanned bothersome-area handwriting (scan only),
+     *  pinned next to the field in review so it can be transcribed/verified. */
+    areaCropUrl?: string;
+    /** Correction-mark outcome for the area crop: `cleaned` = marks were
+     *  removed before reading (verify); `unread` = marks dominated, so nothing
+     *  was auto-read and it must be entered from the crop. */
+    areaCorrection?: 'cleaned' | 'unread';
     /** Pre-filled comments, from a filled PDF, OCR, or prior entry. */
     comments?: string;
     /** Cropped handwriting regions (scan only) shown while OCR runs. */
@@ -131,7 +139,7 @@
    */
   function setArea(slug: string, text: string): void {
     areas = { ...areas, [slug]: text };
-    const trimmed = text.trim();
+    const trimmed = sanitizeBothersomeArea(text);
     const response = storeGet<Record<string, unknown>>(slug + ':response') ?? {};
     if (trimmed) response.bothersome_area = trimmed;
     else delete response.bothersome_area;
@@ -209,7 +217,10 @@
       // A comment / bothersome area typed into the PDF flows into the same
       // places a questionnaire's would.
       if (isPdf && result.text?.other_comments) setComment(child.slug, result.text.other_comments);
-      const pdfArea = isPdf && typeof result.text?.bothersome_area === 'string' ? result.text.bothersome_area : '';
+      const pdfArea =
+        isPdf && typeof result.text?.bothersome_area === 'string'
+          ? sanitizeBothersomeArea(result.text.bothersome_area)
+          : '';
       if (pdfArea) areas = { ...areas, [child.slug]: pdfArea };
       // Role-gated children (MSI) need their role set before the survey renders.
       if (child.roleKey && role) storeSet(child.roleKey, role);
@@ -230,11 +241,16 @@
       // actually have ink. Multi-line boxes (comments) are slow and low-value
       // to OCR, so we skip them and require the reviewer to type them in.
       const ocrCrops = crops?.filter((c) => c.kind === 'line' && c.hasInk);
+      // Pin the bothersome-area crop next to its field so the reviewer can
+      // read the handwriting directly — the safety net when OCR of a
+      // crossed-out / scribbled correction is unreliable.
+      const areaCrop = crops?.find((c) => c.key === 'bothersome_area' && c.hasInk);
       omrReview = {
         child,
         imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
         response: result.response,
         area: pdfArea || areas[child.slug],
+        areaCropUrl: areaCrop?.dataUrl,
         comments: (isPdf ? result.text?.other_comments : undefined) ?? comments[child.slug],
         crops: ocrCrops?.length ? ocrCrops : undefined,
         ocrBusy: !!ocrCrops?.length,
@@ -267,9 +283,19 @@
   ): Promise<void> {
     const { recognizeHandwriting } = await import('../lib/omr/handwriting');
     for (const c of crops) {
-      const text = await recognizeHandwriting(c.image);
+      const { text, corrected, dominated } = await recognizeHandwriting(c.image);
       if (!omrReview) return; // review was closed mid-recognition
-      if (text && c.key === 'bothersome_area') omrReview = { ...omrReview, area: text };
+      if (c.key === 'bothersome_area') {
+        // Faithful transcription: pre-fill exactly what OCR read from the
+        // correction-cleaned crop — no vocabulary interpretation. When
+        // correction marks dominate, leave the field empty and flag it so the
+        // reviewer reads it from the pinned crop instead of confirming a guess.
+        omrReview = {
+          ...omrReview,
+          area: dominated ? '' : sanitizeBothersomeArea(text),
+          areaCorrection: dominated ? 'unread' : corrected ? 'cleaned' : undefined,
+        };
+      }
     }
     if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
   }
@@ -525,6 +551,8 @@
                 requireComments={rv.requireComments}
                 highlightArea={rv.fromScan}
                 highlightComments={rv.fromScan}
+                areaCropUrl={rv.areaCropUrl}
+                areaCorrection={rv.areaCorrection}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm &amp; save"
