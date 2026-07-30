@@ -50,8 +50,9 @@
     initialAnswers?: Record<string, number>;
     /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
     initialComments?: string;
-    /** The comments region carried content on the scan/PDF, so the reviewer
-     *  must confirm it: highlight the field and require it to stay filled. */
+    /** The scanned comments region had ink, so highlight the field for
+     *  attention. Optional — never blocks submission (comments aren't OCR'd, so
+     *  there's nothing to verify, only a nudge to transcribe if relevant). */
     requireComments?: boolean;
     /**
      * Answer keys the OMR read flagged for review (blank, contested, or a
@@ -104,8 +105,6 @@
 
   const isComplete = $derived(missing.length === 0);
 
-  // The reviewer must fill comments when the scanned region had ink.
-  const commentsMissing = $derived(submitAttempted && !!requireComments && comments.trim().length === 0);
 
   const totalQuestions = $derived(
     QUESTIONS.length + QUESTIONS.filter((q) => (answers[`${q.symptom}_freq` as AnswerKey] ?? 0) > 0).length,
@@ -128,10 +127,6 @@
       const firstMissing = missing[0];
       const el = document.getElementById(`q-${firstMissing.symptom}`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    if (requireComments && !comments.trim()) {
-      document.getElementById('other_comments')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -236,21 +231,17 @@
     <div class="comments">
       <label for="other_comments" class="comments__label">
         If there is anything you would like to say about these or any other symptoms, please enter below.
-        {#if requireComments}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
       </label>
       <textarea
         id="other_comments"
         class="comments__input"
-        class:field--error={commentsMissing}
-        class:field--flagged={requireComments && !commentsMissing}
+        class:field--flagged={requireComments}
         rows="4"
         bind:value={comments}
-        placeholder={requireComments ? 'Please enter the comment from the scan' : 'Optional'}
+        placeholder={requireComments ? 'A comment was detected on the scan — transcribe it here if relevant' : 'Optional'}
       ></textarea>
-      {#if commentsMissing}
-        <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
-      {:else if requireComments}
-        <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
+      {#if requireComments}
+        <p class="field__hint">A comment was detected on the scanned sheet — transcribe it here if relevant (optional).</p>
       {/if}
     </div>
 
@@ -401,22 +392,6 @@
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-5);
     margin-bottom: var(--space-6);
-  }
-
-  .req {
-    color: var(--color-danger);
-    font-weight: 700;
-    margin-left: 2px;
-  }
-
-  .field--error {
-    border-color: var(--color-danger) !important;
-  }
-
-  .field__error {
-    color: var(--color-danger);
-    font-size: 0.85rem;
-    margin: var(--space-2) 0 0 0;
   }
 
   .field--flagged {
