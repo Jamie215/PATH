@@ -498,7 +498,7 @@
       role="presentation"
       onclick={(e) => { if (e.target === e.currentTarget) closeReview(); }}
     >
-      <div class="modal modal--review" role="dialog" aria-modal="true" aria-label={`Review ${rv.child.shortName}`}>
+      <div class="modal" role="dialog" aria-modal="true" aria-label={`Review ${rv.child.shortName}`}>
         <header class="modal__head">
           <div class="modal__head-row">
             <div>
@@ -844,7 +844,7 @@
 
   .modal {
     width: 100%;
-    max-width: 720px;
+    max-width: 980px;
     background: var(--color-bg);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
@@ -933,11 +933,8 @@
     border: 0;
   }
 
-  /* Review modal: flattened scan beside the pre-filled survey. */
-  .modal--review {
-    max-width: 980px;
-  }
-
+  /* Review modal: flattened scan beside the pre-filled survey. Shares the base
+     .modal width (980px) so it lines up with the "Take the test" modal. */
   .review {
     display: flex;
     gap: var(--space-6);
