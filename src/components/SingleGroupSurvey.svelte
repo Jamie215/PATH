@@ -51,7 +51,7 @@
     initialArea,
     initialComments,
     requireArea,
-    requireComments,
+    commentsDetected,
     areaCropUrl,
     areaCorrection,
     attentionKeys,
@@ -76,10 +76,13 @@
     initialArea?: string;
     /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
     initialComments?: string;
-    /** These regions carried content on the scan/PDF, so the reviewer must
-     *  confirm them: highlight the fields and require them to stay filled. */
+    /** The scanned bothersome-area region carried content, so the reviewer must
+     *  confirm it: highlight the field and require it to stay filled. */
     requireArea?: boolean;
-    requireComments?: boolean;
+    /** The scanned comments region had ink, so highlight the field for
+     *  attention. Optional — never blocks submission (comments aren't OCR'd, so
+     *  there's nothing to verify, only a nudge to transcribe if relevant). */
+    commentsDetected?: boolean;
     /** Zoomed crop of the scanned bothersome-area handwriting, pinned next to
      *  the field so the reviewer can transcribe/verify it directly. */
     areaCropUrl?: string;
@@ -108,9 +111,9 @@
 
   const isComplete = $derived(missing.length === 0);
 
-  // Text fields the reviewer must fill because the scanned region had ink.
+  // The bothersome-area field must be filled because the scanned region had
+  // ink. Comments are only highlighted for attention, never required.
   const areaMissing = $derived(submitAttempted && !!requireArea && area.trim().length === 0);
-  const commentsMissing = $derived(submitAttempted && !!requireComments && comments.trim().length === 0);
 
   const totalQuestions = $derived(questions.length);
   const answeredQuestions = $derived(
@@ -133,9 +136,8 @@
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    if ((requireArea && !area.trim()) || (requireComments && !comments.trim())) {
-      const id = requireArea && !area.trim() ? 'bothersome_area' : 'other_comments';
-      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (requireArea && !area.trim()) {
+      document.getElementById('bothersome_area')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -247,21 +249,17 @@
   <div class="comments">
     <label for="other_comments" class="comments__label">
       If there is anything you would like to say about these or any other symptoms, please enter below.
-      {#if requireComments}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
     </label>
     <textarea
       id="other_comments"
       class="comments__input"
-      class:field--error={commentsMissing}
-      class:field--flagged={requireComments && !commentsMissing}
+      class:field--flagged={commentsDetected}
       rows="4"
       bind:value={comments}
-      placeholder={requireComments ? 'Please enter the comment from the scan' : 'Optional'}
+      placeholder={commentsDetected ? 'A comment was detected on the scan — transcribe it here if relevant' : 'Optional'}
     ></textarea>
-    {#if commentsMissing}
-      <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
-    {:else if requireComments}
-      <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
+    {#if commentsDetected}
+      <p class="field__hint">A comment was detected on the scanned sheet — transcribe it here if relevant (optional).</p>
     {/if}
   </div>
 
