@@ -51,7 +51,7 @@
     initialArea,
     initialComments,
     requireArea,
-    requireComments,
+    commentsDetected,
     areaCropUrl,
     areaCorrection,
     attentionKeys,
@@ -82,7 +82,7 @@
     /** The scanned comments region had ink, so highlight the field for
      *  attention. Optional — never blocks submission (comments aren't OCR'd, so
      *  there's nothing to verify, only a nudge to transcribe if relevant). */
-    requireComments?: boolean;
+    commentsDetected?: boolean;
     /** Zoomed crop of the scanned bothersome-area handwriting, pinned next to
      *  the field so the reviewer can transcribe/verify it directly. */
     areaCropUrl?: string;
@@ -253,12 +253,12 @@
     <textarea
       id="other_comments"
       class="comments__input"
-      class:field--flagged={requireComments}
+      class:field--flagged={commentsDetected}
       rows="4"
       bind:value={comments}
-      placeholder={requireComments ? 'A comment was detected on the scan — transcribe it here if relevant' : 'Optional'}
+      placeholder={commentsDetected ? 'A comment was detected on the scan — transcribe it here if relevant' : 'Optional'}
     ></textarea>
-    {#if requireComments}
+    {#if commentsDetected}
       <p class="field__hint">A comment was detected on the scanned sheet — transcribe it here if relevant (optional).</p>
     {/if}
   </div>

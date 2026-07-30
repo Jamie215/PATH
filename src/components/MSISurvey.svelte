@@ -34,7 +34,7 @@
     progress = $bindable(0),
     initialAnswers,
     initialComments,
-    requireComments,
+    commentsDetected,
     attentionKeys,
   }: {
     onComplete?: () => void;
@@ -53,7 +53,7 @@
     /** The scanned comments region had ink, so highlight the field for
      *  attention. Optional — never blocks submission (comments aren't OCR'd, so
      *  there's nothing to verify, only a nudge to transcribe if relevant). */
-    requireComments?: boolean;
+    commentsDetected?: boolean;
     /**
      * Answer keys the OMR read flagged for review (blank, contested, or a
      * missing follow-up). The matching questions are highlighted until the
@@ -235,12 +235,12 @@
       <textarea
         id="other_comments"
         class="comments__input"
-        class:field--flagged={requireComments}
+        class:field--flagged={commentsDetected}
         rows="4"
         bind:value={comments}
-        placeholder={requireComments ? 'A comment was detected on the scan — transcribe it here if relevant' : 'Optional'}
+        placeholder={commentsDetected ? 'A comment was detected on the scan — transcribe it here if relevant' : 'Optional'}
       ></textarea>
-      {#if requireComments}
+      {#if commentsDetected}
         <p class="field__hint">A comment was detected on the scanned sheet — transcribe it here if relevant (optional).</p>
       {/if}
     </div>

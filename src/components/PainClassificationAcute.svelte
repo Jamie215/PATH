@@ -76,10 +76,12 @@
     crops?: { key: string; label: string; kind: 'line' | 'box'; dataUrl: string; image: GrayImage; hasInk: boolean }[];
     /** True while handwriting recognition is still running on the crops. */
     ocrBusy?: boolean;
-    /** The area/comments regions carried content (ink on a scan, typed text in
-     *  a PDF), so the reviewer must confirm them and the fields are highlighted. */
+    /** The bothersome-area region carried content (ink on a scan, typed text in
+     *  a PDF), so the reviewer must confirm it and the field is highlighted. */
     requireArea?: boolean;
-    requireComments?: boolean;
+    /** The comments region carried ink/text; the field is highlighted for
+     *  attention only (optional — comments aren't OCR'd, so nothing to verify). */
+    commentsDetected?: boolean;
     attention: string[];
   } | null>(null);
 
@@ -259,12 +261,13 @@
         comments: (isPdf ? result.text?.other_comments : undefined) ?? comments[child.slug],
         crops: ocrCrops?.length ? ocrCrops : undefined,
         ocrBusy: !!ocrCrops?.length,
-        // A region carrying content must be confirmed by the reviewer: ink on a
-        // scan (even if OCR couldn't read it) or typed text in a filled PDF.
+        // The bothersome-area region must be confirmed by the reviewer when it
+        // carries content: ink on a scan (even if OCR couldn't read it) or typed
+        // text in a filled PDF. Comments are only flagged for attention.
         requireArea: isPdf
           ? !!pdfArea
           : crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
-        requireComments: isPdf
+        commentsDetected: isPdf
           ? !!result.text?.other_comments
           : crops?.some((c) => c.key === 'other_comments' && c.hasInk),
         attention: result.attention,
@@ -543,7 +546,7 @@
               <MSISurvey
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
-                requireComments={rv.requireComments}
+                commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm"
@@ -553,7 +556,7 @@
               <BriefSLANSSSurvey
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
-                requireComments={rv.requireComments}
+                commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm"
@@ -565,7 +568,7 @@
                 initialArea={rv.area}
                 initialComments={rv.comments}
                 requireArea={rv.requireArea}
-                requireComments={rv.requireComments}
+                commentsDetected={rv.commentsDetected}
                 areaCropUrl={rv.areaCropUrl}
                 areaCorrection={rv.areaCorrection}
                 attentionKeys={rv.attention}
@@ -577,7 +580,7 @@
               <PHQ4Survey
                 initialAnswers={rv.response}
                 initialComments={rv.comments}
-                requireComments={rv.requireComments}
+                commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
                 submitLabel="Confirm"
