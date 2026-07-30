@@ -46,9 +46,11 @@
   let modalProgress = $state(0);
 
   // OMR upload state.
-  let fileInput = $state<HTMLInputElement | undefined>(undefined);
-  let pendingUploadChild: ChildAssessment | null = null;
-  // Slug currently being read, so its button can show a busy label.
+  // The child whose upload modal (drag-and-drop / browse) is open, if any.
+  let uploadChild = $state<ChildAssessment | null>(null);
+  // True while a file is being dragged over the dropzone.
+  let dragActive = $state(false);
+  // Slug currently being read, so its dropzone can show a busy label.
   let omrBusy = $state<string | null>(null);
   let omrError = $state<string | null>(null);
   // The scanned sheet awaiting the user's confirmation.
@@ -187,25 +189,55 @@
     modalChild = null;
   }
 
-  /** Open the file picker to upload a scan/photo or filled PDF for a child. */
+  /** Open the upload modal (drag-and-drop or browse) for a child. */
   function startUpload(child: ChildAssessment): void {
-    if (!child.omrTemplate || !fileInput) return;
+    if (!child.omrTemplate) return;
     omrError = null;
-    pendingUploadChild = child;
-    fileInput.value = ''; // allow re-selecting the same file
-    fileInput.click();
+    dragActive = false;
+    uploadChild = child;
+  }
+
+  /** Close the upload modal, unless a read is in progress. */
+  function closeUpload(): void {
+    if (omrBusy) return;
+    uploadChild = null;
+    omrError = null;
+    dragActive = false;
+  }
+
+  function onDragOver(e: DragEvent): void {
+    e.preventDefault();
+    if (!omrBusy) dragActive = true;
+  }
+
+  function onDragLeave(e: DragEvent): void {
+    e.preventDefault();
+    dragActive = false;
+  }
+
+  function onDrop(e: DragEvent): void {
+    e.preventDefault();
+    dragActive = false;
+    if (omrBusy) return;
+    const file = e.dataTransfer?.files?.[0];
+    if (file) void ingestFile(file);
+  }
+
+  /** Browse-input handler: hand the chosen file to the reader. */
+  function onFileChosen(e: Event): void {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file
+    if (file) void ingestFile(file);
   }
 
   /**
-   * Read the chosen file, then open the confirmation review on success.
-   * A PDF is a form filled on a computer — read its radio answers back
-   * exactly; any other file is a scan/photo and goes through OMR.
+   * Read an uploaded file (dropped or browsed), then open the confirmation
+   * review on success. A PDF is a form filled on a computer — read its radio
+   * answers back exactly; any other file is a scan/photo and goes through OMR.
    */
-  async function onFileChosen(e: Event): Promise<void> {
-    const input = e.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    const child = pendingUploadChild;
-    pendingUploadChild = null;
+  async function ingestFile(file: File): Promise<void> {
+    const child = uploadChild;
     if (!file || !child?.omrTemplate) return;
 
     const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
@@ -280,6 +312,7 @@
         emptyScan: !isPdf && Object.keys(result.response).length === 0,
         attention: result.attention,
       };
+      uploadChild = null; // success → close the upload modal; the review opens
       if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
     } catch (err) {
       omrError = err instanceof Error ? err.message : 'Could not read the file.';
@@ -340,7 +373,7 @@
 
   function onWindowKey(e: KeyboardEvent): void {
     if (e.key !== 'Escape') return;
-    if (omrError) omrError = null;
+    if (uploadChild) closeUpload();
     else if (omrReview) closeReview();
     else if (modalChild) closeQuestionnaire();
   }
@@ -361,14 +394,6 @@
       Provide a result for each of the four assessments below — either enter a
       known result manually, take the test directly, or download the OMR form, complete and upload it. When all four are complete, calculate the composite classification.
     </p>
-
-    <input
-      bind:this={fileInput}
-      type="file"
-      accept="image/*,application/pdf"
-      class="visually-hidden"
-      onchange={onFileChosen}
-    />
 
     <ul class="cards">
       {#each ACUTE_CHILDREN as child, i (child.slug)}
@@ -398,10 +423,6 @@
                       <span class="material-symbols-outlined" aria-hidden="true">upload</span>
                       {omrBusy === child.slug ? 'Reading…' : 'Upload OMR form'}
                     </button>
-                    <p class="omr-upload__hint">
-                      The {child.shortName} answer sheet — filled in on-screen, or a
-                      photo/scan of the printed one. Not the results PDF.
-                    </p>
                   </div>
                 {/if}
               </div>
@@ -498,6 +519,62 @@
             <FreBAQSurvey initialArea={areas[child.slug]} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'phq4'}
             <PHQ4Survey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if uploadChild}
+    {@const uc = uploadChild}
+    <div
+      class="modal-overlay"
+      role="presentation"
+      onclick={(e) => { if (e.target === e.currentTarget) closeUpload(); }}
+    >
+      <div class="modal modal--narrow" role="dialog" aria-modal="true" aria-label={`Upload ${uc.shortName} answer sheet`}>
+        <header class="modal__head">
+          <div class="modal__head-row">
+            <div>
+              <h2 class="modal__title">Upload {uc.shortName} answer sheet</h2>
+              <p class="modal__subtitle">
+                The {uc.shortName} answer sheet — filled in on-screen, or a photo/scan
+                of the printed one. Not the results PDF.
+              </p>
+            </div>
+            <button type="button" class="modal__close" aria-label="Close" onclick={closeUpload}>
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+        </header>
+        <div class="modal__body">
+          <label
+            class="dropzone"
+            class:dropzone--active={dragActive}
+            class:dropzone--busy={omrBusy === uc.slug}
+            ondragover={onDragOver}
+            ondragleave={onDragLeave}
+            ondrop={onDrop}
+          >
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              class="visually-hidden"
+              onchange={onFileChosen}
+              disabled={omrBusy === uc.slug}
+            />
+            <span class="material-symbols-outlined dropzone__icon" aria-hidden="true">
+              {omrBusy === uc.slug ? 'hourglass_top' : 'upload_file'}
+            </span>
+            {#if omrBusy === uc.slug}
+              <span class="dropzone__text">Reading…</span>
+            {:else}
+              <span class="dropzone__text"><strong>Drag a file here</strong>, or click to browse</span>
+              <span class="dropzone__hint">PDF, photo, or scan · one sheet</span>
+            {/if}
+          </label>
+          {#if omrError}
+            <p class="dropzone__error" role="alert">{omrError}</p>
           {/if}
         </div>
       </div>
@@ -614,23 +691,6 @@
     </div>
   {/if}
 
-  {#if omrError}
-    <div
-      class="modal-overlay"
-      role="presentation"
-      onclick={(e) => { if (e.target === e.currentTarget) omrError = null; }}
-    >
-      <div class="modal modal--narrow" role="alertdialog" aria-modal="true" aria-label="Scan could not be read">
-        <div class="modal__body">
-          <h2 class="modal__title">Couldn't read the sheet</h2>
-          <p class="omr-error__text">{omrError}</p>
-          <div class="omr-error__actions">
-            <button type="button" class="btn btn--primary" onclick={() => omrError = null}>OK</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  {/if}
 {/if}
 
 <style>
@@ -1067,22 +1127,64 @@
     max-width: 440px;
   }
 
-  .omr-error__text {
-    color: var(--color-text-muted);
-    margin: var(--space-3) 0 var(--space-5) 0;
-  }
-
-  /* "What can I upload" hint under the Upload button. */
-  .omr-upload__hint {
-    margin: var(--space-1) 0 0 0;
-    font-size: 0.8rem;
-    line-height: 1.4;
-    color: var(--color-text-muted);
-  }
-
-  .omr-error__actions {
+  /* Upload modal: drag-and-drop / click-to-browse target. The whole zone is a
+     <label> wrapping a hidden file input, so a click anywhere opens the
+     picker while drop events are handled directly. */
+  .dropzone {
     display: flex;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-7) var(--space-4);
+    text-align: center;
+    border: 2px dashed var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-alt);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .dropzone:hover,
+  .dropzone:focus-within {
+    border-color: var(--color-primary);
+    background: var(--color-primary-tint-ghost);
+  }
+
+  .dropzone--active {
+    border-color: var(--color-primary);
+    background: var(--color-primary-tint-soft);
+  }
+
+  .dropzone--busy {
+    cursor: progress;
+    opacity: 0.75;
+  }
+
+  .dropzone__icon {
+    font-size: 2rem;
+    color: var(--color-primary);
+  }
+
+  .dropzone__text {
+    font-size: 0.95rem;
+  }
+
+  .dropzone__hint {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+  }
+
+  .dropzone__error {
+    margin: var(--space-3) 0 0 0;
+    padding: var(--space-3);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+    border-radius: var(--radius-md);
   }
 
   @media (max-width: 720px) {
