@@ -351,8 +351,7 @@
     <h1 class="collect__heading">Acute Pain Classification</h1>
     <p class="collect__lede">
       Provide a result for each of the four assessments below — either enter a
-      known result manually, or fill out the questionnaire. When all four are
-      complete, calculate the composite classification.
+      known result manually, take the test directly, or download the OCR form, complete and upload it. When all four are complete, calculate the composite classification.
     </p>
 
     <input
@@ -380,6 +379,7 @@
                   Take the test
                 </button>
                 {#if child.omrTemplate}
+                  <OmrSheetButton template={child.omrTemplate} label="Download blank form" compact={true} />
                   <button
                     type="button"
                     class="btn btn--secondary card__btn"
@@ -387,9 +387,8 @@
                     disabled={omrBusy === child.slug}
                   >
                     <span class="material-symbols-outlined" aria-hidden="true">upload</span>
-                    {omrBusy === child.slug ? 'Reading…' : 'Upload photo or PDF'}
+                    {omrBusy === child.slug ? 'Reading…' : 'Upload completed form'}
                   </button>
-                  <OmrSheetButton template={child.omrTemplate} label="Download a copy" compact={true} />
                 {/if}
               </div>
             </header>
