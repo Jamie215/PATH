@@ -42,7 +42,7 @@
 </script>
 
 <div class="omr-sheet" class:omr-sheet--compact={compact}>
-  <button type="button" class="btn btn--secondary omr-sheet__btn" onclick={download} disabled={busy}>
+  <button type="button" class="btn btn--secondary omr-sheet__btn" class:btn--compact-block={compact} onclick={download} disabled={busy}>
     <span class="material-symbols-outlined" aria-hidden="true">download</span>
     {busy ? 'Preparing…' : label}
   </button>
@@ -66,12 +66,6 @@
 
   .omr-sheet .btn {
     gap: var(--space-2);
-  }
-
-  .omr-sheet--compact .omr-sheet__btn {
-    padding: var(--space-2) var(--space-4);
-    font-size: 0.85rem;
-    width: 100%;
   }
 
   .material-symbols-outlined {

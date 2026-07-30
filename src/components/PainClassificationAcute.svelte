@@ -383,7 +383,7 @@
                   <div class="omr-sheet omr-sheet--compact">
                     <button
                       type="button"
-                      class="btn btn--secondary omr-sheet__btn card__btn"
+                      class="btn btn--secondary btn--compact-block"
                       onclick={() => startUpload(child)}
                       disabled={omrBusy === child.slug}
                     >
