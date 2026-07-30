@@ -54,9 +54,12 @@
   // The scanned sheet awaiting the user's confirmation.
   let omrReview = $state<{
     child: ChildAssessment;
-    /** The flattened scan to check answers against; null for a filled PDF,
-     *  where the answers are exact and there is no image to show. */
+    /** The flattened scan to check answers against (scan channel); null for a
+     *  filled PDF, which is shown side-by-side via `pdfUrl` instead. */
     imageUrl: string | null;
+    /** Object URL of the uploaded PDF, rendered next to the form so a filled
+     *  PDF gets the same side-by-side review as a scan. Revoked on close. */
+    pdfUrl?: string;
     response: Record<string, number>;
     /** Pre-filled bothersome area (FreBAQ), from a filled PDF, OCR, or prior entry. */
     area?: string;
@@ -247,6 +250,9 @@
       omrReview = {
         child,
         imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
+        // Show the filled PDF itself side-by-side, the way a scan shows its
+        // flattened image. Rendered natively by the browser via an object URL.
+        pdfUrl: isPdf ? URL.createObjectURL(file) : undefined,
         response: result.response,
         area: pdfArea || areas[child.slug],
         areaCropUrl: areaCrop?.dataUrl,
@@ -271,7 +277,13 @@
     }
   }
 
+  /** Free the uploaded-PDF object URL, if any, before dropping the review. */
+  function revokeReviewPdf(): void {
+    if (omrReview?.pdfUrl) URL.revokeObjectURL(omrReview.pdfUrl);
+  }
+
   function closeReview(): void {
+    revokeReviewPdf();
     omrReview = null;
   }
 
@@ -311,6 +323,7 @@
    *  has already scored and persisted the result); fold it into the card. */
   function finishReview(child: ChildAssessment): void {
     finishQuestionnaire(child);
+    revokeReviewPdf();
     omrReview = null;
   }
 
@@ -490,7 +503,7 @@
               <p class="modal__subtitle">
                 {rv.imageUrl
                   ? 'We read your sheet — check the answers against the scan, correct any, then confirm.'
-                  : 'We read your filled PDF — check the answers, correct any, then confirm.'}
+                  : 'We read your filled PDF — check the answers against it, correct any, then confirm.'}
               </p>
             </div>
             <button type="button" class="modal__close" aria-label="Close" onclick={closeReview}>
@@ -498,10 +511,14 @@
             </button>
           </div>
         </header>
-        <div class="modal__body review" class:review--noscan={!rv.imageUrl}>
+        <div class="modal__body review" class:review--noscan={!rv.imageUrl && !rv.pdfUrl}>
           {#if rv.imageUrl}
             <div class="review__scan">
               <img class="review__img" src={rv.imageUrl} alt={`Flattened scan of the ${rv.child.shortName} answer sheet`} />
+            </div>
+          {:else if rv.pdfUrl}
+            <div class="review__scan">
+              <iframe class="review__pdf" src={rv.pdfUrl} title={`Uploaded ${rv.child.shortName} PDF`}></iframe>
             </div>
           {/if}
           <div class="review__form">
@@ -948,6 +965,17 @@
     background: #fff;
   }
 
+  /* The uploaded PDF, rendered by the browser next to the form. Unlike an
+     image it can't size to its content, so it gets a tall fixed viewport. */
+  .review__pdf {
+    display: block;
+    width: 100%;
+    height: 75vh;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: #fff;
+  }
+
   .review__form {
     flex: 1 1 auto;
     min-width: 0;
@@ -1026,6 +1054,11 @@
       width: 100%;
       max-height: 40vh;
       overflow: auto;
+    }
+    /* Fit the PDF within the collapsed side panel so it doesn't nest a second
+       scrollbar inside the container's own overflow. */
+    .review__pdf {
+      height: 38vh;
     }
   }
 </style>
