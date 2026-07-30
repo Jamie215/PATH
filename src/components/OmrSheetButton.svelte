@@ -64,14 +64,6 @@
     align-items: flex-start;
   }
 
-  .omr-sheet .btn {
-    gap: var(--space-2);
-  }
-
-  .material-symbols-outlined {
-    font-size: 1.1rem;
-  }
-
   .omr-sheet__hint {
     margin: 0;
     font-size: 0.85rem;
