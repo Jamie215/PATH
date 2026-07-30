@@ -128,7 +128,19 @@ describe('readPdfForm', () => {
     const result = await readPdfForm(bytes, FREBAQ_OMR_TEMPLATE);
 
     expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/no fillable answer fields/i);
+    expect(result.error).toMatch(/results report/i);
+  });
+
+  it('rejects a sheet generated for a different assessment', async () => {
+    // A fully-filled FreBAQ sheet, read against the MSI template. The stamped
+    // form id must round-trip through generate → read and trip the mismatch.
+    const selections = Object.fromEntries(frebaqKeys.map((k) => [k, '1']));
+    const bytes = await fillSheet(FREBAQ_OMR_TEMPLATE, selections);
+
+    const result = await readPdfForm(bytes, MSI_OMR_TEMPLATE);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/different assessment/i);
   });
 
   it('rejects a file that is not a PDF', async () => {

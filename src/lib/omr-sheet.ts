@@ -102,6 +102,11 @@ export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8A
   const doc = await PDFDocument.create();
   doc.setTitle(`${template.title} — Answer Sheet`);
   doc.setSubject('OMR answer sheet');
+  // Machine-readable form identity. The upload reader parses the `form:<id>`
+  // token back out (see pdf-form-reader) and refuses a sheet whose id doesn't
+  // match the assessment being entered, so one form can't be read against
+  // another's template.
+  doc.setKeywords(['omr-answer-sheet', `form:${template.id}`]);
   doc.setProducer('PATH — Pain Assessment Tools Hub');
   doc.setCreator('PATH');
   doc.setCreationDate(new Date());

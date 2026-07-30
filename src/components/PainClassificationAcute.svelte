@@ -82,6 +82,10 @@
     /** The comments region carried ink/text; the field is highlighted for
      *  attention only (optional — comments aren't OCR'd, so nothing to verify). */
     commentsDetected?: boolean;
+    /** Scan channel only: the read resolved no answers at all. Usually the
+     *  wrong form (a photo can't be identity-checked the way a filled PDF is)
+     *  or an unreadable/blank sheet — surfaced as a warning banner in review. */
+    emptyScan?: boolean;
     attention: string[];
   } | null>(null);
 
@@ -270,6 +274,10 @@
         commentsDetected: isPdf
           ? !!result.text?.other_comments
           : crops?.some((c) => c.key === 'other_comments' && c.hasInk),
+        // A scan that registered but resolved nothing is the tell for a wrong
+        // form or an unreadable sheet — the reader can't identity-check a photo,
+        // so we flag it for the reviewer rather than presenting empty answers.
+        emptyScan: !isPdf && Object.keys(result.response).length === 0,
         attention: result.attention,
       };
       if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
@@ -390,6 +398,10 @@
                       <span class="material-symbols-outlined" aria-hidden="true">upload</span>
                       {omrBusy === child.slug ? 'Reading…' : 'Upload OMR form'}
                     </button>
+                    <p class="omr-upload__hint">
+                      The {child.shortName} answer sheet — filled in on-screen, or a
+                      photo/scan of the printed one. Not the results PDF.
+                    </p>
                   </div>
                 {/if}
               </div>
@@ -526,6 +538,13 @@
             </div>
           {/if}
           <div class="review__form">
+            {#if rv.emptyScan}
+              <p class="review__warn" role="alert">
+                No answers were detected on this scan. Check you uploaded the
+                {rv.child.shortName} answer sheet — not another assessment's sheet or a
+                results report — and that the whole sheet is visible, flat, and well-lit.
+              </p>
+            {/if}
             {#if rv.ocrBusy}
               <div class="ocr-panel">
                 <p class="ocr-panel__status">
@@ -982,6 +1001,19 @@
     min-width: 0;
   }
 
+  /* Warning banner shown above the review when a scan resolved no answers —
+     the likely-wrong-form / unreadable-sheet safety net. */
+  .review__warn {
+    margin: 0 0 var(--space-4) 0;
+    padding: var(--space-3);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+    border-radius: var(--radius-md);
+  }
+
   /* Handwriting-recognition panel: shown while OCR runs on scanned crops. */
   .ocr-panel {
     display: flex;
@@ -1038,6 +1070,14 @@
   .omr-error__text {
     color: var(--color-text-muted);
     margin: var(--space-3) 0 var(--space-5) 0;
+  }
+
+  /* "What can I upload" hint under the Upload button. */
+  .omr-upload__hint {
+    margin: var(--space-1) 0 0 0;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--color-text-muted);
   }
 
   .omr-error__actions {
