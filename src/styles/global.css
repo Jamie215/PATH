@@ -127,6 +127,14 @@ button {
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
+/* Icons inside buttons share one size, so paired controls like the
+   Download / Upload OMR form buttons render identically. The Material Symbols
+   font otherwise defaults to 24px; components should not set their own
+   button-icon size. */
+.btn .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
 .btn--primary {
   background: var(--color-primary);
   color: white;
