@@ -31,7 +31,7 @@ export function stripLeadingArticle(area: string): string {
  * {@link sanitizeBothersomeArea}) then drop a leading "my"/"the".
  */
 export function normalizeBothersomeArea(text: string): string {
-  return stripLeadingArticle(sanitizeBothersomeArea(text)).trim();
+  return stripLeadingArticle(sanitizeBothersomeArea(text)).trim().toLowerCase();
 }
 
 /**
@@ -72,7 +72,9 @@ export function isPluralArea(area: string): boolean {
  * empty area falls back to the generic "the area"/"The area", singular.
  */
 export function personalizeFreBAQItem(label: string, area: string): string {
-  const region = stripLeadingArticle(area.trim()).trim();
+  // Lowercase the region so a "Right Knee" entry reads "my right knee" (the
+  // sentence-initial "My" comes from the {Area} token, not the region).
+  const region = stripLeadingArticle(area.trim()).trim().toLowerCase();
   const plural = isPluralArea(region);
   return label.replace(/\{([^{}]+)\}/g, (_match, token: string) => {
     if (token === 'Area') return region ? `My ${region}` : 'The area';

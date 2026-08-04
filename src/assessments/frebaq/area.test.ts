@@ -70,6 +70,11 @@ describe('normalizeBothersomeArea', () => {
     expect(normalizeBothersomeArea('The mid-back!')).toBe('mid back');
   });
 
+  it('lowercases the entry', () => {
+    expect(normalizeBothersomeArea('Right Knee')).toBe('right knee');
+    expect(normalizeBothersomeArea('My LEFT Hand')).toBe('left hand');
+  });
+
   it('returns empty for an article-only entry', () => {
     expect(normalizeBothersomeArea('my')).toBe('my');
     expect(normalizeBothersomeArea('')).toBe('');
@@ -134,6 +139,12 @@ describe('personalizeFreBAQItem', () => {
   it('strips a leading "my"/"the" from the region so it is not doubled', () => {
     expect(personalizeFreBAQItem(feelsLopsided, 'my right hand')).toBe(
       'My right hand feels very lopsided, or out of proportion, to what it should be or compared to that on the opposite side.',
+    );
+  });
+
+  it('lowercases the region woven into the item', () => {
+    expect(personalizeFreBAQItem(notPart, 'Right Knee')).toBe(
+      'My right knee feels as though it is not part of the rest of my body.',
     );
   });
 
