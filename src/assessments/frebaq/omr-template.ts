@@ -5,6 +5,7 @@
  * each bubble, no decode legend needed.
  */
 import { QUESTIONS, EXPERIENCE_OPTIONS } from './questions';
+import { personalizeFreBAQItem } from './area';
 import { buildSingleGroupTemplate } from '../omr/single-group-template';
 
 export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
@@ -25,7 +26,13 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   optionHeaders: EXPERIENCE_OPTIONS.map((o) => o.label),
   optionValues: EXPERIENCE_OPTIONS.map((o) => o.value),
   legend: [],
-  items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
+  // The printed sheet is blank (no area yet), so render each item's neutral
+  // default ("The area feels…") rather than the raw template placeholders.
+  items: QUESTIONS.map((q) => ({
+    key: `${q.symptom}_exp`,
+    label: personalizeFreBAQItem(q.symptomLabel, ''),
+    description: q.description,
+  })),
   // Wider answer columns (narrower statement column) so the word labels fit.
   colSpacing: 46,
   // Start a little lower so the preamble and its fill-in blank clear the
