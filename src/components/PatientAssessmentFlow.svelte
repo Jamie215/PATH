@@ -37,7 +37,6 @@
   const total = ACUTE_CHILDREN.length;
   const child = $derived(ACUTE_CHILDREN[step]);
   const isLast = $derived(step === total - 1);
-  const overall = $derived(Math.min(1, (step + surveyProgress) / total));
   const submitLabel = $derived(
     editingSingle ? 'Save & return to review' : isLast ? 'Finish & review' : 'Next test',
   );
@@ -146,6 +145,29 @@
 {#if ready}
   <section class="flow">
     <header class="flow__bar">
+      {#if !editingSingle}
+        <div
+          class="flow__progress"
+          role="progressbar"
+          aria-label={`Test ${step + 1} of ${total}`}
+          aria-valuemin="1"
+          aria-valuemax={total}
+          aria-valuenow={step + 1}
+        >
+          {#each ACUTE_CHILDREN as t, i (t.slug)}
+            <div
+              class="flow__seg"
+              class:flow__seg--done={i < step}
+              class:flow__seg--current={i === step}
+            >
+              <div
+                class="flow__seg-fill"
+                style:width={`${(i < step ? 1 : i === step ? surveyProgress : 0) * 100}%`}
+              ></div>
+            </div>
+          {/each}
+        </div>
+      {/if}
       <button
         type="button"
         class="btn btn--secondary flow__download"
@@ -162,12 +184,6 @@
     {/if}
 
     <h1 class="flow__title">{step + 1}. {child.shortName}</h1>
-
-    {#if !editingSingle}
-      <div class="flow__progress" aria-hidden="true">
-        <div class="flow__progress-bar" style:width={`${Math.round(overall * 100)}%`}></div>
-      </div>
-    {/if}
 
     {#key child.slug}
       {#if child.slug === 'msi'}
@@ -224,14 +240,16 @@
     padding-top: var(--space-2);
   }
 
-  /* Top bar: Download all tests, kept sticky so it stays reachable while a long
-     test scrolls. */
+  /* Top bar: segmented progress (one segment per test) on the left, Download all
+     tests on the right. Sticky so both stay reachable while a long test scrolls. */
   .flow__bar {
     position: sticky;
     top: 0;
     z-index: 20;
     display: flex;
+    align-items: center;
     justify-content: flex-end;
+    gap: var(--space-4);
     padding: var(--space-3) 0;
     background: var(--color-bg);
     border-bottom: 1px solid var(--color-border);
@@ -250,21 +268,37 @@
   }
 
   .flow__title {
-    margin: var(--space-5) 0 var(--space-3) 0;
+    margin: var(--space-5) 0 var(--space-4) 0;
   }
 
+  /* Segmented progress: one segment per test, split by gaps so each assessment
+     reads as its own step. Completed segments fill fully (success), the current
+     one fills by within-test progress (primary), upcoming stay empty. */
   .flow__progress {
-    height: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+
+  .flow__seg {
+    flex: 1 1 0;
+    height: 6px;
     background: var(--color-border);
     border-radius: 999px;
     overflow: hidden;
-    margin: 0 0 var(--space-4);
   }
 
-  .flow__progress-bar {
+  .flow__seg-fill {
     height: 100%;
+    width: 0;
     background: var(--color-primary);
     transition: width 0.2s ease-out;
+  }
+
+  .flow__seg--done .flow__seg-fill {
+    background: var(--color-success);
   }
 
   .flow__error {
