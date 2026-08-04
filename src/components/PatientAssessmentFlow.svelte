@@ -164,6 +164,18 @@
     <h1 class="flow__title">{child.shortName}</h1>
 
     {#if !editingSingle}
+      <ol class="flow__steps" aria-label={`Test ${step + 1} of ${total}`}>
+        {#each ACUTE_CHILDREN as t, i (t.slug)}
+          <li
+            class="flow__step"
+            class:flow__step--current={i === step}
+            class:flow__step--done={i < step}
+            aria-current={i === step ? 'step' : undefined}
+          >
+            {i + 1}
+          </li>
+        {/each}
+      </ol>
       <div class="flow__progress" aria-hidden="true">
         <div class="flow__progress-bar" style:width={`${Math.round(overall * 100)}%`}></div>
       </div>
@@ -253,6 +265,42 @@
 
   .flow__title {
     margin: var(--space-5) 0 var(--space-3) 0;
+  }
+
+  /* Numbered section indicator (1–4): shows which test the patient is on and
+     how many are done (current = primary, completed = success, upcoming = muted). */
+  .flow__steps {
+    list-style: none;
+    display: flex;
+    gap: var(--space-2);
+    padding: 0;
+    margin: 0 0 var(--space-3);
+  }
+
+  .flow__step {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background: var(--color-primary-tint-ghost);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+  }
+
+  .flow__step--current {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+
+  .flow__step--done {
+    background: var(--color-success);
+    color: #fff;
+    border-color: var(--color-success);
   }
 
   .flow__progress {

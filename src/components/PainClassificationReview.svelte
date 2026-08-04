@@ -113,7 +113,7 @@
       </button>
     </div>
 
-    <h1 class="review__heading">Review your completed tests</h1>
+    <h1 class="review__heading">Review your responses</h1>
 
     {#if downloadError}
       <p class="review__error" role="alert">{downloadError}</p>
