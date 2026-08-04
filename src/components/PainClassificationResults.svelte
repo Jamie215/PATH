@@ -12,7 +12,7 @@
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
-  import { ACUTE_CHILDREN, KEYS } from '../assessments/pain-classification/config';
+  import { ACUTE_CHILDREN, KEYS, type Role } from '../assessments/pain-classification/config';
   import {
     scoreAcute,
     CATEGORIES,
@@ -35,6 +35,13 @@
   let pdfError = $state<string | null>(null);
 
   onMount(() => {
+    // The composite classification is for professionals only; a patient who
+    // reaches this URL is sent to their (score-free) review view instead.
+    if (storeGet<Role>(KEYS.role) === 'patient') {
+      window.location.replace('/pain-classification/review/');
+      return;
+    }
+
     const inputs: PainClassificationInputs = {};
     const display: typeof rows = [];
 

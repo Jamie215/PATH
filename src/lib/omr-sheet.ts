@@ -98,7 +98,29 @@ function drawBubbleGlyph(
   }
 }
 
-export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8Array> {
+/** Options for {@link generateAnswerSheet}. */
+export interface AnswerSheetOptions {
+  /**
+   * Pre-fill the sheet with a respondent's answers, keyed exactly like a stored
+   * survey `:response`: each field key (e.g. `neck_freq`, `back_exp`) maps to a
+   * numeric bubble value, and the text keys (`other_comments`, `bothersome_area`,
+   * `patient_name`, `patient_date`) to their strings. Unknown keys are ignored,
+   * so one response shape can be handed to any template.
+   */
+  answers?: Record<string, number | string>;
+  /**
+   * Flatten the form after filling, baking the marks into static page content
+   * and dropping the interactive fields. Used for a "completed test" record so
+   * it renders identically everywhere and can't be edited. A blank sheet leaves
+   * this off so it stays typeable on a computer.
+   */
+  flatten?: boolean;
+}
+
+export async function generateAnswerSheet(
+  template: OmrTemplate,
+  options: AnswerSheetOptions = {},
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`${template.title} — Answer Sheet`);
   doc.setSubject('OMR answer sheet');
@@ -132,12 +154,76 @@ export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8A
   drawFooter(ctx, template);
   drawCommentBox(ctx, template);
 
+  if (options.answers) fillAnswers(form, options.answers);
+  if (options.flatten) form.flatten();
+
   return doc.save();
+}
+
+/**
+ * Set the sheet's interactive fields from a stored survey response. Numeric
+ * values select the matching radio bubble; string values fill the text field
+ * of the same name. Both lookups are guarded, so a key that isn't a field on
+ * this particular template (or a value with no matching bubble) is skipped
+ * rather than throwing — letting one response object drive any template.
+ */
+function fillAnswers(form: PDFForm, answers: Record<string, number | string>): void {
+  for (const [key, value] of Object.entries(answers)) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) continue;
+      try {
+        form.getRadioGroup(key).select(String(value));
+      } catch {
+        /* not a radio group on this sheet, or no bubble for this value */
+      }
+    } else {
+      const text = String(value);
+      if (!text) continue;
+      try {
+        form.getTextField(key).setText(text);
+      } catch {
+        /* not a text field on this sheet */
+      }
+    }
+  }
+}
+
+/**
+ * A single combined PDF holding one filled, flattened answer sheet per entry —
+ * the "completed tests" record a patient downloads. Each sheet is generated on
+ * its own (reusing all the layout above), then its pages are copied into one
+ * document in order.
+ */
+export async function generateCombinedAnswerSheets(
+  entries: { template: OmrTemplate; answers?: Record<string, number | string> }[],
+): Promise<Uint8Array> {
+  const merged = await PDFDocument.create();
+  merged.setTitle('Completed Tests');
+  merged.setSubject('Completed assessment forms');
+  merged.setProducer('PATH — Pain Assessment Tools Hub');
+  merged.setCreator('PATH');
+  merged.setCreationDate(new Date());
+
+  for (const { template, answers } of entries) {
+    const bytes = await generateAnswerSheet(template, { answers, flatten: true });
+    const src = await PDFDocument.load(bytes);
+    const pages = await merged.copyPages(src, src.getPageIndices());
+    for (const page of pages) merged.addPage(page);
+  }
+
+  return merged.save();
 }
 
 /** Suggested download filename for a blank sheet. */
 export function buildAnswerSheetFilename(template: OmrTemplate): string {
   return `${template.id}_answer_sheet.pdf`;
+}
+
+/** Suggested download filename for the combined completed-tests record. */
+export function buildCombinedAnswerSheetFilename(): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return `completed_tests_${today}.pdf`;
 }
 
 // ---------------------------------------------------------------------------

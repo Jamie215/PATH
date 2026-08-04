@@ -117,6 +117,11 @@
   const doneCount = $derived(ACUTE_CHILDREN.filter((c) => childComplete(c)).length);
   const allDone = $derived(doneCount === ACUTE_CHILDREN.length);
 
+  // Patients get a reduced view: no manual-score entry, no sheet upload, and no
+  // classification result — they only take or download each test, then proceed
+  // to review their completed tests.
+  const isPatient = $derived(role === 'patient');
+
   /** Persist a child's values to storage, keeping only finite numbers. */
   function persistValues(slug: string): void {
     const v = values[slug] ?? {};
@@ -378,9 +383,13 @@
     else if (modalChild) closeQuestionnaire();
   }
 
-  function calculate(): void {
+  /** Advance from the collection page: patients go to review their completed
+   *  tests (no scoring); professionals go to the composite results. */
+  function proceed(): void {
     if (!allDone) return;
-    window.location.href = '/pain-classification/results/';
+    window.location.href = isPatient
+      ? '/pain-classification/review/'
+      : '/pain-classification/results/';
   }
 </script>
 
@@ -390,21 +399,31 @@
   <section class="collect">
     <a class="collect__back" href="/pain-classification/">&larr; Go back</a>
     <h1 class="collect__heading">Acute Pain Classification</h1>
-    <p class="collect__lede">
-      Provide a result for each of the four assessments below — either enter a
-      known result manually, take the test directly, or download the OMR form, complete and upload it. When all four are complete, calculate the composite classification.
-    </p>
+    {#if isPatient}
+      <p class="collect__lede">
+        Complete each of the four tests below — take it here on screen, or
+        download a copy to fill out on paper. When all four are done, proceed to
+        review them.
+      </p>
+    {:else}
+      <p class="collect__lede">
+        Provide a result for each of the four assessments below — either enter a
+        known result manually, take the test directly, or download the test,
+        complete and upload it. When all four are complete, calculate the
+        composite classification.
+      </p>
+    {/if}
 
     <ul class="cards">
       {#each ACUTE_CHILDREN as child, i (child.slug)}
         <li class="assessment">
           <div class="card" class:card--done={childComplete(child)}>
-            <header class="card__header">
+            <header class="card__header" class:card__header--only={isPatient}>
               <div class="card__lead">
                 <span class="card__num" class:card__num--done={childComplete(child)} aria-hidden="true">{i + 1}</span>
                 <div class="card__heading">
                   <h2 class="card__title">{child.shortName}</h2>
-                  <p class="card__subtitle">{child.title}</p>
+                  <p class="card__subtitle">{child.description}</p>
                 </div>
               </div>
               <div class="card__actions">
@@ -412,22 +431,25 @@
                   Take the test
                 </button>
                 {#if child.omrTemplate}
-                  <OmrSheetButton template={child.omrTemplate} label="Download OMR form" compact={true} />
-                  <div class="omr-sheet omr-sheet--compact">
-                    <button
-                      type="button"
-                      class="btn btn--secondary btn--compact-block"
-                      onclick={() => startUpload(child)}
-                      disabled={omrBusy === child.slug}
-                    >
-                      <span class="material-symbols-outlined" aria-hidden="true">upload</span>
-                      {omrBusy === child.slug ? 'Reading…' : 'Upload OMR form'}
-                    </button>
-                  </div>
+                  <OmrSheetButton template={child.omrTemplate} label="Download test" compact={true} />
+                  {#if !isPatient}
+                    <div class="omr-sheet omr-sheet--compact">
+                      <button
+                        type="button"
+                        class="btn btn--secondary btn--compact-block"
+                        onclick={() => startUpload(child)}
+                        disabled={omrBusy === child.slug}
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">upload</span>
+                        {omrBusy === child.slug ? 'Reading…' : 'Upload test'}
+                      </button>
+                    </div>
+                  {/if}
                 {/if}
               </div>
             </header>
 
+            {#if !isPatient}
             <div class="card__body">
             {#if child.areaField}
               <label class="field field--area">
@@ -471,6 +493,7 @@
               </label>
             </div>
             </div>
+            {/if}
           </div>
         </li>
       {/each}
@@ -482,8 +505,8 @@
           {ACUTE_CHILDREN.length - doneCount} of {ACUTE_CHILDREN.length} assessments still need a result.
         </p>
       {/if}
-      <button type="button" class="btn btn--primary collect__calc" disabled={!allDone} onclick={calculate}>
-        Calculate Results
+      <button type="button" class="btn btn--primary collect__calc" disabled={!allDone} onclick={proceed}>
+        {isPatient ? 'Proceed' : 'Calculate Results'}
       </button>
     </div>
   </section>
@@ -500,7 +523,7 @@
           <div class="modal__head-row">
             <div>
               <h2 class="modal__title">{child.shortName}</h2>
-              <p class="modal__subtitle">{child.title}</p>
+              <p class="modal__subtitle">{child.description}</p>
             </div>
             <button type="button" class="modal__close" aria-label="Close questionnaire" onclick={closeQuestionnaire}>
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
@@ -745,6 +768,12 @@
 
   .card--done .card__header {
     border-bottom-color: var(--color-success);
+  }
+
+  /* Patient cards have no body below the header, so drop the divider rule that
+     would otherwise float just above the card's bottom edge. */
+  .card__header--only {
+    border-bottom: none;
   }
 
   /* Number badge + heading grouped on the left of the header band. */

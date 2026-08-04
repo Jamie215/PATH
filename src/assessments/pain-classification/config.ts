@@ -42,6 +42,12 @@ export interface ChildAssessment {
   slug: string;
   title: string;
   shortName: string;
+  /**
+   * One-line explanation of what the assessment measures. Shown as the card
+   * and modal subtitle — the friendly title alone would otherwise just repeat
+   * itself, so the subtitle carries the description instead.
+   */
+  description: string;
   /** sessionStorage key (sans the `path:` prefix) the child writes its scored result to. */
   resultKey: string;
   /** Where "Fill Out Questionnaire" sends the user. */
@@ -89,6 +95,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     slug: 'msi',
     title: 'Symptom Index',
     shortName: 'Symptom Index',
+    description:
+      'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
     resultKey: 'msi:result',
     surveyUrl: '/msi/survey/',
     roleKey: 'msi:role',
@@ -110,6 +118,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     slug: 'briefslanss',
     title: 'Sensory Profile',
     shortName: 'Sensory Profile',
+    description:
+      'A brief screening for neuropathic pain, with four symptom questions.',
     resultKey: 'briefslanss:result',
     surveyUrl: '/briefslanss/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 4 }],
@@ -123,6 +133,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     slug: 'frebaq',
     title: 'Body Awareness',
     shortName: 'Body Awareness',
+    description:
+      'A quantitative evaluation of area-specific self-perception.',
     resultKey: 'frebaq:result',
     surveyUrl: '/frebaq/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 24 }],
@@ -140,6 +152,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     slug: 'phq4',
     title: 'Anxiety & Depression',
     shortName: 'Anxiety & Depression',
+    description:
+      'A brief screening for depression and anxiety.',
     resultKey: 'phq4:result',
     surveyUrl: '/phq4/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 12 }],
