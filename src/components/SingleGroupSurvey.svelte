@@ -42,8 +42,11 @@
     areaField,
     /** Normalizes the area text before it is stored (e.g. FreBAQ's sanitizer). */
     sanitizeArea,
-    /** Rewrites a question label to reference the typed area (e.g. FreBAQ's
-     *  "the area" → "the right knee"). Applied live as the area is typed. */
+    /** Fully normalizes a confirmed area (punctuation + leading "my"/"the"
+     *  strip). Falls back to sanitizeArea when absent. */
+    normalizeArea,
+    /** Rewrites a question label to reference the confirmed area (e.g. FreBAQ's
+     *  "the area" → "my right knee"). */
     personalizeArea,
     // --- Runtime props (embedding parent / scan review) ---
     onComplete,
@@ -67,6 +70,7 @@
     score: (response: Record<string, number | string>) => unknown;
     areaField?: { label: string; placeholder: string };
     sanitizeArea?: (text: string) => string;
+    normalizeArea?: (text: string) => string;
     personalizeArea?: (label: string, area: string) => string;
     onComplete?: () => void;
     submitLabel?: string;
@@ -98,10 +102,41 @@
     attentionKeys?: string[];
   } = $props();
 
+  const normalize = (text: string): string =>
+    normalizeArea ? normalizeArea(text) : sanitizeArea ? sanitizeArea(text) : text.trim();
+
+  // A scan/PDF review arrives with pre-filled answers to confirm; the fresh
+  // "take the test" flow does not. The two differ in how the area field behaves
+  // (see below), so decide once up front.
+  const isReview = Object.keys(initialAnswers ?? {}).length > 0;
+
   let answers = $state<Record<string, number>>({ ...(initialAnswers ?? {}) });
+  // `area` is the live text in the input; `confirmedArea` is the value woven
+  // into the questions — it only changes when the user presses "Use this area"
+  // (or, in review, tracks the live text so scanned edits reflect immediately).
   let area = $state(initialArea ?? '');
+  let confirmedArea = $state(initialArea ? normalize(initialArea) : '');
+  // Whether the area input is expanded for (re-)entry. Fresh flow starts open
+  // when nothing is confirmed yet; the user can reopen it via "Change area".
+  let editingArea = $state(false);
   let comments = $state(initialComments ?? '');
   let submitAttempted = $state(false);
+
+  // In review the questions personalize from the live text (there's no confirm
+  // step); in the fresh flow they follow the confirmed value.
+  const activeArea = $derived(isReview ? area : confirmedArea);
+
+  function confirmArea(): void {
+    const normalized = normalize(area);
+    if (!normalized) return; // don't confirm an empty area
+    confirmedArea = normalized;
+    area = normalized; // reflect the cleaned value back into the (now collapsed) input
+    editingArea = false;
+  }
+
+  function editArea(): void {
+    editingArea = true;
+  }
 
   function setAnswer(key: string, value: number): void {
     // Fresh object so Svelte 5 picks up the change reliably
@@ -116,14 +151,17 @@
   const isComplete = $derived(missing.length === 0);
 
   // With an area field, the rated items reference that area (e.g. FreBAQ's "the
-  // area feels lopsided"), so keep the questions hidden until the user names it:
-  // the questions then read with the specific region instead of a generic
-  // placeholder, and there's nothing to answer out of context. This gate is for
-  // the fresh "take the test" flow only — a scan/PDF review arrives with
-  // pre-filled answers to confirm (area may have been left blank on the sheet),
-  // so it's never gated; personalization still applies live if an area is present.
-  const isReview = Object.keys(initialAnswers ?? {}).length > 0;
-  const areaFilled = $derived(!areaField || isReview || area.trim().length > 0);
+  // area feels lopsided"), so keep the questions hidden until the user confirms
+  // one: the questions then read with the specific region instead of a generic
+  // placeholder. This gate is for the fresh "take the test" flow only — a
+  // scan/PDF review arrives with pre-filled answers to confirm (area may have
+  // been left blank on the sheet), so it's never gated.
+  const questionsReady = $derived(!areaField || isReview || confirmedArea.trim().length > 0);
+
+  // The area input is expanded when reviewing (its rich crop/hint UI), while
+  // (re-)entering, or before anything is confirmed. Otherwise it collapses to a
+  // one-line summary with a "Change area" button.
+  const showAreaInput = $derived(isReview || editingArea || confirmedArea.trim().length === 0);
 
   // The bothersome-area field must be filled because the scanned region had
   // ink. Comments are only highlighted for attention, never required.
@@ -157,7 +195,9 @@
 
     const response: Record<string, number | string> = { ...answers };
     if (areaField) {
-      const cleanedArea = sanitizeArea ? sanitizeArea(area) : area.trim();
+      // Store the confirmed value in the fresh flow; in review the live text is
+      // the source of truth (there's no confirm step).
+      const cleanedArea = normalize(isReview ? area : confirmedArea);
       if (cleanedArea.length > 0) {
         response.bothersome_area = cleanedArea;
       }
@@ -190,40 +230,66 @@
   <p class="survey__intro">{intro}</p>
 
   {#if areaField}
-    <div class="area">
-      <label for="bothersome_area" class="area__label">
-        {areaField.label}
-        {#if requireArea}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
-      </label>
-      <input
-        id="bothersome_area"
-        class="area__input"
-        class:field--error={areaMissing}
-        class:field--flagged={requireArea && !areaMissing}
-        type="text"
-        bind:value={area}
-        placeholder={areaField.placeholder}
-      />
-      {#if areaCropUrl}
-        <figure class="area__crop">
-          <figcaption class="area__crop-label">From the scanned sheet</figcaption>
-          <img class="area__crop-img" src={areaCropUrl} alt="Scanned handwriting for the most bothersome area" />
-        </figure>
-      {/if}
-      {#if areaMissing}
-        <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
-      {:else if areaCorrection === 'unread'}
-        <p class="field__hint">Correction marks made this hard to read automatically — please enter it from the scan above.</p>
-      {:else if areaCorrection === 'cleaned'}
-        <p class="field__hint">Possible correction marks were removed before reading — please verify against the scan.</p>
-      {:else if requireArea}
-        <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
-      {/if}
-    </div>
+    {#if showAreaInput}
+      <div class="area">
+        <label for="bothersome_area" class="area__label">
+          {areaField.label}
+          {#if requireArea}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
+        </label>
+        <div class="area__row">
+          <input
+            id="bothersome_area"
+            class="area__input"
+            class:field--error={areaMissing}
+            class:field--flagged={requireArea && !areaMissing}
+            type="text"
+            bind:value={area}
+            placeholder={areaField.placeholder}
+            onkeydown={(e) => { if (!isReview && e.key === 'Enter') { e.preventDefault(); confirmArea(); } }}
+          />
+          {#if !isReview}
+            <button
+              type="button"
+              class="btn btn--primary area__confirm"
+              onclick={confirmArea}
+              disabled={area.trim().length === 0}
+            >
+              {confirmedArea ? 'Update area' : 'Use this area'}
+            </button>
+          {/if}
+        </div>
+        {#if areaCropUrl}
+          <figure class="area__crop">
+            <figcaption class="area__crop-label">From the scanned sheet</figcaption>
+            <img class="area__crop-img" src={areaCropUrl} alt="Scanned handwriting for the most bothersome area" />
+          </figure>
+        {/if}
+        {#if areaMissing}
+          <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+        {:else if areaCorrection === 'unread'}
+          <p class="field__hint">Correction marks made this hard to read automatically — please enter it from the scan above.</p>
+        {:else if areaCorrection === 'cleaned'}
+          <p class="field__hint">Possible correction marks were removed before reading — please verify against the scan.</p>
+        {:else if requireArea}
+          <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
+        {:else if !isReview}
+          <p class="field__hint">The questions below will refer to “my {area.trim() || '…'}”.</p>
+        {/if}
+      </div>
+    {:else}
+      <div class="area-summary">
+        <span class="area-summary__text">
+          Bothersome area: <strong>my {confirmedArea}</strong>
+        </span>
+        <button type="button" class="btn btn--secondary area-summary__change" onclick={editArea}>
+          Change area
+        </button>
+      </div>
+    {/if}
   {/if}
 
-  {#if areaField && !areaFilled}
-    <p class="survey__gate">Enter the area above to see the questions.</p>
+  {#if areaField && !questionsReady}
+    <p class="survey__gate">Enter your most bothersome area above and press “Use this area” to see the questions.</p>
   {:else}
   <ol class="survey__list">
     {#each questions as q, i (q.symptom)}
@@ -231,7 +297,7 @@
       {@const expValue = answers[expKey] ?? null}
       {@const flagMissing = submitAttempted && expValue === null}
       {@const flagged = (attentionKeys?.includes(expKey) ?? false) && expValue === null}
-      {@const title = personalizeArea ? personalizeArea(q.symptomLabel, area) : q.symptomLabel}
+      {@const title = personalizeArea ? personalizeArea(q.symptomLabel, activeArea) : q.symptomLabel}
 
       <li class="question" class:question--flagged={flagged} id={`q-${q.symptom}`}>
         <div class="question__head">
@@ -425,6 +491,12 @@
     margin-bottom: var(--space-2);
   }
 
+  .area__row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: stretch;
+  }
+
   .area__input {
     width: 100%;
     padding: var(--space-3);
@@ -440,6 +512,44 @@
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
+  }
+
+  .area__confirm {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.9rem;
+  }
+
+  .area__confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Collapsed summary shown once an area is confirmed: the region on the left,
+     a "Change area" button on the right to reopen the input. */
+  .area-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-primary-tint-ghost);
+  }
+
+  .area-summary__text {
+    font-size: 0.95rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .area-summary__change {
+    flex-shrink: 0;
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.85rem;
   }
 
   .area__crop {

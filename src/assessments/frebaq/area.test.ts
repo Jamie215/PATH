@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeBothersomeArea, personalizeFreBAQItem } from './area';
+import {
+  sanitizeBothersomeArea,
+  personalizeFreBAQItem,
+  stripLeadingArticle,
+  normalizeBothersomeArea,
+} from './area';
 
 describe('sanitizeBothersomeArea', () => {
   it('strips periods and commas', () => {
@@ -33,27 +38,70 @@ describe('sanitizeBothersomeArea', () => {
   });
 });
 
-describe('personalizeFreBAQItem', () => {
-  it('substitutes the area into mid-sentence "the area" phrasing', () => {
-    expect(
-      personalizeFreBAQItem('When performing everyday tasks, the area moves without me understanding why.', 'right knee'),
-    ).toBe('When performing everyday tasks, the right knee moves without me understanding why.');
+describe('stripLeadingArticle', () => {
+  it('drops a leading "my"', () => {
+    expect(stripLeadingArticle('my right hand')).toBe('right hand');
+    expect(stripLeadingArticle('My Right Hand')).toBe('Right Hand');
   });
 
-  it('preserves the article capitalization at the start of a sentence', () => {
+  it('drops a leading "the"', () => {
+    expect(stripLeadingArticle('the lower back')).toBe('lower back');
+  });
+
+  it('leaves a real word beginning with those letters intact', () => {
+    expect(stripLeadingArticle('mystery region')).toBe('mystery region');
+    expect(stripLeadingArticle('thenar eminence')).toBe('thenar eminence');
+  });
+
+  it('does not strip when there is nothing after the article', () => {
+    expect(stripLeadingArticle('my')).toBe('my');
+  });
+
+  it('leaves a non-leading "my"/"the" alone', () => {
+    expect(stripLeadingArticle('back of my hand')).toBe('back of my hand');
+  });
+});
+
+describe('normalizeBothersomeArea', () => {
+  it('strips punctuation and a leading article together', () => {
+    expect(normalizeBothersomeArea('my right hand.')).toBe('right hand');
+    expect(normalizeBothersomeArea('The mid-back!')).toBe('mid back');
+  });
+
+  it('returns empty for an article-only entry', () => {
+    expect(normalizeBothersomeArea('my')).toBe('my');
+    expect(normalizeBothersomeArea('')).toBe('');
+  });
+});
+
+describe('personalizeFreBAQItem', () => {
+  it('substitutes "my {area}" into mid-sentence "the area" phrasing', () => {
+    expect(
+      personalizeFreBAQItem('When performing everyday tasks, the area moves without me understanding why.', 'right knee'),
+    ).toBe('When performing everyday tasks, my right knee moves without me understanding why.');
+  });
+
+  it('capitalizes the possessive at the start of a sentence', () => {
     expect(
       personalizeFreBAQItem('The area feels very lopsided, or out of proportion.', 'left hand'),
-    ).toBe('The left hand feels very lopsided, or out of proportion.');
+    ).toBe('My left hand feels very lopsided, or out of proportion.');
   });
 
   it('replaces every occurrence in an item', () => {
     expect(personalizeFreBAQItem('The area and the area again.', 'neck')).toBe(
-      'The neck and the neck again.',
+      'My neck and my neck again.',
     );
   });
 
+  it('strips a leading "my"/"the" from the region so it is not doubled', () => {
+    expect(personalizeFreBAQItem('The area feels lopsided.', 'my right hand')).toBe(
+      'My right hand feels lopsided.',
+    );
+    expect(personalizeFreBAQItem('the area moves.', 'the lower back')).toBe('my lower back moves.');
+  });
+
   it('trims surrounding whitespace from the area', () => {
-    expect(personalizeFreBAQItem('The area is here.', '  neck  ')).toBe('The neck is here.');
+    expect(personalizeFreBAQItem('The area is here.', '  neck  ')).toBe('My neck is here.');
   });
 
   it('leaves the wording untouched when the area is empty', () => {

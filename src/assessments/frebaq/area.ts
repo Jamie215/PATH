@@ -16,14 +16,37 @@ export function sanitizeBothersomeArea(text: string): string {
 }
 
 /**
+ * Strip a leading possessive/article ("my", "the") from a most-bothersome-area
+ * entry, so a user who writes "my right hand" (or "the lower back") isn't left
+ * with a doubled "my my right hand" once the questions prepend their own "my".
+ * Only a leading whole word followed by more text is removed.
+ */
+export function stripLeadingArticle(area: string): string {
+  return area.replace(/^\s*(?:my|the)\s+(?=\S)/i, '');
+}
+
+/**
+ * Full normalization for a most-bothersome-area entry before it is confirmed,
+ * stored, or woven into the questions: strip punctuation/symbols (via
+ * {@link sanitizeBothersomeArea}) then drop a leading "my"/"the".
+ */
+export function normalizeBothersomeArea(text: string): string {
+  return stripLeadingArticle(sanitizeBothersomeArea(text)).trim();
+}
+
+/**
  * Personalize a FreBAQ item by substituting the user's most bothersome body
  * region into the generic "the area" phrasing — so "the area feels lopsided"
- * reads "the right knee feels lopsided". The article and its capitalization
- * are preserved ("The area" at the start of a sentence keeps its capital), and
- * an empty area leaves the original wording untouched.
+ * reads "my right knee feels lopsided". The article's capitalization is
+ * preserved as a possessive ("The area" at the start of a sentence → "My right
+ * knee"), a leading "my"/"the" on the region is stripped so it isn't doubled,
+ * and an empty area leaves the original wording untouched.
  */
 export function personalizeFreBAQItem(label: string, area: string): string {
-  const region = area.trim();
+  const region = stripLeadingArticle(area.trim()).trim();
   if (!region) return label;
-  return label.replace(/\b(the) area\b/gi, (_match, article) => `${article} ${region}`);
+  return label.replace(
+    /\b(the) area\b/gi,
+    (_match, article) => `${article[0] === 'T' ? 'My' : 'my'} ${region}`,
+  );
 }
