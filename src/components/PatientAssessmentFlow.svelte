@@ -161,22 +161,9 @@
       <p class="flow__error" role="alert">{downloadError}</p>
     {/if}
 
-    <h1 class="flow__title">{child.shortName}</h1>
+    <h1 class="flow__title">{step + 1}. {child.shortName}</h1>
 
     {#if !editingSingle}
-      <ol class="flow__steps" aria-label={`Test ${step + 1} of ${total}`}>
-        {#each ACUTE_CHILDREN as t, i (t.slug)}
-          <li
-            class="flow__step"
-            class:flow__step--current={i === step}
-            class:flow__step--done={i < step}
-            aria-current={i === step ? 'step' : undefined}
-          >
-            <span class="flow__step-num">{i + 1}.</span>
-            <span class="flow__step-name">{t.shortName}</span>
-          </li>
-        {/each}
-      </ol>
       <div class="flow__progress" aria-hidden="true">
         <div class="flow__progress-bar" style:width={`${Math.round(overall * 100)}%`}></div>
       </div>
@@ -264,42 +251,6 @@
 
   .flow__title {
     margin: var(--space-5) 0 var(--space-3) 0;
-  }
-
-  /* Numbered section list ("1. Symptom Index  2. Sensory Profile …"): shows the
-     ordered tests and which one the patient is on (current = highlighted pill,
-     completed = success, upcoming = muted). */
-  .flow__steps {
-    list-style: none;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-3);
-    padding: 0;
-    margin: 0 0 var(--space-4);
-  }
-
-  .flow__step {
-    display: inline-flex;
-    align-items: baseline;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-3);
-    border-radius: 999px;
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
-  }
-
-  .flow__step-num {
-    font-weight: 700;
-  }
-
-  .flow__step--current {
-    background: var(--color-primary-tint-ghost);
-    color: var(--color-primary);
-    font-weight: 600;
-  }
-
-  .flow__step--done {
-    color: var(--color-success);
   }
 
   .flow__progress {
