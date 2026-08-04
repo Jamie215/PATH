@@ -172,7 +172,8 @@
             class:flow__step--done={i < step}
             aria-current={i === step ? 'step' : undefined}
           >
-            {i + 1}
+            <span class="flow__step-num">{i + 1}.</span>
+            <span class="flow__step-name">{t.shortName}</span>
           </li>
         {/each}
       </ol>
@@ -180,8 +181,6 @@
         <div class="flow__progress-bar" style:width={`${Math.round(overall * 100)}%`}></div>
       </div>
     {/if}
-
-    <p class="flow__desc">{child.description}</p>
 
     {#key child.slug}
       {#if child.slug === 'msi'}
@@ -267,40 +266,40 @@
     margin: var(--space-5) 0 var(--space-3) 0;
   }
 
-  /* Numbered section indicator (1–4): shows which test the patient is on and
-     how many are done (current = primary, completed = success, upcoming = muted). */
+  /* Numbered section list ("1. Symptom Index  2. Sensory Profile …"): shows the
+     ordered tests and which one the patient is on (current = highlighted pill,
+     completed = success, upcoming = muted). */
   .flow__steps {
     list-style: none;
     display: flex;
-    gap: var(--space-2);
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
     padding: 0;
-    margin: 0 0 var(--space-3);
+    margin: 0 0 var(--space-4);
   }
 
   .flow__step {
-    width: 28px;
-    height: 28px;
-    border-radius: 999px;
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.85rem;
-    font-weight: 700;
-    background: var(--color-primary-tint-ghost);
+    align-items: baseline;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    border-radius: 999px;
+    font-size: 0.9rem;
     color: var(--color-text-muted);
-    border: 1px solid var(--color-border);
+  }
+
+  .flow__step-num {
+    font-weight: 700;
   }
 
   .flow__step--current {
-    background: var(--color-primary);
-    color: #fff;
-    border-color: var(--color-primary);
+    background: var(--color-primary-tint-ghost);
+    color: var(--color-primary);
+    font-weight: 600;
   }
 
   .flow__step--done {
-    background: var(--color-success);
-    color: #fff;
-    border-color: var(--color-success);
+    color: var(--color-success);
   }
 
   .flow__progress {
@@ -315,12 +314,6 @@
     height: 100%;
     background: var(--color-primary);
     transition: width 0.2s ease-out;
-  }
-
-  .flow__desc {
-    color: var(--color-text-muted);
-    margin: 0 0 var(--space-6) 0;
-    max-width: 60ch;
   }
 
   .flow__error {
