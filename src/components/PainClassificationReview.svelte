@@ -3,24 +3,29 @@
    * Patient review view for the acute pain-classification pathway.
    *
    * Patients don't see any scoring or the composite classification (that's the
-   * professional's results page). Instead, once every test is complete, they
-   * land here to review their completed test forms in an embedded PDF viewer —
-   * each form rendered with their own answers marked on it — and can download
-   * that same PDF to hand to a clinician, or go back to make changes.
+   * professional's results page). Once every test is complete, they land here
+   * to read back their own answers — a clean, on-screen summary grouped by test
+   * — and can download the same answers as a PDF to hand to a clinician, or go
+   * back to edit their responses.
    *
    * Guards: no role → back to intake; any test still incomplete → back to the
    * collection page (this view is only meaningful once all four are done).
    */
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { get as storeGet } from '../lib/storage';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
+  import { summarizeChild, type ChildSummary } from '../assessments/pain-classification/summary';
+
+  interface AssessmentSummary extends ChildSummary {
+    slug: string;
+    title: string;
+    description: string;
+  }
 
   let loaded = $state(false);
-  let building = $state(false);
-  let error = $state<string | null>(null);
-  // Object URL of the combined PDF, shared by the viewer and the download.
-  let pdfUrl = $state<string | null>(null);
-  let filename = $state('completed_tests.pdf');
+  let summaries = $state<AssessmentSummary[]>([]);
+  let downloadBusy = $state(false);
+  let downloadError = $state<string | null>(null);
 
   function childComplete(child: ChildAssessment): boolean {
     const v = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
@@ -37,190 +42,278 @@
       window.location.replace('/pain-classification/acute/');
       return;
     }
+    summaries = ACUTE_CHILDREN.map((c) => ({
+      slug: c.slug,
+      title: c.shortName,
+      description: c.description,
+      ...summarizeChild(c.slug),
+    }));
     loaded = true;
-    void buildPdf();
   });
 
-  onDestroy(() => {
-    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-  });
+  function editResponse(): void {
+    window.location.href = '/pain-classification/acute/';
+  }
 
   /**
-   * Build one combined PDF: each completed test form rendered with the
-   * patient's own answers marked on it (no scores, no interpretation). Answers
-   * come from each child's stored survey `:response`, whose keys line up with
-   * the sheet's fields; the current date is stamped on each form.
+   * Build the combined PDF of the patient's completed test forms (each form
+   * carrying their own answers, no scores) and download it. Generated on click
+   * so the page stays light; a busy state covers the short build.
    */
-  async function buildPdf(): Promise<void> {
-    building = true;
-    error = null;
+  async function download(): Promise<void> {
+    downloadBusy = true;
+    downloadError = null;
     try {
       const { generateCombinedAnswerSheets, buildCombinedAnswerSheetFilename } = await import('../lib/omr-sheet');
       const today = new Date().toLocaleDateString();
       const entries = ACUTE_CHILDREN.filter((c) => c.omrTemplate).map((c) => {
-        const response = storeGet<Record<string, number | string>>(c.slug + ':response') ?? {};
+        const response = storeGet<Record<string, number | string>>(`${c.slug}:response`) ?? {};
         return { template: c.omrTemplate!, answers: { ...response, patient_date: today } };
       });
       const bytes = await generateCombinedAnswerSheets(entries);
       const blob = new Blob([bytes], { type: 'application/pdf' });
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      pdfUrl = URL.createObjectURL(blob);
-      filename = buildCombinedAnswerSheetFilename();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = buildCombinedAnswerSheetFilename();
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Could not prepare your completed tests.';
+      downloadError = err instanceof Error ? err.message : 'Could not prepare the download.';
     } finally {
-      building = false;
+      downloadBusy = false;
     }
-  }
-
-  function downloadPdf(): void {
-    if (!pdfUrl) return;
-    const a = document.createElement('a');
-    a.href = pdfUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
-
-  function goBack(): void {
-    window.location.href = '/pain-classification/acute/';
   }
 </script>
 
 {#if loaded}
   <section class="review">
-    <a class="review__back" href="/pain-classification/acute/">&larr; Go back</a>
-    <h1 class="review__heading">Review your completed tests</h1>
-    <p class="review__lede">
-      Review your completed tests below. Download a copy to keep or share with
-      your healthcare professional, or go back to make changes.
-    </p>
-
-    <div class="viewer">
-      {#if building}
-        <div class="viewer__status">
-          <span class="viewer__spinner" aria-hidden="true"></span>
-          <span>Preparing your completed tests…</span>
-        </div>
-      {:else if error}
-        <div class="viewer__status viewer__status--error" role="alert">
-          <p>{error}</p>
-          <button type="button" class="btn btn--secondary" onclick={() => buildPdf()}>Try again</button>
-        </div>
-      {:else if pdfUrl}
-        <iframe class="viewer__frame" src={pdfUrl} title="Your completed tests"></iframe>
-      {/if}
-    </div>
-
-    <div class="review__actions">
-      <button type="button" class="btn btn--secondary" onclick={goBack}>
-        Go back
+    <!-- Frozen action bar: stays in view while the summary scrolls, so Edit and
+         Download are always reachable. -->
+    <div class="review__bar">
+      <button type="button" class="btn btn--primary review__edit" onclick={editResponse}>
+        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+        Edit my response
       </button>
       <button
         type="button"
-        class="btn btn--primary review__download"
-        onclick={downloadPdf}
-        disabled={!pdfUrl}
+        class="btn btn--secondary review__download"
+        onclick={download}
+        disabled={downloadBusy}
       >
         <span class="material-symbols-outlined" aria-hidden="true">download</span>
-        Download completed tests
+        {downloadBusy ? 'Preparing…' : 'Download my response'}
       </button>
+    </div>
+
+    <h1 class="review__heading">Review your completed tests</h1>
+
+    {#if downloadError}
+      <p class="review__error" role="alert">{downloadError}</p>
+    {/if}
+
+    {#each summaries as a, i (a.slug)}
+      <section class="assess" aria-labelledby={`assess-${a.slug}`}>
+        <header class="assess__head">
+          <span class="assess__num" aria-hidden="true">{i + 1}</span>
+          <div>
+            <h2 class="assess__title" id={`assess-${a.slug}`}>{a.title}</h2>
+            <p class="assess__desc">{a.description}</p>
+          </div>
+        </header>
+
+        {#if a.area}
+          <p class="assess__meta"><span class="assess__meta-label">Most bothersome area:</span> {a.area}</p>
+        {/if}
+
+        <dl class="qa">
+          {#each a.rows as row (row.question)}
+            <div class="qa__row">
+              <dt class="qa__q">{row.question}</dt>
+              <dd class="qa__a" class:qa__a--empty={!row.answer}>{row.answer ?? 'Not answered'}</dd>
+            </div>
+          {/each}
+        </dl>
+
+        {#if a.comments}
+          <p class="assess__meta"><span class="assess__meta-label">Comments:</span> {a.comments}</p>
+        {/if}
+      </section>
+    {/each}
+
+    <div class="review__home">
+      <a href="/" class="btn btn--secondary">Return to Home</a>
     </div>
   </section>
 {/if}
 
 <style>
-  .review__back {
-    display: inline-block;
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-4);
-    border-bottom: none;
+  .review {
+    padding-top: var(--space-2);
   }
 
-  .review__heading {
-    margin-bottom: var(--space-3);
-  }
-
-  .review__lede {
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-6);
-    max-width: 60ch;
-  }
-
-  /* Embedded viewer for the combined completed-tests PDF. */
-  .viewer {
-    margin-bottom: var(--space-6);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    background: var(--color-bg-alt);
-  }
-
-  .viewer__frame {
-    display: block;
-    width: 100%;
-    height: 78vh;
-    min-height: 460px;
-    border: 0;
-    background: #fff;
-  }
-
-  .viewer__status {
+  /* Frozen action bar. */
+  .review__bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    flex-wrap: wrap;
     justify-content: center;
     gap: var(--space-3);
-    min-height: 460px;
-    padding: var(--space-6);
-    text-align: center;
-    color: var(--color-text-muted);
+    padding: var(--space-4) 0;
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
   }
 
-  .viewer__status--error {
-    color: var(--color-text);
-  }
-
-  .viewer__spinner {
-    width: 28px;
-    height: 28px;
-    border: 3px solid var(--color-border);
-    border-top-color: var(--color-primary);
-    border-radius: 50%;
-    animation: viewer-spin 0.7s linear infinite;
-  }
-
-  @keyframes viewer-spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* Centered actions below the viewer. */
-  .review__actions {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: var(--space-3);
-    border-top: 1px solid var(--color-border);
-    padding-top: var(--space-6);
-  }
-
+  .review__edit,
   .review__download {
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-3) var(--space-6);
+    padding: var(--space-3) var(--space-5);
     font-size: 1rem;
   }
 
+  /* Make the primary action stand out a little more prominently. */
+  .review__edit {
+    box-shadow: var(--shadow-sm);
+  }
+
+  .review__edit .material-symbols-outlined,
+  .review__download .material-symbols-outlined {
+    font-size: 1.15rem;
+  }
+
+  .review__heading {
+    margin: var(--space-6) 0 var(--space-5) 0;
+  }
+
+  .review__error {
+    margin: 0 0 var(--space-4) 0;
+    padding: var(--space-3);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+    border-radius: var(--radius-md);
+  }
+
+  .assess {
+    margin-bottom: var(--space-6);
+    padding: var(--space-5);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+  }
+
+  .assess__head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .assess__num {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--color-primary-tint-ghost);
+    color: var(--color-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+
+  .assess__title {
+    font-size: 1.2rem;
+    margin: 0;
+  }
+
+  .assess__desc {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: var(--space-1) 0 0 0;
+  }
+
+  .assess__meta {
+    margin: var(--space-3) 0 0 0;
+    font-size: 0.95rem;
+    color: var(--color-text);
+  }
+
+  .assess__meta-label {
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+
+  .qa {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .qa__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-4);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--color-border);
+  }
+  .qa__row:first-child {
+    border-top: none;
+  }
+
+  .qa__q {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-text);
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .qa__a {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-align: right;
+    flex-shrink: 0;
+    max-width: 45%;
+  }
+
+  .qa__a--empty {
+    color: var(--color-text-muted);
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  .review__home {
+    display: flex;
+    justify-content: center;
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-6);
+    margin-top: var(--space-2);
+  }
+
   @media (max-width: 560px) {
-    .review__actions {
+    .review__bar {
       flex-direction: column-reverse;
       align-items: stretch;
     }
-    .viewer__frame {
-      height: 68vh;
+    .qa__row {
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+    .qa__a {
+      text-align: left;
+      max-width: 100%;
     }
   }
 </style>

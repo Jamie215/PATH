@@ -24,6 +24,7 @@
   import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
   import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
+  import PatientAssessmentFlow from './PatientAssessmentFlow.svelte';
   import {
     ACUTE_CHILDREN,
     KEYS,
@@ -117,9 +118,9 @@
   const doneCount = $derived(ACUTE_CHILDREN.filter((c) => childComplete(c)).length);
   const allDone = $derived(doneCount === ACUTE_CHILDREN.length);
 
-  // Patients get a reduced view: no manual-score entry, no sheet upload, and no
-  // classification result — they only take or download each test, then proceed
-  // to review their completed tests.
+  // Patients get an entirely different experience (a one-test-per-page flow,
+  // no scoring), rendered by PatientAssessmentFlow; everything below in this
+  // component is the professional collection view.
   const isPatient = $derived(role === 'patient');
 
   /** Persist a child's values to storage, keeping only finite numbers. */
@@ -383,42 +384,33 @@
     else if (modalChild) closeQuestionnaire();
   }
 
-  /** Advance from the collection page: patients go to review their completed
-   *  tests (no scoring); professionals go to the composite results. */
   function proceed(): void {
     if (!allDone) return;
-    window.location.href = isPatient
-      ? '/pain-classification/review/'
-      : '/pain-classification/results/';
+    window.location.href = '/pain-classification/results/';
   }
 </script>
 
 <svelte:window onkeydown={onWindowKey} />
 
 {#if loaded}
+  {#if isPatient}
+    <PatientAssessmentFlow />
+  {:else}
   <section class="collect">
     <a class="collect__back" href="/pain-classification/">&larr; Go back</a>
     <h1 class="collect__heading">Acute Pain Classification</h1>
-    {#if isPatient}
-      <p class="collect__lede">
-        Complete each of the four tests below — take it here on screen, or
-        download a copy to fill out on paper. When all four are done, proceed to
-        review them.
-      </p>
-    {:else}
-      <p class="collect__lede">
-        Provide a result for each of the four assessments below — either enter a
-        known result manually, take the test directly, or download the test,
-        complete and upload it. When all four are complete, calculate the
-        composite classification.
-      </p>
-    {/if}
+    <p class="collect__lede">
+      Provide a result for each of the four assessments below — either enter a
+      known result manually, take the test directly, or download the test,
+      complete and upload it. When all four are complete, calculate the
+      composite classification.
+    </p>
 
     <ul class="cards">
       {#each ACUTE_CHILDREN as child, i (child.slug)}
         <li class="assessment">
           <div class="card" class:card--done={childComplete(child)}>
-            <header class="card__header" class:card__header--only={isPatient}>
+            <header class="card__header">
               <div class="card__lead">
                 <span class="card__num" class:card__num--done={childComplete(child)} aria-hidden="true">{i + 1}</span>
                 <div class="card__heading">
@@ -432,24 +424,21 @@
                 </button>
                 {#if child.omrTemplate}
                   <OmrSheetButton template={child.omrTemplate} label="Download test" compact={true} />
-                  {#if !isPatient}
-                    <div class="omr-sheet omr-sheet--compact">
-                      <button
-                        type="button"
-                        class="btn btn--secondary btn--compact-block"
-                        onclick={() => startUpload(child)}
-                        disabled={omrBusy === child.slug}
-                      >
-                        <span class="material-symbols-outlined" aria-hidden="true">upload</span>
-                        {omrBusy === child.slug ? 'Reading…' : 'Upload test'}
-                      </button>
-                    </div>
-                  {/if}
+                  <div class="omr-sheet omr-sheet--compact">
+                    <button
+                      type="button"
+                      class="btn btn--secondary btn--compact-block"
+                      onclick={() => startUpload(child)}
+                      disabled={omrBusy === child.slug}
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">upload</span>
+                      {omrBusy === child.slug ? 'Reading…' : 'Upload test'}
+                    </button>
+                  </div>
                 {/if}
               </div>
             </header>
 
-            {#if !isPatient}
             <div class="card__body">
             {#if child.areaField}
               <label class="field field--area">
@@ -493,7 +482,6 @@
               </label>
             </div>
             </div>
-            {/if}
           </div>
         </li>
       {/each}
@@ -506,7 +494,7 @@
         </p>
       {/if}
       <button type="button" class="btn btn--primary collect__calc" disabled={!allDone} onclick={proceed}>
-        {isPatient ? 'Proceed' : 'Calculate Results'}
+        Calculate Results
       </button>
     </div>
   </section>
@@ -713,6 +701,7 @@
       </div>
     </div>
   {/if}
+  {/if}
 
 {/if}
 
@@ -768,12 +757,6 @@
 
   .card--done .card__header {
     border-bottom-color: var(--color-success);
-  }
-
-  /* Patient cards have no body below the header, so drop the divider rule that
-     would otherwise float just above the card's bottom edge. */
-  .card__header--only {
-    border-bottom: none;
   }
 
   /* Number badge + heading grouped on the left of the header band. */
