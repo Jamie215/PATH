@@ -35,6 +35,10 @@ interface Ctx {
   fontBold: PDFFont;
   pageW: number;
   pageH: number;
+  /** Namespaces every form-field name, so several sheets can share one
+   *  interactive form in a combined document without field-name collisions
+   *  (e.g. each sheet's `other_comments`/`patient_name`). Empty for a lone sheet. */
+  fieldPrefix: string;
 }
 
 /** Normalized top-left x → point x. */
@@ -135,17 +139,39 @@ export async function generateAnswerSheet(
 
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const page = doc.addPage([template.page.width, template.page.height]);
   const form = doc.getForm();
 
+  renderSheet(doc, font, fontBold, form, template, { answers: options.answers });
+
+  if (options.flatten) form.flatten();
+
+  return doc.save();
+}
+
+/**
+ * Render one template's page(s) and interactive fields into an existing
+ * document, sharing its form and fonts. `fieldPrefix` namespaces every field so
+ * multiple sheets can coexist in one document's form; a lone sheet uses none.
+ * Pre-fills answers when given. Kept separate from `generateAnswerSheet` so the
+ * combined generator can lay several sheets into a single fillable form.
+ */
+function renderSheet(
+  doc: PDFDocument,
+  font: PDFFont,
+  fontBold: PDFFont,
+  form: PDFForm,
+  template: OmrTemplate,
+  options: { answers?: Record<string, number | string>; fieldPrefix?: string },
+): void {
   const ctx: Ctx = {
     doc,
-    page,
+    page: doc.addPage([template.page.width, template.page.height]),
     form,
     font,
     fontBold,
     pageW: template.page.width,
     pageH: template.page.height,
+    fieldPrefix: options.fieldPrefix ?? '',
   };
 
   drawFiducials(ctx, template);
@@ -154,26 +180,24 @@ export async function generateAnswerSheet(
   drawFooter(ctx, template);
   drawCommentBox(ctx, template);
 
-  if (options.answers) fillAnswers(form, options.answers);
-  if (options.flatten) form.flatten();
-
-  return doc.save();
+  if (options.answers) fillAnswers(form, options.answers, ctx.fieldPrefix);
 }
 
 /**
  * Set the sheet's interactive fields from a stored survey response. Numeric
  * values select the matching radio bubble; string values fill the text field
- * of the same name. Both lookups are guarded, so a key that isn't a field on
- * this particular template (or a value with no matching bubble) is skipped
- * rather than throwing — letting one response object drive any template.
+ * of the same name. `prefix` matches the field namespace used when the sheet
+ * was drawn. Both lookups are guarded, so a key that isn't a field on this
+ * particular template (or a value with no matching bubble) is skipped rather
+ * than throwing — letting one response object drive any template.
  */
-function fillAnswers(form: PDFForm, answers: Record<string, number | string>): void {
+function fillAnswers(form: PDFForm, answers: Record<string, number | string>, prefix = ''): void {
   for (const [key, value] of Object.entries(answers)) {
     if (value === null || value === undefined) continue;
     if (typeof value === 'number') {
       if (!Number.isFinite(value)) continue;
       try {
-        form.getRadioGroup(key).select(String(value));
+        form.getRadioGroup(prefix + key).select(String(value));
       } catch {
         /* not a radio group on this sheet, or no bubble for this value */
       }
@@ -181,7 +205,7 @@ function fillAnswers(form: PDFForm, answers: Record<string, number | string>): v
       const text = String(value);
       if (!text) continue;
       try {
-        form.getTextField(key).setText(text);
+        form.getTextField(prefix + key).setText(text);
       } catch {
         /* not a text field on this sheet */
       }
@@ -190,29 +214,34 @@ function fillAnswers(form: PDFForm, answers: Record<string, number | string>): v
 }
 
 /**
- * A single combined PDF holding one filled, flattened answer sheet per entry —
- * the "completed tests" record a patient downloads. Each sheet is generated on
- * its own (reusing all the layout above), then its pages are copied into one
- * document in order.
+ * A single combined PDF holding one answer sheet per entry, laid into one
+ * interactive form so the whole document stays fillable — the "all tests"
+ * download. Any stored answers are pre-filled; the recipient can still adjust
+ * them. Every sheet's fields are namespaced (`t0_`, `t1_`, …) so the shared
+ * `patient_name`/`other_comments` fields don't collide across sheets.
  */
 export async function generateCombinedAnswerSheets(
   entries: { template: OmrTemplate; answers?: Record<string, number | string> }[],
 ): Promise<Uint8Array> {
-  const merged = await PDFDocument.create();
-  merged.setTitle('Completed Tests');
-  merged.setSubject('Completed assessment forms');
-  merged.setProducer('PATH — Pain Assessment Tools Hub');
-  merged.setCreator('PATH');
-  merged.setCreationDate(new Date());
+  const doc = await PDFDocument.create();
+  doc.setTitle('All Tests');
+  doc.setSubject('Assessment forms');
+  doc.setProducer('PATH — Pain Assessment Tools Hub');
+  doc.setCreator('PATH');
+  doc.setCreationDate(new Date());
 
-  for (const { template, answers } of entries) {
-    const bytes = await generateAnswerSheet(template, { answers, flatten: true });
-    const src = await PDFDocument.load(bytes);
-    const pages = await merged.copyPages(src, src.getPageIndices());
-    for (const page of pages) merged.addPage(page);
-  }
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const form = doc.getForm();
 
-  return merged.save();
+  entries.forEach((entry, i) => {
+    renderSheet(doc, font, fontBold, form, entry.template, {
+      answers: entry.answers,
+      fieldPrefix: `t${i}_`,
+    });
+  });
+
+  return doc.save();
 }
 
 /** Suggested download filename for a blank sheet. */
@@ -363,7 +392,7 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
 /** A single-line interactive text field drawn as an underline, so the printed
  *  sheet reads like a fill-in blank but the PDF is typeable on a computer. */
 function drawUnderlinedField(ctx: Ctx, name: string, xPt: number, baselineYpt: number, widthPt: number): void {
-  const field = ctx.form.createTextField(name);
+  const field = ctx.form.createTextField(ctx.fieldPrefix + name);
   field.setText('');
   field.addToPage(ctx.page, {
     x: xPt,
@@ -557,7 +586,7 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
       // One radio group per field: the bubbles are mutually exclusive, so the
       // sheet reads as a proper radio-button group and can be filled on-screen.
       // Each group name is the field's scorer key, which is unique per sheet.
-      const group = ctx.form.createRadioGroup(field.key);
+      const group = ctx.form.createRadioGroup(ctx.fieldPrefix + field.key);
       for (const bubble of field.bubbles) {
         const cx = toX(ctx, bubble.center.x);
         const cy = toY(ctx, bubble.center.y);
@@ -676,7 +705,7 @@ function drawCommentBox(ctx: Ctx, template: OmrTemplate): void {
     borderWidth: 1,
   });
 
-  const field = ctx.form.createTextField('other_comments');
+  const field = ctx.form.createTextField(ctx.fieldPrefix + 'other_comments');
   field.setText('');
   field.enableMultiline();
   field.addToPage(page, {

@@ -2,12 +2,14 @@
   /**
    * Patient assessment flow for the acute pain-classification pathway.
    *
-   * Replaces the professional's card collection with a simple one-test-per-page
-   * walk-through: each of the four tests is shown as its normal survey, a Next
-   * button advances to the next test, and Back returns to the previous one with
-   * answers pre-filled so they can be edited. After the last test the patient
-   * lands on the review view. A "Download test" button (top right) compiles the
-   * completed tests into a single downloadable copy at any point.
+   * A one-test-per-page walk-through: each of the four tests is shown as its
+   * normal survey, a Next button advances to the next test, and Previous test
+   * returns to the prior one with answers pre-filled so they can be edited.
+   * A "Download all tests" button (top right) compiles the tests into a single
+   * fillable PDF at any point.
+   *
+   * A `?edit=<slug>` query param opens the flow on one specific test (from the
+   * review view's per-test Edit) and, on save, returns straight to review.
    *
    * Patients never see a score or the composite classification.
    */
@@ -19,10 +21,15 @@
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
 
+  const REVIEW_URL = '/pain-classification/review/';
+
   let ready = $state(false);
   let step = $state(0);
+  // Editing a single test, reached from the review view; save returns to review
+  // instead of walking on to the next test.
+  let editingSingle = $state(false);
   // Completion fraction (0–1) of the current test, bound from the survey so the
-  // header bar can render overall progress across all four tests.
+  // page can render overall progress across all four tests.
   let surveyProgress = $state(0);
   let downloadBusy = $state(false);
   let downloadError = $state<string | null>(null);
@@ -31,6 +38,10 @@
   const child = $derived(ACUTE_CHILDREN[step]);
   const isLast = $derived(step === total - 1);
   const overall = $derived(Math.min(1, (step + surveyProgress) / total));
+  const submitLabel = $derived(
+    editingSingle ? 'Save & return to review' : isLast ? 'Finish & review' : 'Next test',
+  );
+  const backLabel = $derived(editingSingle ? 'Back to review' : step === 0 ? 'Back' : 'Previous test');
 
   /** Pre-fill values for a test, pulled from any answers it already has stored
    *  (so returning to edit shows the previous responses). */
@@ -57,6 +68,16 @@
     // MSI is role-gated: its survey redirects if no role is stored, so seed the
     // role key(s) before any survey renders.
     for (const c of ACUTE_CHILDREN) if (c.roleKey) storeSet(c.roleKey, role);
+
+    // Deep link from the review view to edit one specific test.
+    const editSlug = new URLSearchParams(window.location.search).get('edit');
+    if (editSlug) {
+      const idx = ACUTE_CHILDREN.findIndex((c) => c.slug === editSlug);
+      if (idx >= 0) {
+        step = idx;
+        editingSingle = true;
+      }
+    }
     ready = true;
   });
 
@@ -69,8 +90,8 @@
 
   function handleComplete(c: ChildAssessment): void {
     persistCompletion(c);
-    if (isLast) {
-      window.location.href = '/pain-classification/review/';
+    if (editingSingle || isLast) {
+      window.location.href = REVIEW_URL;
       return;
     }
     step += 1;
@@ -79,6 +100,10 @@
   }
 
   function back(): void {
+    if (editingSingle) {
+      window.location.href = REVIEW_URL;
+      return;
+    }
     if (step === 0) {
       window.location.href = '/pain-classification/';
       return;
@@ -88,7 +113,7 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  /** Compile every test into one downloadable PDF (each form carrying whatever
+  /** Compile every test into one fillable PDF (each form carrying whatever
    *  answers are stored so far), the same record offered on the review view. */
   async function downloadAll(): Promise<void> {
     downloadBusy = true;
@@ -121,11 +146,6 @@
 {#if ready}
   <section class="flow">
     <header class="flow__bar">
-      <button type="button" class="flow__back" onclick={back}>
-        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-        {step === 0 ? 'Back' : 'Previous test'}
-      </button>
-      <span class="flow__step">Test {step + 1} of {total}</span>
       <button
         type="button"
         class="btn btn--secondary flow__download"
@@ -133,19 +153,22 @@
         disabled={downloadBusy}
       >
         <span class="material-symbols-outlined" aria-hidden="true">download</span>
-        {downloadBusy ? 'Preparing…' : 'Download test'}
+        {downloadBusy ? 'Preparing…' : 'Download all tests'}
       </button>
     </header>
-
-    <div class="flow__progress" aria-hidden="true">
-      <div class="flow__progress-bar" style:width={`${Math.round(overall * 100)}%`}></div>
-    </div>
 
     {#if downloadError}
       <p class="flow__error" role="alert">{downloadError}</p>
     {/if}
 
     <h1 class="flow__title">{child.shortName}</h1>
+
+    {#if !editingSingle}
+      <div class="flow__progress" aria-hidden="true">
+        <div class="flow__progress-bar" style:width={`${Math.round(overall * 100)}%`}></div>
+      </div>
+    {/if}
+
     <p class="flow__desc">{child.description}</p>
 
     {#key child.slug}
@@ -154,7 +177,7 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
-          submitLabel={isLast ? 'Finish & review' : 'Next test'}
+          {submitLabel}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -163,7 +186,7 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
-          submitLabel={isLast ? 'Finish & review' : 'Next test'}
+          {submitLabel}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -173,7 +196,7 @@
           initialArea={initial.area}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
-          submitLabel={isLast ? 'Finish & review' : 'Next test'}
+          {submitLabel}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -182,12 +205,19 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
-          submitLabel={isLast ? 'Finish & review' : 'Next test'}
+          {submitLabel}
           showProgress={false}
           bind:progress={surveyProgress}
         />
       {/if}
     {/key}
+
+    <div class="flow__footer">
+      <button type="button" class="flow__back" onclick={back}>
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+        {backLabel}
+      </button>
+    </div>
   </section>
 {/if}
 
@@ -196,46 +226,17 @@
     padding-top: var(--space-2);
   }
 
-  /* Top bar: Back on the left, step indicator in the middle, Download on the
-     right. Sticky so Download stays reachable while a long test scrolls. */
+  /* Top bar: Download all tests, kept sticky so it stays reachable while a long
+     test scrolls. */
   .flow__bar {
     position: sticky;
     top: 0;
     z-index: 20;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
+    justify-content: flex-end;
     padding: var(--space-3) 0;
     background: var(--color-bg);
     border-bottom: 1px solid var(--color-border);
-  }
-
-  .flow__back {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    background: none;
-    border: none;
-    padding: var(--space-1) var(--space-2);
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    cursor: pointer;
-    border-radius: var(--radius-md);
-  }
-  .flow__back:hover {
-    color: var(--color-text);
-    background: var(--color-primary-tint-ghost);
-  }
-  .flow__back .material-symbols-outlined {
-    font-size: 1.1rem;
-  }
-
-  .flow__step {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--color-text-muted);
-    white-space: nowrap;
   }
 
   .flow__download {
@@ -250,22 +251,22 @@
     font-size: 1.1rem;
   }
 
+  .flow__title {
+    margin: var(--space-5) 0 var(--space-3) 0;
+  }
+
   .flow__progress {
     height: 4px;
     background: var(--color-border);
     border-radius: 999px;
     overflow: hidden;
-    margin: var(--space-3) 0 var(--space-5);
+    margin: 0 0 var(--space-4);
   }
 
   .flow__progress-bar {
     height: 100%;
     background: var(--color-primary);
     transition: width 0.2s ease-out;
-  }
-
-  .flow__title {
-    margin: 0 0 var(--space-2) 0;
   }
 
   .flow__desc {
@@ -275,7 +276,7 @@
   }
 
   .flow__error {
-    margin: 0 0 var(--space-4) 0;
+    margin: var(--space-3) 0 0 0;
     padding: var(--space-3);
     font-size: 0.9rem;
     line-height: 1.5;
@@ -285,13 +286,32 @@
     border-radius: var(--radius-md);
   }
 
-  @media (max-width: 560px) {
-    .flow__step {
-      display: none;
-    }
-    .flow__download {
-      font-size: 0.8rem;
-      padding: var(--space-2) var(--space-3);
-    }
+  /* Bottom-left back control, below the survey. */
+  .flow__footer {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: var(--space-6);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .flow__back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    background: none;
+    border: none;
+    padding: var(--space-2) var(--space-3);
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+  }
+  .flow__back:hover {
+    color: var(--color-text);
+    background: var(--color-primary-tint-ghost);
+  }
+  .flow__back .material-symbols-outlined {
+    font-size: 1.2rem;
   }
 </style>

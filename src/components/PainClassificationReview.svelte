@@ -51,8 +51,13 @@
     loaded = true;
   });
 
-  function editResponse(): void {
-    window.location.href = '/pain-classification/acute/';
+  function scrollToTop(): void {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /** Edit one specific test: reopen the flow on that test; saving returns here. */
+  function editAssessment(slug: string): void {
+    window.location.href = `/pain-classification/acute/?edit=${slug}`;
   }
 
   /**
@@ -93,13 +98,13 @@
     <!-- Frozen action bar: stays in view while the summary scrolls, so Edit and
          Download are always reachable. -->
     <div class="review__bar">
-      <button type="button" class="btn btn--primary review__edit" onclick={editResponse}>
-        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-        Edit my response
+      <button type="button" class="btn btn--secondary review__top" onclick={scrollToTop}>
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>
+        Scroll to top
       </button>
       <button
         type="button"
-        class="btn btn--secondary review__download"
+        class="btn btn--primary review__download"
         onclick={download}
         disabled={downloadBusy}
       >
@@ -118,10 +123,14 @@
       <section class="assess" aria-labelledby={`assess-${a.slug}`}>
         <header class="assess__head">
           <span class="assess__num" aria-hidden="true">{i + 1}</span>
-          <div>
+          <div class="assess__heading">
             <h2 class="assess__title" id={`assess-${a.slug}`}>{a.title}</h2>
             <p class="assess__desc">{a.description}</p>
           </div>
+          <button type="button" class="btn btn--secondary assess__edit" onclick={() => editAssessment(a.slug)}>
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+            Edit
+          </button>
         </header>
 
         {#if a.area}
@@ -168,7 +177,7 @@
     border-bottom: 1px solid var(--color-border);
   }
 
-  .review__edit,
+  .review__top,
   .review__download {
     display: inline-flex;
     align-items: center;
@@ -177,12 +186,12 @@
     font-size: 1rem;
   }
 
-  /* Make the primary action stand out a little more prominently. */
-  .review__edit {
+  /* Make the primary (download) action stand out a little more prominently. */
+  .review__download {
     box-shadow: var(--shadow-sm);
   }
 
-  .review__edit .material-symbols-outlined,
+  .review__top .material-symbols-outlined,
   .review__download .material-symbols-outlined {
     font-size: 1.15rem;
   }
@@ -215,6 +224,23 @@
     align-items: flex-start;
     gap: var(--space-3);
     margin-bottom: var(--space-4);
+  }
+
+  .assess__heading {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .assess__edit {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    font-size: 0.85rem;
+  }
+  .assess__edit .material-symbols-outlined {
+    font-size: 1rem;
   }
 
   .assess__num {
