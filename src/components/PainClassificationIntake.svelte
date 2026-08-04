@@ -38,8 +38,9 @@
 <section class="intake">
   <h1 class="intake__heading">Pain Classification</h1>
   <p class="intake__lede">
-    A composite assessment that combines the MSI, BriefSLANSS, FreBAQ and PHQ-4
-    to classify a pain presentation.
+    A composite assessment that combines the Symptom Index, Sensory Profile,
+    Body Awareness and Anxiety &amp; Depression assessments to classify a pain
+    presentation.
   </p>
 
   <!-- Q1: Pain type -->

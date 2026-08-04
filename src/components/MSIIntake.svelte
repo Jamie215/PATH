@@ -29,7 +29,7 @@
 </script>
 
 <section class="intake">
-  <h1 class="intake__heading">Multi-Dimensional Symptom Index</h1>
+  <h1 class="intake__heading">Symptom Index</h1>
   <p class="intake__lede">
     A ten-symptom screening that gathers frequency and bothersomeness ratings.
     Takes about 5 minutes.

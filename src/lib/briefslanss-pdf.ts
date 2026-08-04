@@ -22,8 +22,8 @@ export interface PDFInput {
 
 export async function generateBriefSLANSSReport(input: PDFInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle('briefSLANSS Results');
-  doc.setSubject('briefSLANSS — clinical screening results');
+  doc.setTitle('Sensory Profile Results');
+  doc.setSubject('Sensory Profile — clinical screening results');
   doc.setProducer('PATH — Pain Assessment Tools Hub');
   doc.setCreator('PATH');
   doc.setCreationDate(new Date());
@@ -63,7 +63,7 @@ export function buildFilename(patientName: string): string {
     .replace(/[^a-zA-Z0-9-]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 40);
-  return safe ? `briefSLANSS_Results_${safe}_${today}.pdf` : `briefSLANSS_Results_${today}.pdf`;
+  return safe ? `Sensory_Profile_Results_${safe}_${today}.pdf` : `Sensory_Profile_Results_${today}.pdf`;
 }
 
 // ---------------------------------------------------------------------------
@@ -221,7 +221,7 @@ function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, total: number
 }
 
 function drawTitle(ctx: Ctx, patientName: string): void {
-  drawText(ctx, 'briefSLANSS', { bold: true, size: 18, color: COLOR_TEXT });
+  drawText(ctx, 'Sensory Profile', { bold: true, size: 18, color: COLOR_TEXT });
   moveDown(ctx, 22);
   drawText(ctx, 'Brief neuropathic symptoms and signs — results report', {
     size: 11,

@@ -87,8 +87,8 @@ function num(v: unknown): number | null {
 export const ACUTE_CHILDREN: ChildAssessment[] = [
   {
     slug: 'msi',
-    title: 'Multi-Dimensional Symptom Index',
-    shortName: 'MSI',
+    title: 'Symptom Index',
+    shortName: 'Symptom Index',
     resultKey: 'msi:result',
     surveyUrl: '/msi/survey/',
     roleKey: 'msi:role',
@@ -108,8 +108,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
   },
   {
     slug: 'briefslanss',
-    title: 'LANSS Screening (Brief)',
-    shortName: 'BriefSLANSS',
+    title: 'Sensory Profile',
+    shortName: 'Sensory Profile',
     resultKey: 'briefslanss:result',
     surveyUrl: '/briefslanss/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 4 }],
@@ -121,8 +121,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
   },
   {
     slug: 'frebaq',
-    title: 'Fremantle Body Awareness Questionnaire',
-    shortName: 'FreBAQ',
+    title: 'Body Awareness',
+    shortName: 'Body Awareness',
     resultKey: 'frebaq:result',
     surveyUrl: '/frebaq/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 24 }],
@@ -138,8 +138,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
   },
   {
     slug: 'phq4',
-    title: 'Patient Health Questionnaire-4',
-    shortName: 'PHQ-4',
+    title: 'Anxiety & Depression',
+    shortName: 'Anxiety & Depression',
     resultKey: 'phq4:result',
     surveyUrl: '/phq4/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 12 }],

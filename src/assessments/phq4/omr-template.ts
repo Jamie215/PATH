@@ -10,7 +10,7 @@ import { buildSingleGroupTemplate } from '../omr/single-group-template';
 
 export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
   id: 'phq4-v1',
-  title: 'Patient Health Questionnaire-4',
+  title: 'Anxiety & Depression',
   subtitle: 'Scannable Form',
   instructions: [
     'For each item, fill in ONE bubble for how often it has bothered you over the last 2 weeks, using a dark pen.',

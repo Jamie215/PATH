@@ -22,8 +22,8 @@ export interface PDFInput {
 
 export async function generatePHQ4Report(input: PDFInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle('PHQ-4 Results');
-  doc.setSubject('PHQ-4 — clinical screening results');
+  doc.setTitle('Anxiety & Depression Results');
+  doc.setSubject('Anxiety & Depression — clinical screening results');
   doc.setProducer('PATH — Pain Assessment Tools Hub');
   doc.setCreator('PATH');
   doc.setCreationDate(new Date());
@@ -63,7 +63,7 @@ export function buildFilename(patientName: string): string {
     .replace(/[^a-zA-Z0-9-]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 40);
-  return safe ? `phq4_Results_${safe}_${today}.pdf` : `phq4_Results_${today}.pdf`;
+  return safe ? `Anxiety_Depression_Results_${safe}_${today}.pdf` : `Anxiety_Depression_Results_${today}.pdf`;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +223,7 @@ function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, total: number
 function drawTitle(ctx: Ctx, patientName: string): void {
   drawText(ctx, 'PHQ-4', { bold: true, size: 18, color: COLOR_TEXT });
   moveDown(ctx, 22);
-  drawText(ctx, 'Patient Health Questionnaire — results report', {
+  drawText(ctx, 'Anxiety & Depression — results report', {
     size: 11,
     color: COLOR_MUTED,
   });

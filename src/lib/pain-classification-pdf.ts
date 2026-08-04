@@ -339,7 +339,7 @@ function drawInputs(ctx: Ctx, rows: PDFInputRow[]): void {
 function drawInterpretationNote(ctx: Ctx): void {
   const note =
     'This composite classifies the acute pain presentation from five standardised sub-scores ' +
-    '(MSI Somatic and Central, Brief S-LANSS, FreBAQ, and PHQ-4) using a multinomial model. ' +
+    '(Symptom Index Somatic and Central, Sensory Profile, Body Awareness, and Anxiety & Depression) using a multinomial model. ' +
     'Probabilities sum to 100% across the four categories. This is a screening result, not a ' +
     'diagnosis, and should be interpreted alongside clinical judgement.';
   const lines = wrapText(note, CONTENT_W, ctx.font, 9);
