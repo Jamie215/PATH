@@ -42,6 +42,9 @@
     areaField,
     /** Normalizes the area text before it is stored (e.g. FreBAQ's sanitizer). */
     sanitizeArea,
+    /** Rewrites a question label to reference the typed area (e.g. FreBAQ's
+     *  "the area" → "the right knee"). Applied live as the area is typed. */
+    personalizeArea,
     // --- Runtime props (embedding parent / scan review) ---
     onComplete,
     submitLabel = 'See results',
@@ -64,6 +67,7 @@
     score: (response: Record<string, number | string>) => unknown;
     areaField?: { label: string; placeholder: string };
     sanitizeArea?: (text: string) => string;
+    personalizeArea?: (label: string, area: string) => string;
     onComplete?: () => void;
     submitLabel?: string;
     /** Hide the in-survey progress bar (e.g. when a parent shows it instead). */
@@ -110,6 +114,16 @@
   );
 
   const isComplete = $derived(missing.length === 0);
+
+  // With an area field, the rated items reference that area (e.g. FreBAQ's "the
+  // area feels lopsided"), so keep the questions hidden until the user names it:
+  // the questions then read with the specific region instead of a generic
+  // placeholder, and there's nothing to answer out of context. This gate is for
+  // the fresh "take the test" flow only — a scan/PDF review arrives with
+  // pre-filled answers to confirm (area may have been left blank on the sheet),
+  // so it's never gated; personalization still applies live if an area is present.
+  const isReview = Object.keys(initialAnswers ?? {}).length > 0;
+  const areaFilled = $derived(!areaField || isReview || area.trim().length > 0);
 
   // The bothersome-area field must be filled because the scanned region had
   // ink. Comments are only highlighted for attention, never required.
@@ -208,18 +222,22 @@
     </div>
   {/if}
 
+  {#if areaField && !areaFilled}
+    <p class="survey__gate">Enter the area above to see the questions.</p>
+  {:else}
   <ol class="survey__list">
     {#each questions as q, i (q.symptom)}
       {@const expKey = `${q.symptom}_exp`}
       {@const expValue = answers[expKey] ?? null}
       {@const flagMissing = submitAttempted && expValue === null}
       {@const flagged = (attentionKeys?.includes(expKey) ?? false) && expValue === null}
+      {@const title = personalizeArea ? personalizeArea(q.symptomLabel, area) : q.symptomLabel}
 
       <li class="question" class:question--flagged={flagged} id={`q-${q.symptom}`}>
         <div class="question__head">
           <span class="question__num" class:question__num--flagged={flagged}>{i + 1}</span>
           <div class="question__body">
-            <h3 class="question__title">{q.symptomLabel}</h3>
+            <h3 class="question__title">{title}</h3>
             {#if q.description}
               <p class="question__desc">{q.description}</p>
             {/if}
@@ -233,7 +251,7 @@
         </div>
 
         <RatingScale
-          label={`Experience of ${q.symptomLabel}`}
+          label={`Experience of ${title}`}
           options={experienceOptions}
           value={expValue}
           name={expKey}
@@ -273,6 +291,7 @@
       {submitLabel}
     </button>
   </div>
+  {/if}
 </form>
 
 <style>
@@ -297,6 +316,16 @@
     color: var(--color-text-muted);
     margin-bottom: var(--space-6);
     font-size: 0.95rem;
+  }
+
+  .survey__gate {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    padding: var(--space-5);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-subtle, #f8f8f8);
+    text-align: center;
   }
 
   .survey__list {

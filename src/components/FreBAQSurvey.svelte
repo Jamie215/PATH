@@ -8,7 +8,7 @@
   import SingleGroupSurvey from './SingleGroupSurvey.svelte';
   import { QUESTIONS, EXPERIENCE_OPTIONS } from '../assessments/frebaq/questions';
   import { score, type freBAQResponse } from '../assessments/frebaq/scoring';
-  import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
+  import { sanitizeBothersomeArea, personalizeFreBAQItem } from '../assessments/frebaq/area';
 
   let { progress = $bindable(0), ...rest } = $props();
 </script>
@@ -25,6 +25,7 @@
     placeholder: 'e.g., right knee, left hand, neck',
   }}
   sanitizeArea={sanitizeBothersomeArea}
+  personalizeArea={personalizeFreBAQItem}
   bind:progress
   {...rest}
 />
