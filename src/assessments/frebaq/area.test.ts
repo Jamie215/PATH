@@ -4,7 +4,9 @@ import {
   personalizeFreBAQItem,
   stripLeadingArticle,
   normalizeBothersomeArea,
+  isPluralArea,
 } from './area';
+import { QUESTIONS } from './questions';
 
 describe('sanitizeBothersomeArea', () => {
   it('strips periods and commas', () => {
@@ -74,44 +76,73 @@ describe('normalizeBothersomeArea', () => {
   });
 });
 
+describe('isPluralArea', () => {
+  it('treats single regions as singular', () => {
+    expect(isPluralArea('right knee')).toBe(false);
+    expect(isPluralArea('lower back')).toBe(false);
+    expect(isPluralArea('neck')).toBe(false);
+  });
+
+  it('treats "-s" and coordinated regions as plural', () => {
+    expect(isPluralArea('hands')).toBe(true);
+    expect(isPluralArea('both knees')).toBe(true);
+    expect(isPluralArea('hip and knee')).toBe(true);
+  });
+
+  it('handles irregular plurals and singular "-s" exceptions', () => {
+    expect(isPluralArea('feet')).toBe(true);
+    expect(isPluralArea('pelvis')).toBe(false);
+  });
+
+  it('is not fooled by trailing punctuation or an empty entry', () => {
+    expect(isPluralArea('hands,')).toBe(true);
+    expect(isPluralArea('')).toBe(false);
+  });
+});
+
 describe('personalizeFreBAQItem', () => {
-  it('substitutes "my {area}" into mid-sentence "the area" phrasing', () => {
-    expect(
-      personalizeFreBAQItem('When performing everyday tasks, the area moves without me understanding why.', 'right knee'),
-    ).toBe('When performing everyday tasks, my right knee moves without me understanding why.');
+  const [notPart, withoutControl, withoutKnowingMoving, , cantPerceiveOutline, feelsLopsided] =
+    QUESTIONS.map((q) => q.symptomLabel);
+
+  it('weaves a singular region in with singular agreement', () => {
+    expect(personalizeFreBAQItem(notPart, 'right knee')).toBe(
+      'My right knee feels as though it is not part of the rest of my body.',
+    );
+    expect(personalizeFreBAQItem(withoutControl, 'right knee')).toBe(
+      'Sometimes it feels as though my right knee is moving on its own, without my control.',
+    );
   });
 
-  it('capitalizes the possessive at the start of a sentence', () => {
-    expect(
-      personalizeFreBAQItem('The area feels very lopsided, or out of proportion.', 'left hand'),
-    ).toBe('My left hand feels very lopsided, or out of proportion.');
+  it('agrees in number for a plural region', () => {
+    expect(personalizeFreBAQItem(notPart, 'hands')).toBe(
+      'My hands feel as though they are not part of the rest of my body.',
+    );
+    expect(personalizeFreBAQItem(withoutControl, 'both knees')).toBe(
+      'Sometimes they feel as though my both knees are moving on their own, without my control.',
+    );
+    expect(personalizeFreBAQItem(withoutKnowingMoving, 'feet')).toBe(
+      'When performing everyday tasks, my feet move without me understanding why.',
+    );
   });
 
-  it('replaces every occurrence in an item', () => {
-    expect(personalizeFreBAQItem('The area and the area again.', 'neck')).toBe(
-      'My neck and my neck again.',
+  it('uses lowercase "my" mid-sentence and keeps a fixed "are"', () => {
+    expect(personalizeFreBAQItem(cantPerceiveOutline, 'left hand')).toBe(
+      'The outline or borders of my left hand are difficult to perceive.',
     );
   });
 
   it('strips a leading "my"/"the" from the region so it is not doubled', () => {
-    expect(personalizeFreBAQItem('The area feels lopsided.', 'my right hand')).toBe(
-      'My right hand feels lopsided.',
+    expect(personalizeFreBAQItem(feelsLopsided, 'my right hand')).toBe(
+      'My right hand feels very lopsided, or out of proportion, to what it should be or compared to that on the opposite side.',
     );
-    expect(personalizeFreBAQItem('the area moves.', 'the lower back')).toBe('my lower back moves.');
   });
 
-  it('trims surrounding whitespace from the area', () => {
-    expect(personalizeFreBAQItem('The area is here.', '  neck  ')).toBe('My neck is here.');
-  });
-
-  it('leaves the wording untouched when the area is empty', () => {
-    const label = 'The area feels lopsided.';
-    expect(personalizeFreBAQItem(label, '')).toBe(label);
-    expect(personalizeFreBAQItem(label, '   ')).toBe(label);
-  });
-
-  it('leaves items without the "the area" phrasing unchanged', () => {
-    const label = 'Feels as though it is not part of the rest of my body.';
-    expect(personalizeFreBAQItem(label, 'right knee')).toBe(label);
+  it('falls back to the generic "the area", singular, when no area is given', () => {
+    expect(personalizeFreBAQItem(notPart, '')).toBe(
+      'The area feels as though it is not part of the rest of my body.',
+    );
+    expect(personalizeFreBAQItem(withoutControl, '   ')).toBe(
+      'Sometimes it feels as though the area is moving on its own, without my control.',
+    );
   });
 });

@@ -254,7 +254,7 @@
               onclick={confirmArea}
               disabled={area.trim().length === 0}
             >
-              {confirmedArea ? 'Update area' : 'Use this area'}
+              Confirm
             </button>
           {/if}
         </div>
@@ -289,7 +289,7 @@
   {/if}
 
   {#if areaField && !questionsReady}
-    <p class="survey__gate">Enter your most bothersome area above and press “Use this area” to see the questions.</p>
+    <p class="survey__gate">Enter your most bothersome area above and press “Confirm” to see the questions.</p>
   {:else}
   <ol class="survey__list">
     {#each questions as q, i (q.symptom)}

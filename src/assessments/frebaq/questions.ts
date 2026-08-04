@@ -11,30 +11,37 @@ export interface freBAQQuestion {
   description?: string;
 }
 
+// Item wording carries placeholders expanded by `personalizeFreBAQItem`:
+//   {Area}/{area} — the bothersome region ("My right knee" / "my right knee"),
+//                   or "The area"/"the area" when none has been given yet.
+//   {a|b}         — number-sensitive pair: the singular form when the region
+//                   reads as singular, the plural form otherwise ("{is|are}",
+//                   "{it|they}", "{its|their}", and "feel{s|}" for the verb -s).
+// So a plural region reads with agreement ("My hands feel … they are …").
 export const QUESTIONS: readonly freBAQQuestion[] = [
   {
     symptom: 'notPart',
-    symptomLabel: 'Feels as though it is not part of the rest of my body.',
+    symptomLabel: '{Area} feel{s|} as though {it|they} {is|are} not part of the rest of my body.',
   },
   {
     symptom: 'withoutControl',
-    symptomLabel: 'Sometimes it feels as though the area is moving on its own, without my control.',
+    symptomLabel: 'Sometimes {it|they} feel{s|} as though {area} {is|are} moving on {its|their} own, without my control.',
   },
   {
     symptom: 'withoutKnowingMoving',
-    symptomLabel: 'When performing everyday tasks, the area moves without me understanding why.',
+    symptomLabel: 'When performing everyday tasks, {area} move{s|} without me understanding why.',
   },
   {
     symptom: 'withoutKnowingPosition',
-    symptomLabel: 'When performing everyday tasks, the area is positioned in a way that I am not aware of.',
+    symptomLabel: 'When performing everyday tasks, {area} {is|are} positioned in a way that I am not aware of.',
   },
   {
     symptom: 'cantPerceiveOutline',
-    symptomLabel: 'The outline or borders of the area are difficult to perceive',
+    symptomLabel: 'The outline or borders of {area} are difficult to perceive.',
   },
   {
     symptom: 'feelsLopsided',
-    symptomLabel: 'The area feels very lopsided, or out of proportion, to what it should be or compared to that on the opposite side.',
+    symptomLabel: '{Area} feel{s|} very lopsided, or out of proportion, to what {it|they} should be or compared to that on the opposite side.',
   },
 ] as const;
 
