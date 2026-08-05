@@ -258,7 +258,12 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
   // Work in top-left coordinates; flip once per baseline.
   const at = (topY: number): number => ctx.pageH - topY;
 
-  // Brand + form id row.
+  // Brand row: "PATH" at left, the sheet's kind (the former subtitle, e.g.
+  // "Scannable Form") right-aligned opposite it. The subtitle used to sit on
+  // its own line under the title, costing a full row of vertical space; moving
+  // it up here frees that space and leaves the corner — previously a technical
+  // "Form <id>" — carrying the label a reader actually cares about. The form id
+  // still travels in the footer and PDF keywords for machine identification.
   ctx.page.drawText('PATH', {
     x: MARGIN_X,
     y: at(48),
@@ -266,17 +271,19 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
     font: ctx.fontBold,
     color: COLOR_PRIMARY,
   });
-  const idText = `Form ${template.id}`;
-  const idW = ctx.font.widthOfTextAtSize(idText, 9);
-  ctx.page.drawText(idText, {
-    x: ctx.pageW - MARGIN_X - idW,
-    y: at(48),
-    size: 9,
-    font: ctx.font,
-    color: COLOR_SUBTLE,
-  });
+  const kindText = template.subtitle.trim();
+  if (kindText) {
+    const kindW = ctx.font.widthOfTextAtSize(kindText, 10);
+    ctx.page.drawText(kindText, {
+      x: ctx.pageW - MARGIN_X - kindW,
+      y: at(48),
+      size: 10,
+      font: ctx.font,
+      color: COLOR_MUTED,
+    });
+  }
 
-  // Title + subtitle.
+  // Title.
   ctx.page.drawText(template.title, {
     x: MARGIN_X,
     y: at(78),
@@ -284,24 +291,14 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
     font: ctx.fontBold,
     color: COLOR_INK,
   });
-  // Subtitle is optional; when omitted, the instructions box moves up to
-  // reclaim the space (used by MSI to fit its grid + comments on one page).
-  const hasSubtitle = template.subtitle.trim().length > 0;
-  if (hasSubtitle) {
-    ctx.page.drawText(template.subtitle, {
-      x: MARGIN_X,
-      y: at(98),
-      size: 10.5,
-      font: ctx.font,
-      color: COLOR_MUTED,
-    });
-  }
 
   // Instructions callout — a tinted, bordered panel so the fill-out rules
   // read as important, not fine print. Each instruction wraps within the box
   // so long lines don't spill past the border. Sits above the bubble grid, so
-  // the background never touches a mark the reader has to sample.
-  const boxTop = hasSubtitle ? 116 : 100;
+  // the background never touches a mark the reader has to sample. With the
+  // subtitle now in the brand row, every sheet starts the box at the same
+  // height, so the header rhythm is identical across forms.
+  const boxTop = 100;
   const lineGap = 16;
   const exampleRowH = 22; // "How to mark" reference row at the box bottom
   const textWidth = contentW - 40; // bullet indent + right padding

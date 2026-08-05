@@ -44,8 +44,9 @@ const INT_X = [426, 463, 500, 537];
 
 /** First row's bubble center, and spacing between successive rows. Tightened
  *  so all ten rows plus a comment box fit on one page — made possible by
- *  dropping the subtitle, one instruction, and the "Symptoms" heading. */
-const FIRST_ROW_Y = 307;
+ *  dropping one instruction and the "Symptoms" heading, and by the shared
+ *  header→grid gap that opens the section a fixed distance below the name row. */
+const FIRST_ROW_Y = 308;
 const ROW_SPACING = 36;
 
 // Smaller bubble: a thin pen fills a larger fraction of a small circle, so a
@@ -117,7 +118,10 @@ const INT_GROUP: OmrColumnGroup = {
 export const MSI_OMR_TEMPLATE: OmrTemplate = {
   id: 'msi-v1',
   title: 'Symptom Index',
-  subtitle: '',
+  // Shown right-aligned in the brand row (not as a title subtitle), so it
+  // labels the sheet without costing the vertical space MSI needs for its
+  // single-page grid.
+  subtitle: 'Scannable Form',
   instructions: [
     'For each symptom, fill in ONE bubble for how OFTEN you experience it.',
     'If it occurs (more than "Never"), also fill in ONE bubble for how BOTHERSOME it is.',

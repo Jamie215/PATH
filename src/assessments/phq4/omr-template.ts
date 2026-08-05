@@ -29,13 +29,15 @@ export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
   // Wider answer columns (narrower statement column) so the multi-word labels
   // wrap tidily under each bubble instead of overflowing.
   colSpacing: 56,
-  // Pushed down so the taller wrapped column labels and the section preamble
-  // clear the name/date line; the four short items leave plenty of room below.
-  firstRowY: 450,
+  // Positioned so the section stack (preamble + heading + wrapped column
+  // labels) opens the same distance below the name/date line as every other
+  // form — the shared header→grid gap. The four short items leave plenty of
+  // room below.
+  firstRowY: 384,
   rowSpacing: 46,
   // Comment box region (pt, top-left) to crop from a scan for handwriting
   // recognition — tracks where the generator draws the box below the grid.
   scanTextFields: [
-    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 633, width: 504, height: 48 } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 567, width: 504, height: 48 } },
   ],
 });
