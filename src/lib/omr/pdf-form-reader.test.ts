@@ -195,6 +195,9 @@ describe('readCombinedPdfForm', () => {
     for (const [key, value] of Object.entries(fullAnswers(FREBAQ_OMR_TEMPLATE))) {
       expect(frebaqChild.result.response[key]).toBe(value);
     }
+    // Each sheet is one page, laid in order — so the review UI can open the
+    // combined PDF straight to each test's page.
+    expect(result.children.map((c) => c.page)).toEqual([0, 1, 2, 3]);
   });
 
   it('returns only the assessments that were actually filled (partial upload)', async () => {
@@ -253,6 +256,7 @@ describe('readCombinedPdfForm', () => {
     expect(result.children).toHaveLength(1);
     expect(result.children[0].templateId).toBe(MSI_OMR_TEMPLATE.id);
     expect(result.children[0].prefix).toBe('');
+    expect(result.children[0].page).toBe(0);
   });
 
   it('rejects a completed-tests PDF with nothing filled in', async () => {

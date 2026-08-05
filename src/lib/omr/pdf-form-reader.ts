@@ -174,6 +174,9 @@ export interface CombinedChildRead {
   templateId: string;
   /** The field namespace it was read from (`t<i>_`, or `''` for a lone sheet). */
   prefix: string;
+  /** Zero-based index of the page this sheet's fields sit on, so the review UI
+   *  can open the combined PDF straight to it (`#page=<page + 1>`). */
+  page: number;
   /** The read itself — always `ok: true` in a successful combined result. */
   result: OmrReadResult;
 }
@@ -222,6 +225,23 @@ function discoverPrefixes(groupNames: Set<string>): string[] {
     if (m) prefixes.add(m[1]);
   }
   return [...prefixes];
+}
+
+/**
+ * Zero-based page index a sheet's fields live on, found by following one of its
+ * radio widgets to its page. Lets the review UI open the combined PDF at the
+ * right sheet instead of always page 1. Falls back to 0 if the widget or its
+ * page can't be resolved.
+ */
+function pageIndexOf(doc: PDFDocument, template: OmrTemplate, prefix: string): number {
+  const name = prefix + firstFieldKey(template);
+  const field = doc.getForm().getFields().find((f) => f.getName() === name);
+  if (!(field instanceof PDFRadioGroup)) return 0;
+  const widget = field.acroField.getWidgets()[0];
+  const pageRef = widget?.P();
+  if (!pageRef) return 0;
+  const idx = doc.getPages().findIndex((p) => p.ref === pageRef);
+  return idx >= 0 ? idx : 0;
 }
 
 /**
@@ -299,6 +319,7 @@ export async function readCombinedPdfForm(
     .map((e) => ({
       templateId: e.template.id,
       prefix: e.prefix,
+      page: pageIndexOf(doc, e.template, e.prefix),
       result: readFormFields(doc, e.template, e.prefix),
     }))
     // Keep only the sheets that carry answers; a blank one reads as "not filled"

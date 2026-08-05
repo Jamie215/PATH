@@ -94,6 +94,9 @@
      *  steps), and `queueRemaining` counts the tests still to confirm after it. */
     pdfFromCombined?: boolean;
     queueRemaining?: number;
+    /** Zero-based page of the combined PDF this test sits on, so the side-by-side
+     *  viewer opens straight to it instead of page 1. */
+    pdfPage?: number;
     attention: string[];
   } | null>(null);
 
@@ -116,6 +119,8 @@
     comments?: string;
     requireArea: boolean;
     commentsDetected: boolean;
+    /** Zero-based page of the combined PDF this test's sheet is on. */
+    page: number;
     attention: string[];
   };
   let reviewQueue = $state<QueuedReview[]>([]);
@@ -294,6 +299,11 @@
       // A comment / bothersome area typed into the PDF flows into the same
       // places a questionnaire's would.
       if (isPdf && result.text?.other_comments) setComment(child.slug, result.text.other_comments);
+      // Capture the patient name/ID typed into the PDF to pre-fill the composite
+      // report, without clobbering a name already entered this session.
+      if (isPdf && result.text?.patient_name?.trim() && !storeGet<string>(KEYS.patientName)) {
+        storeSet(KEYS.patientName, result.text.patient_name.trim());
+      }
       const pdfArea =
         isPdf && typeof result.text?.bothersome_area === 'string'
           ? sanitizeBothersomeArea(result.text.bothersome_area)
@@ -493,6 +503,7 @@
       // ignored defensively.
       const bySlug = new Map(ACUTE_CHILDREN.map((c) => [c.omrTemplate?.id, c] as const));
       const queue: QueuedReview[] = [];
+      let capturedName = '';
       for (const c of ACUTE_CHILDREN) {
         const match = read.children.find((r) => r.templateId === c.omrTemplate?.id);
         if (!match || !bySlug.has(match.templateId)) continue;
@@ -502,6 +513,10 @@
             ? sanitizeBothersomeArea(text.bothersome_area)
             : '';
         const comments = typeof text.other_comments === 'string' ? text.other_comments : '';
+        // The patient typed their name/ID once per sheet; take the first we see.
+        if (!capturedName && typeof text.patient_name === 'string' && text.patient_name.trim()) {
+          capturedName = text.patient_name.trim();
+        }
         queue.push({
           child: c,
           response: match.result.response,
@@ -509,8 +524,15 @@
           comments: comments || undefined,
           requireArea: !!area,
           commentsDetected: !!comments,
+          page: match.page,
           attention: match.result.attention,
         });
+      }
+
+      // Pre-fill the composite report's patient name from the upload, without
+      // clobbering a name already entered for this session.
+      if (capturedName && !storeGet<string>(KEYS.patientName)) {
+        storeSet(KEYS.patientName, capturedName);
       }
 
       if (queue.length === 0) {
@@ -554,6 +576,7 @@
       pdfUrl: combinedPdfUrl ?? undefined,
       pdfFromCombined: true,
       queueRemaining: reviewQueue.length,
+      pdfPage: next.page,
       response: next.response,
       area: next.area,
       comments: next.comments,
@@ -896,7 +919,11 @@
             </div>
           {:else if rv.pdfUrl}
             <div class="review__scan">
-              <iframe class="review__pdf" src={rv.pdfUrl} title={`Uploaded ${rv.child.shortName} PDF`}></iframe>
+              <iframe
+                class="review__pdf"
+                src={`${rv.pdfUrl}#page=${(rv.pdfPage ?? 0) + 1}`}
+                title={`Uploaded ${rv.child.shortName} PDF`}
+              ></iframe>
             </div>
           {/if}
           <div class="review__form">
