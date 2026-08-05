@@ -145,7 +145,7 @@
 {#snippet downloadButton()}
   <button
     type="button"
-    class="btn btn--secondary flow__download"
+    class="btn btn--primary flow__download"
     onclick={downloadAll}
     disabled={downloadBusy}
   >
