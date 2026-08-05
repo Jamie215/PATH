@@ -17,8 +17,6 @@ export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
   sectionTitle: 'Over the last 2 weeks, how often have you been bothered by the following?',
-  preamble:
-    "These four questions ask about your mood more generally and how you've been feeling recently, whether due to pain or something else.",
   groupLabel: '',
   // Word labels sit (wrapped) under each bubble as a self-describing radio
   // group, replacing the 0–3 decode legend the long labels used to need.
