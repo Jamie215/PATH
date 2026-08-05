@@ -154,6 +154,6 @@ export const MSI_OMR_TEMPLATE: OmrTemplate = {
   // Comment box region (pt, top-left) to crop from a scan for handwriting
   // recognition — now on page 1, tracking the box the generator draws.
   scanTextFields: [
-    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: nx(54), y: ny(676), width: nx(504), height: ny(44) } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: nx(54), y: ny(672), width: nx(504), height: ny(48) } },
   ],
 };

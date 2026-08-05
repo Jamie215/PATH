@@ -42,9 +42,10 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   // grid starts lowest; rows stay tight enough that the comment box still fits
   // below the grid on the same page (statements are at most three lines).
   firstRowY: 408,
-  // Tightened by 2pt from 48 so the eight-point-lower grid keeps its comment
-  // box on page one (the statements are at most three lines, which still fit).
-  rowSpacing: 46,
+  // Tightened from 48 so the lower grid — and the constant gap the comment box
+  // now keeps below the true bottom of the last (up-to-three-line) statement —
+  // still leaves the comment box on page one.
+  rowSpacing: 45,
   // Regions to crop from a scan for handwriting recognition. Rects (pt,
   // top-left) must track where the generator draws these fields — see the
   // preamble blank and comment box in omr-sheet.ts.
@@ -54,6 +55,6 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
     // — a crop stopping at the baseline clips them and "g" reads as "a". The
     // section title below doesn't start until ~y=343pt, so this stays clear of it.
     { key: 'bothersome_area', label: 'Most bothersome area', kind: 'line', rect: { x: 46, y: 287, width: 292, height: 28 } },
-    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 683, width: 504, height: 37 } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 686, width: 504, height: 34 } },
   ],
 });

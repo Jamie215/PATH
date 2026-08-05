@@ -29,6 +29,6 @@ export const BRIEFSLANSS_OMR_TEMPLATE = buildSingleGroupTemplate({
   // Comment box region (pt, top-left) to crop from a scan for handwriting
   // recognition — tracks where the generator draws the box below the grid.
   scanTextFields: [
-    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 554, width: 504, height: 48 } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 568, width: 504, height: 48 } },
   ],
 });
