@@ -143,6 +143,7 @@
           oninput={saveName}
         />
         <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+          <span class="material-symbols-outlined" aria-hidden="true">download</span>
           {pdfBusy ? 'Downloading…' : 'Download PDF'}
         </button>
       </label>

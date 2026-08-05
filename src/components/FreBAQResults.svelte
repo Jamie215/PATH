@@ -115,6 +115,7 @@
           oninput={saveName}
         />
         <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+          <span class="material-symbols-outlined" aria-hidden="true">download</span>
           {pdfBusy ? 'Downloading…' : 'Download PDF'}
         </button>
       </label>
@@ -138,6 +139,7 @@
       <div class="score-card score-card--{verdict}">
         <div class="score-card__number" aria-label="Score {result.total_score}">
             <span class="score-card__value">{result.total_score}</span>
+            <p>/ 24</p>
         </div>
         <div class="score-card__verdict">
             <span class="verdict-pill verdict-pill--{verdict}">{result.interpretation}</span>

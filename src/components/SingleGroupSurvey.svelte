@@ -273,7 +273,7 @@
         {:else if requireArea}
           <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
         {:else if !isReview}
-          <p class="field__hint">The questions below will refer to “my {area.trim() ? area.trim().toLowerCase() : '…'}”.</p>
+          <p class="field__hint">The questions below will refer to “{area.trim() ? area.trim().toLowerCase() : '…'}”.</p>
         {/if}
       </div>
     {:else}
