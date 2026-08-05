@@ -20,7 +20,7 @@
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
   import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
-  import { readPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
+  import { readPdfFormFromBlob, readCombinedPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
   import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
   import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
@@ -89,8 +89,39 @@
      *  wrong form (a photo can't be identity-checked the way a filled PDF is)
      *  or an unreadable/blank sheet — surfaced as a warning banner in review. */
     emptyScan?: boolean;
+    /** This review is one step of a combined "completed tests" upload. Its
+     *  `pdfUrl` points at the shared combined document (not revoked between
+     *  steps), and `queueRemaining` counts the tests still to confirm after it. */
+    pdfFromCombined?: boolean;
+    queueRemaining?: number;
     attention: string[];
   } | null>(null);
+
+  // Combined "upload completed tests" state — a single PDF holding one or more
+  // filled sheets, split into a per-test review queue.
+  // The upload modal (drag-and-drop / browse) is open.
+  let combinedOpen = $state(false);
+  let combinedDragActive = $state(false);
+  let combinedBusy = $state(false);
+  let combinedError = $state<string | null>(null);
+  // Object URL of the uploaded combined PDF, shown beside every step's form.
+  // Held here (not on `omrReview`) so it survives across the queue and is
+  // revoked once, when the queue finishes or is abandoned.
+  let combinedPdfUrl = $state<string | null>(null);
+  // Tests still awaiting confirmation after the one currently in review.
+  type QueuedReview = {
+    child: ChildAssessment;
+    response: Record<string, number>;
+    area?: string;
+    comments?: string;
+    requireArea: boolean;
+    commentsDetected: boolean;
+    attention: string[];
+  };
+  let reviewQueue = $state<QueuedReview[]>([]);
+  // How many tests this combined upload is stepping through in total, so the
+  // review header can read "Test 2 of 3" even on a partial upload.
+  let combinedTotal = $state(0);
 
   onMount(() => {
     role = storeGet<Role>(KEYS.role);
@@ -327,12 +358,20 @@
     }
   }
 
-  /** Free the uploaded-PDF object URL, if any, before dropping the review. */
+  /** Free the uploaded-PDF object URL, if any, before dropping the review. The
+   *  combined document's URL is shared across the queue and freed separately
+   *  (see `endCombinedReview`), so it is left alone here. */
   function revokeReviewPdf(): void {
-    if (omrReview?.pdfUrl) URL.revokeObjectURL(omrReview.pdfUrl);
+    if (omrReview?.pdfUrl && !omrReview.pdfFromCombined) URL.revokeObjectURL(omrReview.pdfUrl);
   }
 
   function closeReview(): void {
+    // Closing a combined step abandons the rest of the queue.
+    if (omrReview?.pdfFromCombined) {
+      endCombinedReview();
+      omrReview = null;
+      return;
+    }
     revokeReviewPdf();
     omrReview = null;
   }
@@ -370,16 +409,175 @@
   }
 
   /** The user confirmed the scanned answers via the embedded survey (which
-   *  has already scored and persisted the result); fold it into the card. */
+   *  has already scored and persisted the result); fold it into the card. In a
+   *  combined upload, advance to the next queued test instead of closing. */
   function finishReview(child: ChildAssessment): void {
     finishQuestionnaire(child);
+    if (omrReview?.pdfFromCombined) {
+      openNextReview();
+      return;
+    }
     revokeReviewPdf();
     omrReview = null;
+  }
+
+  /** Open the combined "upload completed tests" modal. */
+  function startCombinedUpload(): void {
+    combinedError = null;
+    combinedDragActive = false;
+    combinedOpen = true;
+  }
+
+  /** Close the combined upload modal, unless a read is in progress. */
+  function closeCombinedUpload(): void {
+    if (combinedBusy) return;
+    combinedOpen = false;
+    combinedError = null;
+    combinedDragActive = false;
+  }
+
+  function onCombinedDragOver(e: DragEvent): void {
+    e.preventDefault();
+    if (!combinedBusy) combinedDragActive = true;
+  }
+
+  function onCombinedDragLeave(e: DragEvent): void {
+    e.preventDefault();
+    combinedDragActive = false;
+  }
+
+  function onCombinedDrop(e: DragEvent): void {
+    e.preventDefault();
+    combinedDragActive = false;
+    if (combinedBusy) return;
+    const file = e.dataTransfer?.files?.[0];
+    if (file) void ingestCombined(file);
+  }
+
+  function onCombinedFileChosen(e: Event): void {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) void ingestCombined(file);
+  }
+
+  /**
+   * Read an uploaded completed-tests PDF, split it into per-assessment reads,
+   * and open a review queue stepping through each filled test in turn. Only a
+   * PDF is accepted here — it's the fillable document the patient flow produces
+   * and forwards; per-test scans stay on each card's own upload.
+   */
+  async function ingestCombined(file: File): Promise<void> {
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (!isPdf) {
+      combinedError =
+        'Upload the completed-tests PDF here. For a photo or scan of a printed ' +
+        'sheet, use the individual test card below.';
+      return;
+    }
+
+    combinedError = null;
+    combinedBusy = true;
+    try {
+      const templates = ACUTE_CHILDREN.map((c) => c.omrTemplate).filter(
+        (t): t is NonNullable<typeof t> => !!t,
+      );
+      const read = await readCombinedPdfFormFromBlob(file, templates);
+      if (!read.ok) {
+        combinedError = read.error;
+        return;
+      }
+
+      // Map each read back to its child (by template id), in card order, and
+      // build the review queue. Reads whose assessment isn't a known child are
+      // ignored defensively.
+      const bySlug = new Map(ACUTE_CHILDREN.map((c) => [c.omrTemplate?.id, c] as const));
+      const queue: QueuedReview[] = [];
+      for (const c of ACUTE_CHILDREN) {
+        const match = read.children.find((r) => r.templateId === c.omrTemplate?.id);
+        if (!match || !bySlug.has(match.templateId)) continue;
+        const text = match.result.text ?? {};
+        const area =
+          typeof text.bothersome_area === 'string'
+            ? sanitizeBothersomeArea(text.bothersome_area)
+            : '';
+        const comments = typeof text.other_comments === 'string' ? text.other_comments : '';
+        queue.push({
+          child: c,
+          response: match.result.response,
+          area: area || undefined,
+          comments: comments || undefined,
+          requireArea: !!area,
+          commentsDetected: !!comments,
+          attention: match.result.attention,
+        });
+      }
+
+      if (queue.length === 0) {
+        combinedError =
+          "We couldn't match this PDF to any of the four assessments. Upload the " +
+          'completed-tests PDF you downloaded here.';
+        return;
+      }
+
+      combinedPdfUrl = URL.createObjectURL(file);
+      reviewQueue = queue;
+      combinedTotal = queue.length;
+      combinedOpen = false;
+      openNextReview();
+    } catch (err) {
+      combinedError = err instanceof Error ? err.message : 'Could not read the file.';
+    } finally {
+      combinedBusy = false;
+    }
+  }
+
+  /** Advance to the next queued test's confirmation, or finish the queue. */
+  function openNextReview(): void {
+    const next = reviewQueue[0];
+    if (!next) {
+      endCombinedReview();
+      omrReview = null;
+      return;
+    }
+    reviewQueue = reviewQueue.slice(1);
+    const { child } = next;
+    // Role-gated children (MSI) need their role set before the survey renders.
+    if (child.roleKey && role) storeSet(child.roleKey, role);
+    // Reflect any carried free-text on the card and in storage, so the review
+    // pre-fills and the card stays consistent if confirmed.
+    if (next.comments) setComment(child.slug, next.comments);
+    if (next.area) setArea(child.slug, next.area);
+    omrReview = {
+      child,
+      imageUrl: null,
+      pdfUrl: combinedPdfUrl ?? undefined,
+      pdfFromCombined: true,
+      queueRemaining: reviewQueue.length,
+      response: next.response,
+      area: next.area,
+      comments: next.comments,
+      requireArea: next.requireArea,
+      commentsDetected: next.commentsDetected,
+      attention: next.attention,
+    };
+  }
+
+  /** Tear down the combined review: drop any remaining queue and free the
+   *  shared PDF object URL. */
+  function endCombinedReview(): void {
+    reviewQueue = [];
+    combinedTotal = 0;
+    if (combinedPdfUrl) {
+      URL.revokeObjectURL(combinedPdfUrl);
+      combinedPdfUrl = null;
+    }
   }
 
   function onWindowKey(e: KeyboardEvent): void {
     if (e.key !== 'Escape') return;
     if (uploadChild) closeUpload();
+    else if (combinedOpen) closeCombinedUpload();
     else if (omrReview) closeReview();
     else if (modalChild) closeQuestionnaire();
   }
@@ -405,6 +603,24 @@
       complete and upload it. When all four are complete, calculate the
       composite classification.
     </p>
+
+    <div class="bulk">
+      <div class="bulk__text">
+        <span class="material-symbols-outlined bulk__icon" aria-hidden="true">upload_file</span>
+        <div>
+          <p class="bulk__title">Have a completed-tests PDF from the patient?</p>
+          <p class="bulk__desc">
+            Upload the single PDF they filled out and shared — we'll read every
+            test it contains and step you through confirming each one. It can hold
+            all four assessments or just some.
+          </p>
+        </div>
+      </div>
+      <button type="button" class="btn btn--primary bulk__btn" onclick={startCombinedUpload}>
+        <span class="material-symbols-outlined" aria-hidden="true">upload</span>
+        Upload completed tests
+      </button>
+    </div>
 
     <ul class="cards">
       {#each ACUTE_CHILDREN as child, i (child.slug)}
@@ -592,6 +808,61 @@
     </div>
   {/if}
 
+  {#if combinedOpen}
+    <div
+      class="modal-overlay"
+      role="presentation"
+      onclick={(e) => { if (e.target === e.currentTarget) closeCombinedUpload(); }}
+    >
+      <div class="modal modal--narrow" role="dialog" aria-modal="true" aria-label="Upload completed tests">
+        <header class="modal__head">
+          <div class="modal__head-row">
+            <div>
+              <h2 class="modal__title">Upload completed tests</h2>
+              <p class="modal__subtitle">
+                The single PDF the patient filled out and shared. We'll read every
+                test it holds — all four, or just the ones they completed.
+              </p>
+            </div>
+            <button type="button" class="modal__close" aria-label="Close" onclick={closeCombinedUpload}>
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+        </header>
+        <div class="modal__body">
+          <label
+            class="dropzone"
+            class:dropzone--active={combinedDragActive}
+            class:dropzone--busy={combinedBusy}
+            ondragover={onCombinedDragOver}
+            ondragleave={onCombinedDragLeave}
+            ondrop={onCombinedDrop}
+          >
+            <input
+              type="file"
+              accept="application/pdf"
+              class="visually-hidden"
+              onchange={onCombinedFileChosen}
+              disabled={combinedBusy}
+            />
+            <span class="material-symbols-outlined dropzone__icon" aria-hidden="true">
+              {combinedBusy ? 'hourglass_top' : 'upload_file'}
+            </span>
+            {#if combinedBusy}
+              <span class="dropzone__text">Reading…</span>
+            {:else}
+              <span class="dropzone__text"><strong>Drag the PDF here</strong>, or click to browse</span>
+              <span class="dropzone__hint">The completed-tests PDF · one file</span>
+            {/if}
+          </label>
+          {#if combinedError}
+            <p class="dropzone__error" role="alert">{combinedError}</p>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
   {#if omrReview}
     {@const rv = omrReview}
     <div
@@ -603,6 +874,9 @@
         <header class="modal__head">
           <div class="modal__head-row">
             <div>
+              {#if rv.pdfFromCombined}
+                <p class="review__step">Test {combinedTotal - (rv.queueRemaining ?? 0)} of {combinedTotal} · {(rv.queueRemaining ?? 0) > 0 ? `${rv.queueRemaining} still to confirm` : 'last one'}</p>
+              {/if}
               <h2 class="modal__title">Review {rv.imageUrl ? 'scanned' : 'filled'} {rv.child.shortName}</h2>
               <p class="modal__subtitle">
                 {rv.imageUrl
@@ -657,7 +931,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel="Confirm"
+                submitLabel={rv.pdfFromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'briefslanss'}
@@ -667,7 +941,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel="Confirm"
+                submitLabel={rv.pdfFromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'frebaq'}
@@ -681,7 +955,7 @@
                 areaCorrection={rv.areaCorrection}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel="Confirm"
+                submitLabel={rv.pdfFromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'phq4'}
@@ -691,7 +965,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel="Confirm"
+                submitLabel={rv.pdfFromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {/if}
@@ -721,6 +995,80 @@
   .collect__lede {
     color: var(--color-text-muted);
     margin-bottom: var(--space-6);
+  }
+
+  /* Bulk "upload completed tests" callout: sits above the per-test cards as the
+     fast path when a patient shares one filled PDF. Tinted so it reads as a
+     distinct shortcut, not another assessment card. */
+  .bulk {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+    padding: var(--space-4) var(--space-5);
+    background: var(--color-primary-tint-ghost);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--radius-lg);
+  }
+
+  .bulk__text {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .bulk__icon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+    font-size: 1.5rem;
+  }
+
+  .bulk__title {
+    margin: 0;
+    font-weight: 600;
+    font-size: 0.98rem;
+  }
+
+  .bulk__desc {
+    margin: var(--space-1) 0 0 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+  }
+
+  .bulk__btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .bulk__btn .material-symbols-outlined {
+    font-size: 1.1rem;
+  }
+
+  @media (max-width: 640px) {
+    .bulk {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .bulk__btn {
+      justify-content: center;
+    }
+  }
+
+  /* Step counter above the review title during a combined upload's queue. */
+  .review__step {
+    margin: 0 0 var(--space-1) 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--color-primary);
   }
 
   .cards {

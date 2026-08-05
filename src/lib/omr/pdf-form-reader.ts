@@ -38,45 +38,37 @@ function embeddedFormId(doc: PDFDocument): string | null {
 }
 
 /**
- * Read a filled interactive answer-sheet PDF against its template.
+ * Read the radio (and free-text) fields of one sheet against `template`, from
+ * an already-loaded document.
  *
- * DOM-free (pdf-lib runs in Node), so the round trip generate → fill → read
- * is unit-testable headlessly.
+ * `prefix` is the field namespace the sheet was drawn under: empty for a lone
+ * sheet, or `t<i>_` for one sheet within a combined "all tests" document (see
+ * `generateCombinedAnswerSheets`). Field names are matched against the prefix
+ * and stripped of it, so the returned `response`/`text` are always keyed by the
+ * bare scorer keys the survey and scorer expect — one sheet reads identically
+ * whether it stands alone or is embedded in a combined form.
  */
-export async function readPdfForm(
-  bytes: Uint8Array | ArrayBuffer,
+function readFormFields(
+  doc: PDFDocument,
   template: OmrTemplate,
-): Promise<OmrReadResult> {
-  let doc: PDFDocument;
-  try {
-    doc = await PDFDocument.load(bytes);
-  } catch {
-    return fail('That file is not a readable PDF.');
-  }
-
-  // Reject a sheet built for a different assessment before parsing any answers.
-  // Only a positive id mismatch rejects; sheets without the marker fall through
-  // to the field-level guards below, so an older download still reads normally.
-  const formId = embeddedFormId(doc);
-  if (formId && formId !== template.id) {
-    return fail(
-      `This is the answer sheet for a different assessment (form ${formId}), but ` +
-        `you're entering a result for ${template.title}. Upload the ${template.title} ` +
-        `answer sheet, or start from that assessment's card.`,
-    );
-  }
-
-  // Index the form's radio groups by name once, and collect any free-text
-  // fields (name/date/comments). A PDF with no AcroForm yields an empty field
-  // list here rather than throwing.
+  prefix: string,
+): OmrReadResult {
+  // Index this sheet's radio groups by bare key, and collect its free-text
+  // fields (name/date/comments). When reading a lone sheet (no prefix), skip
+  // any namespaced fields so a combined document can't leak in; when reading a
+  // namespace, take only the fields under it. A PDF with no AcroForm yields an
+  // empty field list here rather than throwing.
   const groups = new Map<string, PDFRadioGroup>();
   const text: Record<string, string> = {};
   for (const field of doc.getForm().getFields()) {
+    const name = field.getName();
+    if (prefix ? !name.startsWith(prefix) : /^t\d+_/.test(name)) continue;
+    const key = prefix ? name.slice(prefix.length) : name;
     if (field instanceof PDFRadioGroup) {
-      groups.set(field.getName(), field);
+      groups.set(key, field);
     } else if (field instanceof PDFTextField) {
       const value = field.getText()?.trim();
-      if (value) text[field.getName()] = value;
+      if (value) text[key] = value;
     }
   }
   if (groups.size === 0) {
@@ -136,10 +128,199 @@ export async function readPdfForm(
   };
 }
 
+/**
+ * Read a filled interactive answer-sheet PDF against its template.
+ *
+ * DOM-free (pdf-lib runs in Node), so the round trip generate → fill → read
+ * is unit-testable headlessly.
+ */
+export async function readPdfForm(
+  bytes: Uint8Array | ArrayBuffer,
+  template: OmrTemplate,
+): Promise<OmrReadResult> {
+  let doc: PDFDocument;
+  try {
+    doc = await PDFDocument.load(bytes);
+  } catch {
+    return fail('That file is not a readable PDF.');
+  }
+
+  // Reject a sheet built for a different assessment before parsing any answers.
+  // Only a positive id mismatch rejects; sheets without the marker fall through
+  // to the field-level guards below, so an older download still reads normally.
+  const formId = embeddedFormId(doc);
+  if (formId && formId !== template.id) {
+    return fail(
+      `This is the answer sheet for a different assessment (form ${formId}), but ` +
+        `you're entering a result for ${template.title}. Upload the ${template.title} ` +
+        `answer sheet, or start from that assessment's card.`,
+    );
+  }
+
+  return readFormFields(doc, template, '');
+}
+
 /** Convenience: read a filled interactive PDF straight from a File/Blob. */
 export async function readPdfFormFromBlob(
   blob: Blob,
   template: OmrTemplate,
 ): Promise<OmrReadResult> {
   return readPdfForm(await blob.arrayBuffer(), template);
+}
+
+/** One assessment's read within a combined "all tests" document. */
+export interface CombinedChildRead {
+  /** `OmrTemplate.id` of the assessment this read belongs to. */
+  templateId: string;
+  /** The field namespace it was read from (`t<i>_`, or `''` for a lone sheet). */
+  prefix: string;
+  /** The read itself — always `ok: true` in a successful combined result. */
+  result: OmrReadResult;
+}
+
+export type CombinedReadResult =
+  | { ok: true; children: CombinedChildRead[] }
+  | { ok: false; error: string };
+
+/** First scorer key a template exposes — enough to fingerprint which
+ *  assessment a field namespace holds when a combined PDF lacks the manifest. */
+function firstFieldKey(template: OmrTemplate): string {
+  return template.sections[0]?.rows[0]?.fields[0]?.key ?? '';
+}
+
+/** Find the template whose fields are present under `prefix`, by fingerprint. */
+function templateByKeys(
+  groupNames: Set<string>,
+  templates: OmrTemplate[],
+  prefix: string,
+): OmrTemplate | undefined {
+  return templates.find((t) => groupNames.has(prefix + firstFieldKey(t)));
+}
+
+/**
+ * Parse the combined-document manifest from PDF Keywords: `omr-combined` plus
+ * one `t<i>:<template-id>` per embedded sheet (see `generateCombinedAnswerSheets`).
+ * Returns `[]` for any document without the marker, so an older combined PDF —
+ * or a lone sheet — falls through to fingerprint detection instead.
+ */
+function parseCombinedManifest(doc: PDFDocument): { prefix: string; id: string }[] {
+  const keywords = doc.getKeywords() ?? '';
+  if (!/\bomr-combined\b/.test(keywords)) return [];
+  const out: { prefix: string; id: string }[] = [];
+  const re = /\bt(\d+):([\w-]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(keywords))) out.push({ prefix: `t${m[1]}_`, id: m[2] });
+  return out;
+}
+
+/** Distinct `t<i>_` field namespaces present in a document, for manifest-less
+ *  combined PDFs (downloaded before the manifest was stamped). */
+function discoverPrefixes(groupNames: Set<string>): string[] {
+  const prefixes = new Set<string>();
+  for (const name of groupNames) {
+    const m = name.match(/^(t\d+_)/);
+    if (m) prefixes.add(m[1]);
+  }
+  return [...prefixes];
+}
+
+/**
+ * Read a completed-tests PDF and split it into one result per assessment it
+ * contains, against the supplied `templates` (the candidate child assessments).
+ *
+ * Handles three shapes with one entry point, so a professional can upload
+ * whatever a patient sends: the combined "all tests" document (all four, via
+ * the stamped manifest), a combined document holding any subset, or even a lone
+ * single-assessment sheet. Blank sheets are silently dropped, so only the
+ * assessments that were actually filled come back — the rest stay open for
+ * another input method.
+ */
+export async function readCombinedPdfForm(
+  bytes: Uint8Array | ArrayBuffer,
+  templates: OmrTemplate[],
+): Promise<CombinedReadResult> {
+  let doc: PDFDocument;
+  try {
+    doc = await PDFDocument.load(bytes);
+  } catch {
+    return { ok: false, error: 'That file is not a readable PDF.' };
+  }
+
+  const groupNames = new Set<string>();
+  for (const field of doc.getForm().getFields()) {
+    if (field instanceof PDFRadioGroup) groupNames.add(field.getName());
+  }
+  if (groupNames.size === 0) {
+    return {
+      ok: false,
+      error:
+        'This PDF has no answer fields to read — it looks like a results report, ' +
+        'not a completed answer sheet. Upload the tests you downloaded, filled in ' +
+        'on-screen or scanned from print.',
+    };
+  }
+
+  // Resolve which (namespace, template) pairs to read: the stamped manifest
+  // first, then namespace fingerprinting for a manifest-less combined PDF, and
+  // finally a lone sheet identified by its form id or field fingerprint.
+  const entries: { prefix: string; template: OmrTemplate }[] = [];
+  const manifest = parseCombinedManifest(doc);
+  if (manifest.length) {
+    for (const m of manifest) {
+      const template = templates.find((t) => t.id === m.id);
+      if (template) entries.push({ prefix: m.prefix, template });
+    }
+  } else {
+    const prefixes = discoverPrefixes(groupNames);
+    if (prefixes.length) {
+      for (const prefix of prefixes) {
+        const template = templateByKeys(groupNames, templates, prefix);
+        if (template) entries.push({ prefix, template });
+      }
+    } else {
+      const formId = embeddedFormId(doc);
+      const template =
+        (formId ? templates.find((t) => t.id === formId) : undefined) ??
+        templateByKeys(groupNames, templates, '');
+      if (template) entries.push({ prefix: '', template });
+    }
+  }
+
+  if (entries.length === 0) {
+    return {
+      ok: false,
+      error:
+        "We couldn't match this PDF to any of the assessments. Upload the completed " +
+        'tests you downloaded here, or enter a single assessment from its own card.',
+    };
+  }
+
+  const children: CombinedChildRead[] = entries
+    .map((e) => ({
+      templateId: e.template.id,
+      prefix: e.prefix,
+      result: readFormFields(doc, e.template, e.prefix),
+    }))
+    // Keep only the sheets that carry answers; a blank one reads as "not filled"
+    // and is simply left for another input method (partial uploads are fine).
+    .filter((c) => c.result.ok);
+
+  if (children.length === 0) {
+    return {
+      ok: false,
+      error:
+        'None of the sheets in this PDF have answers filled in yet. Fill them in ' +
+        'on a computer and save, then upload — or upload a photo/scan per test.',
+    };
+  }
+
+  return { ok: true, children };
+}
+
+/** Convenience: read a completed-tests PDF straight from a File/Blob. */
+export async function readCombinedPdfFormFromBlob(
+  blob: Blob,
+  templates: OmrTemplate[],
+): Promise<CombinedReadResult> {
+  return readCombinedPdfForm(await blob.arrayBuffer(), templates);
 }
