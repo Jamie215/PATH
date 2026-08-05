@@ -199,10 +199,23 @@
 
     {#if msiSomatic !== null && msiNonsomatic !== null}
       <h2 class="results__subhead">Symptom Index charts</h2>
-      <div class="charts__grid" class:charts__grid--single={!msiRadar}>
+      <div class="charts__grid">
         <SomaticBarChart somatic={msiSomatic} nonsomatic={msiNonsomatic} />
         {#if msiRadar}
           <SymptomRadarChart labels={msiRadar.labels} values={msiRadar.values} />
+        {:else}
+          <div class="charts__note">
+            <span class="material-symbols-outlined charts__note-icon" aria-hidden="true">
+              radar
+            </span>
+            <p class="charts__note-text">
+              The per-symptom radar plot appears here when the Symptom Index is
+              completed with the full questionnaire or an uploaded answer sheet.
+              These scores were entered manually, which records only the somatic
+              and central totals — not the individual symptom values the radar
+              needs.
+            </p>
+          </div>
         {/if}
       </div>
     {/if}
@@ -334,16 +347,42 @@
     margin: 0 0 var(--space-7) 0;
   }
 
-  .charts__grid--single {
-    max-width: 480px;
-  }
-
   @media (min-width: 800px) {
-    /* Somatic bar : radar = 2 : 3, matching the MSI results view. */
-    .charts__grid:not(.charts__grid--single) {
+    /* Somatic bar : radar (or its placeholder note) = 2 : 3, matching the
+       MSI results view. */
+    .charts__grid {
       grid-template-columns: 2fr 3fr;
       align-items: stretch;
     }
+  }
+
+  /* Placeholder shown in the radar's slot when per-symptom data is absent
+     (MSI entered manually), so the missing plot is explained rather than
+     silently dropped. */
+  .charts__note {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    text-align: center;
+    padding: var(--space-6);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-alt);
+  }
+
+  .charts__note-icon {
+    font-size: 2rem;
+    color: var(--color-text-muted);
+  }
+
+  .charts__note-text {
+    margin: 0;
+    max-width: 34rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-text-muted);
   }
 
   .inputs {
