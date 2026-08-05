@@ -11,8 +11,11 @@
    */
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
+  import SomaticBarChart from './SomaticBarChart.svelte';
+  import SymptomRadarChart from './SymptomRadarChart.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { ACUTE_CHILDREN, KEYS, type Role } from '../assessments/pain-classification/config';
+  import type { MSIResult } from '../assessments/msi/scoring';
   import {
     scoreAcute,
     CATEGORIES,
@@ -25,6 +28,15 @@
   let result = $state<PainClassificationResult | null>(null);
   let probs = $state<{ category: Category; prob: number }[]>([]);
   let rows = $state<{ shortName: string; entries: [string, number][]; comment: string }[]>([]);
+
+  // MSI charts. The somatic/non-somatic totals are always present (they are
+  // required manual fields for the MSI child), so the diverging bar always
+  // renders. The per-symptom radar needs the full MSI result, which only
+  // exists when MSI was completed via the questionnaire or an OMR scan — not
+  // a bare manual entry — so it renders conditionally.
+  let msiSomatic = $state<number | null>(null);
+  let msiNonsomatic = $state<number | null>(null);
+  let msiRadar = $state<{ labels: string[]; values: number[] } | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName.
   let nameInput = $state('');
@@ -60,6 +72,19 @@
     }
 
     rows = display;
+
+    // Somatic / non-somatic totals for the diverging bar (guaranteed present).
+    const msiValues = inputs['msi'];
+    if (msiValues) {
+      if (typeof msiValues.somatic === 'number') msiSomatic = msiValues.somatic;
+      if (typeof msiValues.nonsomatic === 'number') msiNonsomatic = msiValues.nonsomatic;
+    }
+    // Per-symptom radar data, only when a full MSI result was captured.
+    const msiResult = storeGet<MSIResult>('msi:result');
+    if (msiResult && Array.isArray(msiResult.labels) && Array.isArray(msiResult.vals)) {
+      msiRadar = { labels: msiResult.labels, values: msiResult.vals };
+    }
+
     const r = scoreAcute(inputs);
     result = r;
     probs = CATEGORIES.map((c) => ({ category: c, prob: r.probabilities[c] })).sort(
@@ -171,6 +196,16 @@
         </li>
       {/each}
     </ul>
+
+    {#if msiSomatic !== null && msiNonsomatic !== null}
+      <h2 class="results__subhead">Symptom Index charts</h2>
+      <div class="charts__grid" class:charts__grid--single={!msiRadar}>
+        <SomaticBarChart somatic={msiSomatic} nonsomatic={msiNonsomatic} />
+        {#if msiRadar}
+          <SymptomRadarChart labels={msiRadar.labels} values={msiRadar.values} />
+        {/if}
+      </div>
+    {/if}
 
     <h2 class="results__subhead">Collected inputs</h2>
     <ul class="inputs">
@@ -290,6 +325,25 @@
   .results__subhead {
     font-size: 1.05rem;
     margin: 0 0 var(--space-4) 0;
+  }
+
+  .charts__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+    margin: 0 0 var(--space-7) 0;
+  }
+
+  .charts__grid--single {
+    max-width: 480px;
+  }
+
+  @media (min-width: 800px) {
+    /* Somatic bar : radar = 2 : 3, matching the MSI results view. */
+    .charts__grid:not(.charts__grid--single) {
+      grid-template-columns: 2fr 3fr;
+      align-items: stretch;
+    }
   }
 
   .inputs {
