@@ -10,13 +10,11 @@
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
-  import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { freBAQResult } from '../assessments/frebaq/scoring';
 
   let result = $state<FreBAQ | null>(null);
   let bothersomeArea = $state('');
   let loaded = $state(false);
-  let parentContext = $state<Assessmentcontext | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName which
   // is what appears in the heading (and later in the PDF).
@@ -31,7 +29,6 @@
     result = storeGet<freBAQResult>('frebaq:result');
     const response = storeGet<Record<string, unknown>>('frebaq:response');
     if (typeof response?.bothersome_area === 'string') bothersomeArea = response.bothersome_area;
-    parentContext = getAssessmentContext();
     const savedName = storeGet<string>('frebaq:patientName');
     if (savedName) {
       nameInput = savedName;
@@ -155,7 +152,7 @@
     <!-- Actions -->
     <div class="actions">
       <a href="/" class="btn btn--secondary">Return to Home</a>
-      <a href="/frebaq/" class="btn btn--primary">Redo Assessment</a>
+      <a href="/frebaq/" data-clear-session class="btn btn--primary">Redo Assessment</a>
     </div>
     {#if pdfError}
       <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>

@@ -27,6 +27,10 @@ const fullTitle = title === 'PATH' ? 'PATH — Pain Assessment Tools Hub' : `${t
     />
   </head>
   <body>
+    <script>
+      import { initSessionClear } from '../lib/session-clear';
+      initSessionClear();
+    </script>
     <header class="site-header">
       <div class={`container ${wide ? 'container--wide' : ''}`}>
         <a href="/" class="site-header__brand">
