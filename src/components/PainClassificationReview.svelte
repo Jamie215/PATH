@@ -12,7 +12,7 @@
    * collection page (this view is only meaningful once all four are done).
    */
   import { onMount } from 'svelte';
-  import { get as storeGet } from '../lib/storage';
+  import { get as storeGet, set as storeSet } from '../lib/storage';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
   import { summarizeChild, type ChildSummary } from '../assessments/pain-classification/summary';
 
@@ -26,6 +26,10 @@
   let summaries = $state<AssessmentSummary[]>([]);
   let downloadBusy = $state(false);
   let downloadError = $state<string | null>(null);
+
+  // Patient name / ID — bound to the input, persisted so it survives an edit
+  // round-trip and pre-fills the downloaded answer sheets.
+  let nameInput = $state('');
 
   function childComplete(child: ChildAssessment): boolean {
     const v = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
@@ -48,8 +52,13 @@
       description: c.description,
       ...summarizeChild(c.slug),
     }));
+    nameInput = storeGet<string>(KEYS.patientName) ?? '';
     loaded = true;
   });
+
+  function saveName(): void {
+    storeSet(KEYS.patientName, nameInput.trim());
+  }
 
   function scrollToTop(): void {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -71,9 +80,13 @@
     try {
       const { generateCombinedAnswerSheets, buildCombinedAnswerSheetFilename } = await import('../lib/omr-sheet');
       const today = new Date().toLocaleDateString();
+      const name = nameInput.trim();
       const entries = ACUTE_CHILDREN.filter((c) => c.omrTemplate).map((c) => {
         const response = storeGet<Record<string, number | string>>(`${c.slug}:response`) ?? {};
-        return { template: c.omrTemplate!, answers: { ...response, patient_date: today } };
+        return {
+          template: c.omrTemplate!,
+          answers: { ...response, patient_date: today, ...(name ? { patient_name: name } : {}) },
+        };
       });
       const bytes = await generateCombinedAnswerSheets(entries);
       const blob = new Blob([bytes], { type: 'application/pdf' });
@@ -95,9 +108,31 @@
 
 {#if loaded}
   <section class="review">
-    <!-- Frozen action bar: stays in view while the summary scrolls, so Edit and
-         Download are always reachable. -->
+    <h1 class="review__heading">Review your responses</h1>
+
+    <!-- Guidance: what to do with this summary once it looks right. -->
+    <div class="review__instructions">
+      <span class="material-symbols-outlined review__instructions-icon" aria-hidden="true">info</span>
+      <p class="review__instructions-text">
+        Please review the responses below to make sure they're correct. When you're ready, download
+        your responses and forward the file to your healthcare professional.
+      </p>
+    </div>
+
+    <!-- Frozen action bar: stays in view while the summary scrolls, so the
+         name field and Download are always reachable. -->
     <div class="review__bar">
+      <label class="review__name" for="patient-name">
+        <span class="review__name-label">Name / ID</span>
+        <input
+          id="patient-name"
+          class="review__name-input"
+          type="text"
+          placeholder="Enter name or ID"
+          bind:value={nameInput}
+          oninput={saveName}
+        />
+      </label>
       <button type="button" class="btn btn--secondary review__top" onclick={scrollToTop}>
         <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>
         Scroll to top
@@ -112,8 +147,6 @@
         {downloadBusy ? 'Preparing…' : 'Download my response'}
       </button>
     </div>
-
-    <h1 class="review__heading">Review your responses</h1>
 
     {#if downloadError}
       <p class="review__error" role="alert">{downloadError}</p>
@@ -197,7 +230,63 @@
   }
 
   .review__heading {
-    margin: var(--space-6) 0 var(--space-5) 0;
+    margin: 0 0 var(--space-4) 0;
+  }
+
+  /* Instruction callout. */
+  .review__instructions {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+    padding: var(--space-4);
+    background: var(--color-primary-tint-ghost);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--radius-md);
+  }
+
+  .review__instructions-icon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+    font-size: 1.35rem;
+  }
+
+  .review__instructions-text {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--color-text);
+  }
+
+  /* Name / ID field, sitting in the action bar. */
+  .review__name {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .review__name-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .review__name-input {
+    flex: 1 1 200px;
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .review__name-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
   }
 
   .review__error {
@@ -330,8 +419,13 @@
 
   @media (max-width: 560px) {
     .review__bar {
-      flex-direction: column-reverse;
+      flex-direction: column;
       align-items: stretch;
+    }
+    .review__name {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-1);
     }
     .qa__row {
       flex-direction: column;
