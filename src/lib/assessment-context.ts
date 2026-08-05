@@ -6,8 +6,9 @@
  * the child's results page can offer "Continue with [parent]" instead
  * of "Return to hub".
  *
- * The hub home (/) clears this on visit, so direct entry to a child
- * assessment from the hub naturally has no parent context.
+ * Leaving an assessment's section clears all `path:` storage (see
+ * session-clear.ts), so returning to the hub — or opening a different
+ * assessment — naturally drops any stale parent context.
  */
 import { get as storeGet, set as storeSet, remove as storeRemove } from './storage';
 

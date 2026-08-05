@@ -149,7 +149,7 @@
     <!-- Actions -->
     <div class="actions">
       <a href="/" class="btn btn--secondary">Return to Home</a>
-      <a href="/phq4/" class="btn btn--primary">Redo Assessment</a>
+      <a href="/phq4/" data-clear-session class="btn btn--primary">Redo Assessment</a>
     </div>
     {#if pdfError}
       <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>

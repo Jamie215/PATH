@@ -242,7 +242,7 @@
 
     <div class="results__actions">
       <a href="/" class="btn btn--secondary">Return to Home</a>
-      <a href="/pain-classification/" class="btn btn--primary">Redo Assessment</a>
+      <a href="/pain-classification/" data-clear-session class="btn btn--primary">Redo Assessment</a>
     </div>
     {#if pdfError}
       <p class="results__pdf-error" role="alert">{pdfError}</p>
