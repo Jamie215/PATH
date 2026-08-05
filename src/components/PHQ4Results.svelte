@@ -10,12 +10,10 @@
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
-  import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { phq4Result } from '../assessments/phq4/scoring';
 
   let result = $state<PHQ4 | null>(null);
   let loaded = $state(false);
-  let parentContext = $state<Assessmentcontext | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName which
   // is what appears in the heading (and later in the PDF).
@@ -28,7 +26,6 @@
 
   onMount(() => {
     result = storeGet<phq4Result>('phq4:result');
-    parentContext = getAssessmentContext();
     const savedName = storeGet<string>('phq4:patientName');
     if (savedName) {
       nameInput = savedName;

@@ -10,12 +10,10 @@
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
-  import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { briefSLANSSResult } from '../assessments/briefslanss/scoring';
 
   let result = $state<briefSLANSS | null>(null);
   let loaded = $state(false);
-  let parentContext = $state<Assessmentcontext | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName which
   // is what appears in the heading (and later in the PDF).
@@ -28,7 +26,6 @@
 
   onMount(() => {
     result = storeGet<briefSLANSSResult>('briefslanss:result');
-    parentContext = getAssessmentContext();
     const savedName = storeGet<string>('briefslanss:patientName');
     if (savedName) {
       nameInput = savedName;

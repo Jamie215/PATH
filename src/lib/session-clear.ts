@@ -23,6 +23,10 @@
  *   - results -> Home, or Back out to the hub     -> cleared
  *   - abandon one assessment, open another        -> cleared
  *
+ * The hub home (`/`) is a special case: it always clears, however the user
+ * got there (link, Back, hard refresh, results page), so returning to the
+ * landing screen is a guaranteed clean slate.
+ *
  * Closing the tab is already handled by sessionStorage itself.
  *
  * A second, explicit trigger: any element marked `data-clear-session` (e.g.
@@ -46,12 +50,20 @@ export function sectionOf(pathname: string): string {
 export function initSessionClear(): void {
   if (typeof window === 'undefined' || typeof window.sessionStorage === 'undefined') return;
 
-  // Section-transition clear: wipe the section we just left.
   try {
     const current = sectionOf(window.location.pathname);
-    const previous = window.sessionStorage.getItem(NAV_KEY);
-    if (previous !== null && previous !== current) {
+    if (current === '') {
+      // The hub home is always a clean slate: landing here by any means — a
+      // link, the Back button, a hard refresh, or "Return to Home" — wipes
+      // any patient data left behind.
       clearAll();
+    } else {
+      // Otherwise, wipe the section we just left; navigating within a section
+      // (survey -> results, Back to a prior step, reload) keeps its data.
+      const previous = window.sessionStorage.getItem(NAV_KEY);
+      if (previous !== null && previous !== current) {
+        clearAll();
+      }
     }
     window.sessionStorage.setItem(NAV_KEY, current);
   } catch {

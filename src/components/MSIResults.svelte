@@ -13,7 +13,6 @@
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
   import { get as storeGet, set as storeSet } from '../lib/storage';
-  import { getAssessmentContext, type AssessmentContext } from '../lib/assessment-context';
   import type { MSIResult } from '../assessments/msi/scoring';
   import type { MSIRole } from '../assessments/msi/questions';
   import SomaticBarChart from './SomaticBarChart.svelte';
@@ -22,7 +21,6 @@
   let result = $state<MSIResult | null>(null);
   let role = $state<MSIRole | null>(null);
   let loaded = $state(false);
-  let parentContext = $state<Assessmentcontext | null>(null);
 
   // Patient name — bound to input; "Save" commits to displayedName which
   // is what appears in the heading (and later in the PDF).
@@ -39,7 +37,6 @@
   onMount(() => {
     result = storeGet<MSIResult>('msi:result');
     role = storeGet<MSIRole>('msi:role');
-    parentContext = getAssessmentContext();
     const savedName = storeGet<string>('msi:patientName');
     if (savedName) {
       nameInput = savedName;

@@ -9,8 +9,8 @@
  * (pain type + role), and — for the acute pathway — lands on a collection
  * page where each child assessment can be satisfied two ways:
  *
- *   1. "Fill Out Questionnaire" — launches the child assessment (via
- *      assessment-context, so the child returns here when done), or
+ *   1. "Fill Out Questionnaire" — opens the child's survey inline in a modal
+ *      that writes its result back to this page, or
  *   2. Manual entry — the user types the child's result directly.
  *
  * This file is the single source of truth shared by the collection page and
@@ -50,8 +50,6 @@ export interface ChildAssessment {
   description: string;
   /** sessionStorage key (sans the `path:` prefix) the child writes its scored result to. */
   resultKey: string;
-  /** Where "Fill Out Questionnaire" sends the user. */
-  surveyUrl: string;
   /**
    * If set, the parent copies its chosen role into this key before launching
    * the child, so a role-gated child survey (currently only MSI) doesn't
@@ -98,7 +96,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     description:
       'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
     resultKey: 'msi:result',
-    surveyUrl: '/msi/survey/',
     roleKey: 'msi:role',
     manualFields: [
       { key: 'somatic', label: 'Somatic score', min: 0, max: 60 },
@@ -121,7 +118,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     description:
       'A brief screening for neuropathic pain, with four symptom questions.',
     resultKey: 'briefslanss:result',
-    surveyUrl: '/briefslanss/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 4 }],
     omrTemplate: BRIEFSLANSS_OMR_TEMPLATE,
     fromResult: (r) => {
@@ -136,7 +132,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     description:
       'A quantitative evaluation of area-specific self-perception.',
     resultKey: 'frebaq:result',
-    surveyUrl: '/frebaq/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 24 }],
     omrTemplate: FREBAQ_OMR_TEMPLATE,
     areaField: {
@@ -155,7 +150,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     description:
       'A brief screening for depression and anxiety.',
     resultKey: 'phq4:result',
-    surveyUrl: '/phq4/',
     manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 12 }],
     omrTemplate: PHQ4_OMR_TEMPLATE,
     fromResult: (r) => {
