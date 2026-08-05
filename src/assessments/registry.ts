@@ -33,8 +33,8 @@ export interface AssessmentSummary {
 export const assessments: AssessmentSummary[] = [
   {
     slug: 'msi',
-    title: 'Multi-Dimensional Symptom Index (MSI)',
-    shortName: 'MSI',
+    title: 'Symptom Index',
+    shortName: 'Symptom Index',
     description:
       'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
     icon: 'body_system',
@@ -43,8 +43,8 @@ export const assessments: AssessmentSummary[] = [
   },
   {
     slug: 'briefslanss',
-    title: 'LANSS (Leeds Assessment of Neuropathic Symptoms and Signs) Screening (Brief ver.)',
-    shortName: 'BriefSLANSS',
+    title: 'Sensory Profile',
+    shortName: 'Sensory Profile',
     description:
       'A brief screening for neuropathic pain, with four symptom questions.',
     icon: 'neurology',
@@ -54,8 +54,8 @@ export const assessments: AssessmentSummary[] = [
   },
   {
     slug: 'frebaq',
-    title: 'FreBAQ (Fremantle Body Awareness Questionnaire)',
-    shortName: 'FreBAQ',
+    title: 'Body Awareness',
+    shortName: 'Body Awareness',
     description:
       'A quantitative evaluation of area-specific self-perception.',
     icon: 'psychology_alt',
@@ -64,8 +64,8 @@ export const assessments: AssessmentSummary[] = [
   },
   {
     slug: 'phq4',
-    title: 'PHQ-4 (Patient Health Questionnaire-4)',
-    shortName: 'PHQ-4',
+    title: 'Anxiety & Depression',
+    shortName: 'Anxiety & Depression',
     description:
       'A brief screening for depression and anxiety.',
     icon: 'stress_management',

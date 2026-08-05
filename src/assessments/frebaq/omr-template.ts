@@ -10,7 +10,7 @@ import { buildSingleGroupTemplate } from '../omr/single-group-template';
 
 export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   id: 'frebaq-v1',
-  title: 'Fremantle Body Awareness Questionnaire',
+  title: 'Body Awareness',
   subtitle: 'Scannable Form',
   instructions: [
     'Each statement is about your body (the affected area). Fill in ONE bubble for how often each is true, using a dark pen.',

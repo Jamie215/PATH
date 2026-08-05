@@ -22,8 +22,8 @@ export interface PDFInput {
 
 export async function generateFreBAQReport(input: PDFInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle('FreBAQ Results');
-  doc.setSubject('FreBAQ — clinical screening results');
+  doc.setTitle('Body Awareness Results');
+  doc.setSubject('Body Awareness — clinical screening results');
   doc.setProducer('PATH — Pain Assessment Tools Hub');
   doc.setCreator('PATH');
   doc.setCreationDate(new Date());
@@ -63,7 +63,7 @@ export function buildFilename(patientName: string): string {
     .replace(/[^a-zA-Z0-9-]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 40);
-  return safe ? `frebaq_Results_${safe}_${today}.pdf` : `frebaq_Results_${today}.pdf`;
+  return safe ? `Body_Awareness_Results_${safe}_${today}.pdf` : `Body_Awareness_Results_${today}.pdf`;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +223,7 @@ function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, total: number
 function drawTitle(ctx: Ctx, patientName: string): void {
   drawText(ctx, 'FreBAQ', { bold: true, size: 18, color: COLOR_TEXT });
   moveDown(ctx, 22);
-  drawText(ctx, 'Fremantle Body Awareness Questionnaire — results report', {
+  drawText(ctx, 'Body Awareness — results report', {
     size: 11,
     color: COLOR_MUTED,
   });

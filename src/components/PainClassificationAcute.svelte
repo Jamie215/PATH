@@ -24,6 +24,7 @@
   import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
   import type { GrayImage } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
+  import PatientAssessmentFlow from './PatientAssessmentFlow.svelte';
   import {
     ACUTE_CHILDREN,
     KEYS,
@@ -116,6 +117,11 @@
 
   const doneCount = $derived(ACUTE_CHILDREN.filter((c) => childComplete(c)).length);
   const allDone = $derived(doneCount === ACUTE_CHILDREN.length);
+
+  // Patients get an entirely different experience (a one-test-per-page flow,
+  // no scoring), rendered by PatientAssessmentFlow; everything below in this
+  // component is the professional collection view.
+  const isPatient = $derived(role === 'patient');
 
   /** Persist a child's values to storage, keeping only finite numbers. */
   function persistValues(slug: string): void {
@@ -378,7 +384,7 @@
     else if (modalChild) closeQuestionnaire();
   }
 
-  function calculate(): void {
+  function proceed(): void {
     if (!allDone) return;
     window.location.href = '/pain-classification/results/';
   }
@@ -387,12 +393,17 @@
 <svelte:window onkeydown={onWindowKey} />
 
 {#if loaded}
+  {#if isPatient}
+    <PatientAssessmentFlow />
+  {:else}
   <section class="collect">
     <a class="collect__back" href="/pain-classification/">&larr; Go back</a>
     <h1 class="collect__heading">Acute Pain Classification</h1>
     <p class="collect__lede">
       Provide a result for each of the four assessments below — either enter a
-      known result manually, take the test directly, or download the OMR form, complete and upload it. When all four are complete, calculate the composite classification.
+      known result manually, take the test directly, or download the test,
+      complete and upload it. When all four are complete, calculate the
+      composite classification.
     </p>
 
     <ul class="cards">
@@ -404,7 +415,7 @@
                 <span class="card__num" class:card__num--done={childComplete(child)} aria-hidden="true">{i + 1}</span>
                 <div class="card__heading">
                   <h2 class="card__title">{child.shortName}</h2>
-                  <p class="card__subtitle">{child.title}</p>
+                  <p class="card__subtitle">{child.description}</p>
                 </div>
               </div>
               <div class="card__actions">
@@ -412,7 +423,7 @@
                   Take the test
                 </button>
                 {#if child.omrTemplate}
-                  <OmrSheetButton template={child.omrTemplate} label="Download OMR form" compact={true} />
+                  <OmrSheetButton template={child.omrTemplate} label="Download test" compact={true} />
                   <div class="omr-sheet omr-sheet--compact">
                     <button
                       type="button"
@@ -421,7 +432,7 @@
                       disabled={omrBusy === child.slug}
                     >
                       <span class="material-symbols-outlined" aria-hidden="true">upload</span>
-                      {omrBusy === child.slug ? 'Reading…' : 'Upload OMR form'}
+                      {omrBusy === child.slug ? 'Reading…' : 'Upload test'}
                     </button>
                   </div>
                 {/if}
@@ -482,7 +493,7 @@
           {ACUTE_CHILDREN.length - doneCount} of {ACUTE_CHILDREN.length} assessments still need a result.
         </p>
       {/if}
-      <button type="button" class="btn btn--primary collect__calc" disabled={!allDone} onclick={calculate}>
+      <button type="button" class="btn btn--primary collect__calc" disabled={!allDone} onclick={proceed}>
         Calculate Results
       </button>
     </div>
@@ -500,7 +511,7 @@
           <div class="modal__head-row">
             <div>
               <h2 class="modal__title">{child.shortName}</h2>
-              <p class="modal__subtitle">{child.title}</p>
+              <p class="modal__subtitle">{child.description}</p>
             </div>
             <button type="button" class="modal__close" aria-label="Close questionnaire" onclick={closeQuestionnaire}>
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
@@ -689,6 +700,7 @@
         </div>
       </div>
     </div>
+  {/if}
   {/if}
 
 {/if}
