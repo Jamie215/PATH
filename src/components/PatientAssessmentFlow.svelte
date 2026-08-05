@@ -144,6 +144,18 @@
 
 {#if ready}
   <section class="flow">
+    {#if !editingSingle}
+      <!-- Guidance for the full four-test walk-through. -->
+      <div class="flow__instructions">
+        <span class="material-symbols-outlined flow__instructions-icon" aria-hidden="true">info</span>
+        <p class="flow__instructions-text">
+          Fill out all four assessments below. Once they're complete, you can review your responses.
+          Alternatively, you can download the tests as a PDF to fill out separately and forward to
+          your healthcare professional.
+        </p>
+      </div>
+    {/if}
+
     <header class="flow__bar">
       {#if !editingSingle}
         <div
@@ -241,6 +253,31 @@
 <style>
   .flow {
     padding-top: var(--space-2);
+  }
+
+  /* Instruction callout, shown above the bar in the full walk-through. */
+  .flow__instructions {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-primary-tint-ghost);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--radius-md);
+  }
+
+  .flow__instructions-icon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+    font-size: 1.35rem;
+  }
+
+  .flow__instructions-text {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--color-text);
   }
 
   /* Top bar: segmented progress (one segment per test) on the left, Download all
