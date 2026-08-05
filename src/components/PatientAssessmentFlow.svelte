@@ -156,14 +156,17 @@
         >
           {#each ACUTE_CHILDREN as t, i (t.slug)}
             <div
-              class="flow__seg"
-              class:flow__seg--done={i < step}
-              class:flow__seg--current={i === step}
+              class="flow__step"
+              class:flow__step--done={i < step}
+              class:flow__step--current={i === step}
             >
-              <div
-                class="flow__seg-fill"
-                style:width={`${(i < step ? 1 : i === step ? surveyProgress : 0) * 100}%`}
-              ></div>
+              <span class="flow__step-num">{i + 1}</span>
+              <div class="flow__seg">
+                <div
+                  class="flow__seg-fill"
+                  style:width={`${(i < step ? 1 : i === step ? surveyProgress : 0) * 100}%`}
+                ></div>
+              </div>
             </div>
           {/each}
         </div>
@@ -271,15 +274,48 @@
     margin: var(--space-5) 0 var(--space-4) 0;
   }
 
-  /* Segmented progress: one segment per test, split by gaps so each assessment
-     reads as its own step. Completed segments fill fully (success), the current
-     one fills by within-test progress (primary), upcoming stay empty. */
+  /* Segmented progress: one numbered chapter per test, split by gaps so each
+     assessment reads as its own step. Completed segments fill fully (success),
+     the current one fills by within-test progress (primary), upcoming stay empty. */
   .flow__progress {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
     gap: var(--space-2);
     align-items: center;
+  }
+
+  /* One chapter: its number, then that test's segment fill. */
+  .flow__step {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .flow__step-num {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: var(--color-border);
+    color: var(--color-text-muted);
+  }
+
+  .flow__step--current .flow__step-num {
+    background: var(--color-primary);
+    color: #fff;
+  }
+
+  .flow__step--done .flow__step-num {
+    background: var(--color-success);
+    color: #fff;
   }
 
   .flow__seg {
@@ -297,7 +333,7 @@
     transition: width 0.2s ease-out;
   }
 
-  .flow__seg--done .flow__seg-fill {
+  .flow__step--done .flow__seg-fill {
     background: var(--color-success);
   }
 
