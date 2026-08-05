@@ -27,15 +27,18 @@ export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
   // Wider answer columns (narrower statement column) so the multi-word labels
   // wrap tidily under each bubble instead of overflowing.
   colSpacing: 56,
-  // Positioned so the section stack (preamble + heading + wrapped column
-  // labels) opens the same distance below the name/date line as every other
-  // form — the shared header→grid gap. The four short items leave plenty of
-  // room below.
-  firstRowY: 384,
+  // Positioned so the section stack (heading + wrapped column labels) opens the
+  // same distance below the name/date line as every other form — the shared
+  // ~32pt header→grid gap (matches BriefSLANSS). With no preamble, the stack
+  // above the grid is just the title and the three-line wrapped column labels,
+  // so the grid sits higher than the preamble'd forms. The four short items
+  // leave plenty of room below.
+  firstRowY: 335,
   rowSpacing: 46,
   // Comment box region (pt, top-left) to crop from a scan for handwriting
-  // recognition — tracks where the generator draws the box below the grid.
+  // recognition — tracks where the generator draws the box below the grid, so
+  // it moves up in lockstep with firstRowY.
   scanTextFields: [
-    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 562, width: 504, height: 48 } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 513, width: 504, height: 48 } },
   ],
 });
