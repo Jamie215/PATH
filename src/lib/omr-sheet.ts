@@ -102,29 +102,8 @@ function drawBubbleGlyph(
   }
 }
 
-/** Options for {@link generateAnswerSheet}. */
-export interface AnswerSheetOptions {
-  /**
-   * Pre-fill the sheet with a respondent's answers, keyed exactly like a stored
-   * survey `:response`: each field key (e.g. `neck_freq`, `back_exp`) maps to a
-   * numeric bubble value, and the text keys (`other_comments`, `bothersome_area`,
-   * `patient_name`, `patient_date`) to their strings. Unknown keys are ignored,
-   * so one response shape can be handed to any template.
-   */
-  answers?: Record<string, number | string>;
-  /**
-   * Flatten the form after filling, baking the marks into static page content
-   * and dropping the interactive fields. Used for a "completed test" record so
-   * it renders identically everywhere and can't be edited. A blank sheet leaves
-   * this off so it stays typeable on a computer.
-   */
-  flatten?: boolean;
-}
-
-export async function generateAnswerSheet(
-  template: OmrTemplate,
-  options: AnswerSheetOptions = {},
-): Promise<Uint8Array> {
+/** A single blank, printable/fillable answer sheet for one assessment. */
+export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`${template.title} — Answer Sheet`);
   doc.setSubject('OMR answer sheet');
@@ -141,9 +120,7 @@ export async function generateAnswerSheet(
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const form = doc.getForm();
 
-  renderSheet(doc, font, fontBold, form, template, { answers: options.answers });
-
-  if (options.flatten) form.flatten();
+  renderSheet(doc, font, fontBold, form, template, {});
 
   return doc.save();
 }
