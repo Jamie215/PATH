@@ -142,22 +142,35 @@
   }
 </script>
 
+{#snippet downloadButton()}
+  <button
+    type="button"
+    class="btn btn--secondary flow__download"
+    onclick={downloadAll}
+    disabled={downloadBusy}
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">download</span>
+    {downloadBusy ? 'Preparing…' : 'Download all tests'}
+  </button>
+{/snippet}
+
 {#if ready}
   <section class="flow">
     {#if !editingSingle}
-      <!-- Guidance for the full four-test walk-through. -->
-      <div class="flow__instructions">
-        <span class="material-symbols-outlined flow__instructions-icon" aria-hidden="true">info</span>
-        <p class="flow__instructions-text">
-          Fill out all four assessments below. Once they're complete, you can review your responses.
-          Alternatively, you can download the tests as a PDF to fill out separately and forward to
-          your healthcare professional.
-        </p>
+      <!-- Guidance for the full four-test walk-through, with the download beside it. -->
+      <div class="flow__intro">
+        <div class="flow__instructions">
+          <span class="material-symbols-outlined flow__instructions-icon" aria-hidden="true">info</span>
+          <p class="flow__instructions-text">
+            Fill out all four assessments below. Once they're complete, you can review your responses.
+            Alternatively, you can download the tests as a PDF to fill out separately and forward to
+            your healthcare professional.
+          </p>
+        </div>
+        {@render downloadButton()}
       </div>
-    {/if}
 
-    <header class="flow__bar">
-      {#if !editingSingle}
+      <header class="flow__bar">
         <div
           class="flow__progress"
           role="progressbar"
@@ -182,17 +195,12 @@
             </div>
           {/each}
         </div>
-      {/if}
-      <button
-        type="button"
-        class="btn btn--secondary flow__download"
-        onclick={downloadAll}
-        disabled={downloadBusy}
-      >
-        <span class="material-symbols-outlined" aria-hidden="true">download</span>
-        {downloadBusy ? 'Preparing…' : 'Download all tests'}
-      </button>
-    </header>
+      </header>
+    {:else}
+      <header class="flow__bar flow__bar--actions">
+        {@render downloadButton()}
+      </header>
+    {/if}
 
     {#if downloadError}
       <p class="flow__error" role="alert">{downloadError}</p>
@@ -255,12 +263,21 @@
     padding-top: var(--space-2);
   }
 
-  /* Instruction callout, shown above the bar in the full walk-through. */
+  /* Instruction callout + download, shown above the progress bar in the full
+     walk-through. The card grows; the download sits beside it. */
+  .flow__intro {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
   .flow__instructions {
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     align-items: flex-start;
     gap: var(--space-3);
-    margin-bottom: var(--space-4);
     padding: var(--space-4);
     background: var(--color-primary-tint-ghost);
     border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
@@ -296,6 +313,7 @@
   }
 
   .flow__download {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
@@ -412,5 +430,15 @@
   }
   .flow__back .material-symbols-outlined {
     font-size: 1.2rem;
+  }
+
+  @media (max-width: 560px) {
+    .flow__intro {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .flow__download {
+      justify-content: center;
+    }
   }
 </style>
