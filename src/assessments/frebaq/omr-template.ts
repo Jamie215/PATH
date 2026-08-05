@@ -13,7 +13,7 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   title: 'Body Awareness',
   subtitle: 'Scannable Form',
   instructions: [
-    'Each statement is about your body (the affected area). Fill in ONE bubble for how often each is true, using a dark pen.',
+    'Each statement is about your body (the affected area). Fill in ONE bubble for how often each is true.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
     'If you make a mistake writing the body area, scribble over it until it can no longer be read, then write it again.',
   ],

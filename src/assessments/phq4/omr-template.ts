@@ -13,7 +13,7 @@ export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
   title: 'Anxiety & Depression',
   subtitle: 'Scannable Form',
   instructions: [
-    'For each item, fill in ONE bubble for how often it has bothered you over the last 2 weeks, using a dark pen.',
+    'For each item, fill in ONE bubble for how often it has bothered you over the last 2 weeks.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
   sectionTitle: 'Over the last 2 weeks, how often have you been bothered by the following?',
