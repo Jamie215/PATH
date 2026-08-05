@@ -32,7 +32,6 @@
   <h1 class="intake__heading">Symptom Index</h1>
   <p class="intake__lede">
     A ten-symptom screening that gathers frequency and bothersomeness ratings.
-    Takes about 5 minutes.
   </p>
 
   <div class="intake__prompt">

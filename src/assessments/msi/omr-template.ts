@@ -119,7 +119,7 @@ export const MSI_OMR_TEMPLATE: OmrTemplate = {
   title: 'Symptom Index',
   subtitle: '',
   instructions: [
-    'For each symptom, fill in ONE bubble for how OFTEN you experience it, using a dark pen.',
+    'For each symptom, fill in ONE bubble for how OFTEN you experience it.',
     'If it occurs (more than "Never"), also fill in ONE bubble for how BOTHERSOME it is.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],

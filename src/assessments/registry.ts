@@ -78,7 +78,7 @@ export const assessments: AssessmentSummary[] = [
     title: 'Pain Classification Assessment',
     shortName: 'Pain Classification',
     description:
-      'Composite assessment that classifies pain presentation, with separate scoring for acute and chronic.',
+      'Composite assessment that classifies pain presentation.',
     icon: 'personal_injury',
     status: 'available',
     estimatedMinutes: 30,
