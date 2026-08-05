@@ -153,9 +153,12 @@ function renderSheet(
 
   drawFiducials(ctx, template);
   drawHeader(ctx, template);
-  for (const section of template.sections) drawSection(ctx, section, template);
+  let gridContentBottomY = Infinity;
+  for (const section of template.sections) {
+    gridContentBottomY = Math.min(gridContentBottomY, drawSection(ctx, section, template));
+  }
   drawFooter(ctx, template);
-  drawCommentBox(ctx, template);
+  drawCommentBox(ctx, template, gridContentBottomY);
 
   if (options.answers) fillAnswers(form, options.answers, ctx.fieldPrefix);
 }
@@ -258,7 +261,12 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
   // Work in top-left coordinates; flip once per baseline.
   const at = (topY: number): number => ctx.pageH - topY;
 
-  // Brand + form id row.
+  // Brand row: "PATH" at left, the sheet's kind (the former subtitle, e.g.
+  // "Scannable Form") right-aligned opposite it. The subtitle used to sit on
+  // its own line under the title, costing a full row of vertical space; moving
+  // it up here frees that space and leaves the corner — previously a technical
+  // "Form <id>" — carrying the label a reader actually cares about. The form id
+  // still travels in the footer and PDF keywords for machine identification.
   ctx.page.drawText('PATH', {
     x: MARGIN_X,
     y: at(48),
@@ -266,17 +274,19 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
     font: ctx.fontBold,
     color: COLOR_PRIMARY,
   });
-  const idText = `Form ${template.id}`;
-  const idW = ctx.font.widthOfTextAtSize(idText, 9);
-  ctx.page.drawText(idText, {
-    x: ctx.pageW - MARGIN_X - idW,
-    y: at(48),
-    size: 9,
-    font: ctx.font,
-    color: COLOR_SUBTLE,
-  });
+  const kindText = template.subtitle.trim();
+  if (kindText) {
+    const kindW = ctx.font.widthOfTextAtSize(kindText, 10);
+    ctx.page.drawText(kindText, {
+      x: ctx.pageW - MARGIN_X - kindW,
+      y: at(48),
+      size: 10,
+      font: ctx.font,
+      color: COLOR_MUTED,
+    });
+  }
 
-  // Title + subtitle.
+  // Title.
   ctx.page.drawText(template.title, {
     x: MARGIN_X,
     y: at(78),
@@ -284,24 +294,14 @@ function drawHeader(ctx: Ctx, template: OmrTemplate): void {
     font: ctx.fontBold,
     color: COLOR_INK,
   });
-  // Subtitle is optional; when omitted, the instructions box moves up to
-  // reclaim the space (used by MSI to fit its grid + comments on one page).
-  const hasSubtitle = template.subtitle.trim().length > 0;
-  if (hasSubtitle) {
-    ctx.page.drawText(template.subtitle, {
-      x: MARGIN_X,
-      y: at(98),
-      size: 10.5,
-      font: ctx.font,
-      color: COLOR_MUTED,
-    });
-  }
 
   // Instructions callout — a tinted, bordered panel so the fill-out rules
   // read as important, not fine print. Each instruction wraps within the box
   // so long lines don't spill past the border. Sits above the bubble grid, so
-  // the background never touches a mark the reader has to sample.
-  const boxTop = hasSubtitle ? 116 : 100;
+  // the background never touches a mark the reader has to sample. With the
+  // subtitle now in the brand row, every sheet starts the box at the same
+  // height, so the header rhythm is identical across forms.
+  const boxTop = 100;
   const lineGap = 16;
   const exampleRowH = 22; // "How to mark" reference row at the box bottom
   const textWidth = contentW - 40; // bullet indent + right padding
@@ -392,7 +392,13 @@ function drawUnderlinedField(ctx: Ctx, name: string, xPt: number, baselineYpt: n
 const LABEL_X = MARGIN_X + 18; // leaves room for the row number
 const RADIUS_TO_CONTENT = 6; // bubble radius fallback for extents
 
-function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void {
+/** Draws one section and returns the y (bottom-left points) of the lowest
+ *  content it painted — the bottom of the last row's bubbles *or* its wrapped
+ *  label/description block, whichever descends further. The comment box uses
+ *  this to sit a constant gap below the real bottom of the questions, so rows
+ *  with tall multi-line labels (FreBAQ, BriefSLANSS) don't crowd it while
+ *  single-line rows (MSI) leave a chasm. */
+function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): number {
   const radiusPt = template.bubbleRadius * ctx.pageW || RADIUS_TO_CONTENT;
   const contentW = ctx.pageW - 2 * MARGIN_X;
 
@@ -519,6 +525,9 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
   });
 
   // Rows: number, label (+ optional description), bubbles, hairline separator.
+  // Track the lowest painted content (bubbles or text) so the caller can place
+  // the comment box a fixed distance below it.
+  let contentBottomY = lastRowYpt - radiusPt;
   section.rows.forEach((row, i) => {
     const yPt = toY(ctx, row.fields[0].bubbles[0].center.y);
 
@@ -532,6 +541,9 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
     const descLines = row.description ? wrapText(row.description, labelMaxWidth, ctx.font, 9) : [];
     const blockH = labelLines.length * LH + (descLines.length ? 4 + descLines.length * DLH : 0);
     const topY = yPt + blockH / 2; // bottom-left coords: higher y = up
+    // Bottom of this row: the text block reaches ~blockH/2 below the bubble
+    // center (it's centered on it); the bubble reaches radiusPt below.
+    contentBottomY = Math.min(contentBottomY, yPt - Math.max(blockH / 2, radiusPt));
 
     ctx.page.drawText(`${i + 1}`, {
       x: MARGIN_X,
@@ -595,6 +607,8 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): void
       });
     }
   });
+
+  return contentBottomY;
 }
 
 function drawFooter(ctx: Ctx, template: OmrTemplate): void {
@@ -602,7 +616,11 @@ function drawFooter(ctx: Ctx, template: OmrTemplate): void {
 }
 
 function drawFooterOn(ctx: Ctx, page: PDFPage, template: OmrTemplate): void {
-  const text = `${template.title} · Form ${template.id} · Generated by PATH`;
+  // The sheet's kind (e.g. "Scannable Form") rather than the technical form id,
+  // matching the brand-row label. The id still rides in the PDF keywords, which
+  // is what the upload reader parses for machine identification.
+  const kind = template.subtitle.trim() || `Form ${template.id}`;
+  const text = `${template.title} · ${kind} · Generated by PATH`;
   const w = ctx.font.widthOfTextAtSize(text, 7.5);
   page.drawText(text, {
     x: (ctx.pageW - w) / 2,
@@ -617,21 +635,17 @@ function drawFooterOn(ctx: Ctx, page: PDFPage, template: OmrTemplate): void {
  * An interactive multi-line "Comments (optional)" box, mirroring the free-text
  * field on the on-screen surveys (its `other_comments` key matches, so a
  * computer-filled sheet flows into the same place). Placed below the answer
- * grid when there's room; on a grid that fills the page (MSI), it spills onto
- * a second page so it never crowds the last rows or the fiducials.
+ * grid when there's room; on a grid that fills the page it spills onto a second
+ * page so it never crowds the last rows or the fiducials.
  */
-function drawCommentBox(ctx: Ctx, template: OmrTemplate): void {
-  const allY = template.sections.flatMap((s) =>
-    s.rows.flatMap((r) => r.fields.flatMap((f) => f.bubbles.map((b) => b.center.y))),
-  );
-  const radiusPt = template.bubbleRadius * ctx.pageW || RADIUS_TO_CONTENT;
-  const gridBottomYpt = toY(ctx, Math.max(...allY)) - radiusPt;
-
+function drawCommentBox(ctx: Ctx, template: OmrTemplate, gridBottomYpt: number): void {
   const contentW = ctx.pageW - 2 * MARGIN_X;
   const labelGap = 6; // between label and box
-  // Gap between the grid and the label. Generous, because a row's wrapped text
-  // can descend below its bubble centers (which is what `gridBottomYpt` tracks).
-  const gapAboveLabel = 30;
+  // Gap from the true bottom of the questions (bubbles or wrapped text — see
+  // `drawSection`'s return) down to the comment label. Because it measures from
+  // real content, every form gets the same visible gap regardless of how many
+  // lines its last item wraps to.
+  const gapAboveLabel = 24;
   const MAX_BOX_H = 56;
   const MIN_BOX_H = 40;
   // Keep the box clear of the bottom-left orientation mark and corner
@@ -649,8 +663,8 @@ function drawCommentBox(ctx: Ctx, template: OmrTemplate): void {
     boxH = Math.min(fitBoxH, MAX_BOX_H);
     labelBaselineY = gridBottomYpt - gapAboveLabel;
   } else {
-    // A grid that fills the page (MSI) leaves no safe room — give comments
-    // their own page, at full height.
+    // A grid that fills the page leaves no safe room — give comments their
+    // own page, at full height.
     boxH = MAX_BOX_H;
     page = ctx.doc.addPage([ctx.pageW, ctx.pageH]);
     page.drawText('PATH', { x: MARGIN_X, y: ctx.pageH - 60, size: 13, font: ctx.fontBold, color: COLOR_PRIMARY });

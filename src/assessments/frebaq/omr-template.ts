@@ -35,20 +35,26 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   })),
   // Wider answer columns (narrower statement column) so the word labels fit.
   colSpacing: 46,
-  // Start a little lower so the preamble and its fill-in blank clear the
-  // name/date line; rows are tightened so the comment box still fits below the
-  // grid on the same page (statements are at most three lines, which still fit).
-  firstRowY: 400,
-  rowSpacing: 48,
+  // Positioned so the section stack (preamble + fill-in blank + heading +
+  // column labels) opens the same distance below the name/date line as every
+  // other form — the shared header→grid gap. This form has the tallest header
+  // (a three-line instruction set) and a preamble with a fill-in blank, so its
+  // grid starts lowest; rows stay tight enough that the comment box still fits
+  // below the grid on the same page (statements are at most three lines).
+  firstRowY: 408,
+  // Tightened from 48 so the lower grid — and the constant gap the comment box
+  // now keeps below the true bottom of the last (up-to-three-line) statement —
+  // still leaves the comment box on page one.
+  rowSpacing: 45,
   // Regions to crop from a scan for handwriting recognition. Rects (pt,
   // top-left) must track where the generator draws these fields — see the
   // preamble blank and comment box in omr-sheet.ts.
   scanTextFields: [
-    // The fill-in blank's baseline (and printed rule) sit at ~y=294–298pt, so
+    // The fill-in blank's baseline (and printed rule) sit at ~y=303–307pt, so
     // the crop must reach well below the rule to keep descenders (g, y, p, q, j)
     // — a crop stopping at the baseline clips them and "g" reads as "a". The
-    // section title below doesn't start until ~y=334pt, so this stays clear of it.
-    { key: 'bothersome_area', label: 'Most bothersome area', kind: 'line', rect: { x: 46, y: 278, width: 292, height: 28 } },
-    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 52, y: 682, width: 508, height: 40 } },
+    // section title below doesn't start until ~y=343pt, so this stays clear of it.
+    { key: 'bothersome_area', label: 'Most bothersome area', kind: 'line', rect: { x: 46, y: 287, width: 292, height: 28 } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 686, width: 504, height: 34 } },
   ],
 });

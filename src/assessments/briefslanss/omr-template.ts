@@ -21,11 +21,14 @@ export const BRIEFSLANSS_OMR_TEMPLATE = buildSingleGroupTemplate({
   legend: [],
   items: QUESTIONS.map((q) => ({ key: `${q.symptom}_exp`, label: q.symptomLabel, description: q.description })),
   colSpacing: 64,
-  firstRowY: 348,
+  // Positioned so the section heading opens the same distance below the
+  // name/date line as every other form — the shared header→grid gap. No
+  // preamble and single-line column labels, so its grid starts highest.
+  firstRowY: 323,
   rowSpacing: 62,
   // Comment box region (pt, top-left) to crop from a scan for handwriting
   // recognition — tracks where the generator draws the box below the grid.
   scanTextFields: [
-    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 579, width: 504, height: 48 } },
+    { key: 'other_comments', label: 'Comments', kind: 'box', rect: { x: 54, y: 568, width: 504, height: 48 } },
   ],
 });
