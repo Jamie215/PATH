@@ -19,10 +19,15 @@
   import BriefSLANSSSurvey from './BriefSLANSSSurvey.svelte';
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
-  import { readSheetFromBlob, grayImageToDataURL } from '../lib/omr/decode-image';
-  import { readPdfFormFromBlob, readCombinedPdfFormFromBlob } from '../lib/omr/pdf-form-reader';
+  import { readSheetFromBlob, blobToGrayImage, grayImageToDataURL } from '../lib/omr/decode-image';
+  import {
+    readPdfFormFromBlob,
+    readCombinedPdfFormFromBlob,
+    type CombinedChildRead,
+  } from '../lib/omr/pdf-form-reader';
+  import { routePage, type PageRoute } from '../lib/omr/route';
   import { sanitizeBothersomeArea } from '../assessments/frebaq/area';
-  import type { GrayImage } from '../lib/omr/types';
+  import type { GrayImage, OmrReadResult } from '../lib/omr/types';
   import OmrSheetButton from './OmrSheetButton.svelte';
   import PatientAssessmentFlow from './PatientAssessmentFlow.svelte';
   import {
@@ -89,10 +94,11 @@
      *  wrong form (a photo can't be identity-checked the way a filled PDF is)
      *  or an unreadable/blank sheet — surfaced as a warning banner in review. */
     emptyScan?: boolean;
-    /** This review is one step of a combined "completed tests" upload. Its
-     *  `pdfUrl` points at the shared combined document (not revoked between
-     *  steps), and `queueRemaining` counts the tests still to confirm after it. */
-    pdfFromCombined?: boolean;
+    /** This review is one step of a combined "completed tests" upload (a filled
+     *  PDF split by namespace, or a scan/PDF packet split by page). For a filled
+     *  combined PDF, `pdfUrl` points at the shared document (not revoked between
+     *  steps); `queueRemaining` counts the tests still to confirm after this one. */
+    fromCombined?: boolean;
     queueRemaining?: number;
     /** Zero-based page of the combined PDF this test sits on, so the side-by-side
      *  viewer opens straight to it instead of page 1. */
@@ -111,22 +117,34 @@
   // Held here (not on `omrReview`) so it survives across the queue and is
   // revoked once, when the queue finishes or is abandoned.
   let combinedPdfUrl = $state<string | null>(null);
-  // Tests still awaiting confirmation after the one currently in review.
-  type QueuedReview = {
-    child: ChildAssessment;
-    response: Record<string, number>;
-    area?: string;
-    comments?: string;
-    requireArea: boolean;
-    commentsDetected: boolean;
-    /** Zero-based page of the combined PDF this test's sheet is on. */
-    page: number;
-    attention: string[];
-  };
+  // Tests still awaiting confirmation after the one currently in review. A
+  // filled combined PDF yields `pdf` steps (answers already structured); a
+  // scanned/photographed packet yields `scan` steps (an OMR read per page).
+  type QueuedReview =
+    | {
+        kind: 'pdf';
+        child: ChildAssessment;
+        response: Record<string, number>;
+        area?: string;
+        comments?: string;
+        requireArea: boolean;
+        commentsDetected: boolean;
+        /** Zero-based page of the combined PDF this test's sheet is on. */
+        page: number;
+        attention: string[];
+      }
+    | { kind: 'scan'; child: ChildAssessment; result: OmrReadResult };
   let reviewQueue = $state<QueuedReview[]>([]);
   // How many tests this combined upload is stepping through in total, so the
   // review header can read "Test 2 of 3" even on a partial upload.
   let combinedTotal = $state(0);
+
+  // Page-mapping step for a scanned/photographed combined packet: each page,
+  // its best-fit routing, and the assessment the reviewer has chosen for it
+  // (template id, or '' to skip). Shown before the review queue begins.
+  type ScanPage = { index: number; img: GrayImage; route: PageRoute; choiceId: string };
+  let mappingOpen = $state(false);
+  let scanPages = $state<ScanPage[]>([]);
 
   onMount(() => {
     role = storeGet<Role>(KEYS.role);
@@ -274,9 +292,9 @@
   }
 
   /**
-   * Read an uploaded file (dropped or browsed), then open the confirmation
-   * review on success. A PDF is a form filled on a computer — read its radio
-   * answers back exactly; any other file is a scan/photo and goes through OMR.
+   * Read an uploaded file (dropped or browsed) for one card, then open the
+   * confirmation review on success. A PDF is a form filled on a computer — read
+   * its radio answers back exactly; any other file is a scan/photo through OMR.
    */
   async function ingestFile(file: File): Promise<void> {
     const child = uploadChild;
@@ -296,71 +314,9 @@
           (isPdf ? '' : ' Make sure the whole sheet is visible, well-lit, and reasonably flat.');
         return;
       }
-      // A comment / bothersome area typed into the PDF flows into the same
-      // places a questionnaire's would.
-      if (isPdf && result.text?.other_comments) setComment(child.slug, result.text.other_comments);
-      // Capture the patient name/ID typed into the PDF to pre-fill the composite
-      // report, without clobbering a name already entered this session.
-      if (isPdf && result.text?.patient_name?.trim() && !storeGet<string>(KEYS.patientName)) {
-        storeSet(KEYS.patientName, result.text.patient_name.trim());
-      }
-      const pdfArea =
-        isPdf && typeof result.text?.bothersome_area === 'string'
-          ? sanitizeBothersomeArea(result.text.bothersome_area)
-          : '';
-      if (pdfArea) areas = { ...areas, [child.slug]: pdfArea };
-      // Role-gated children (MSI) need their role set before the survey renders.
-      if (child.roleKey && role) storeSet(child.roleKey, role);
-      // A scan carries handwriting crops to recognize; a filled PDF carries
-      // exact typed text and no crops.
-      const crops =
-        !isPdf && result.textCrops?.length
-          ? result.textCrops.map((c) => ({
-              key: c.key,
-              label: c.label,
-              kind: c.kind,
-              dataUrl: grayImageToDataURL(c.image),
-              image: c.image,
-              hasInk: c.hasInk,
-            }))
-          : undefined;
-      // Only recognize short single-line fields (the bothersome area) that
-      // actually have ink. Multi-line boxes (comments) are slow and low-value
-      // to OCR, so we skip them and require the reviewer to type them in.
-      const ocrCrops = crops?.filter((c) => c.kind === 'line' && c.hasInk);
-      // Pin the bothersome-area crop next to its field so the reviewer can
-      // read the handwriting directly — the safety net when OCR of a
-      // crossed-out / scribbled correction is unreliable.
-      const areaCrop = crops?.find((c) => c.key === 'bothersome_area' && c.hasInk);
-      omrReview = {
-        child,
-        imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
-        // Show the filled PDF itself side-by-side, the way a scan shows its
-        // flattened image. Rendered natively by the browser via an object URL.
-        pdfUrl: isPdf ? URL.createObjectURL(file) : undefined,
-        response: result.response,
-        area: pdfArea || areas[child.slug],
-        areaCropUrl: areaCrop?.dataUrl,
-        comments: (isPdf ? result.text?.other_comments : undefined) ?? comments[child.slug],
-        crops: ocrCrops?.length ? ocrCrops : undefined,
-        ocrBusy: !!ocrCrops?.length,
-        // The bothersome-area region must be confirmed by the reviewer when it
-        // carries content: ink on a scan (even if OCR couldn't read it) or typed
-        // text in a filled PDF. Comments are only flagged for attention.
-        requireArea: isPdf
-          ? !!pdfArea
-          : crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
-        commentsDetected: isPdf
-          ? !!result.text?.other_comments
-          : crops?.some((c) => c.key === 'other_comments' && c.hasInk),
-        // A scan that registered but resolved nothing is the tell for a wrong
-        // form or an unreadable sheet — the reader can't identity-check a photo,
-        // so we flag it for the reviewer rather than presenting empty answers.
-        emptyScan: !isPdf && Object.keys(result.response).length === 0,
-        attention: result.attention,
-      };
+      if (isPdf) presentPdfReview(child, result, URL.createObjectURL(file));
+      else presentScanReview(child, result);
       uploadChild = null; // success → close the upload modal; the review opens
-      if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
     } catch (err) {
       omrError = err instanceof Error ? err.message : 'Could not read the file.';
     } finally {
@@ -368,16 +324,112 @@
     }
   }
 
+  /**
+   * Open the review for a filled-PDF read. Carries the PDF's typed text
+   * (comments, bothersome area, patient name) into the same places a
+   * questionnaire's would, and shows the PDF side-by-side. `queueCtx` is set
+   * when this is one step of a combined upload (shared document, page to open).
+   */
+  function presentPdfReview(
+    child: ChildAssessment,
+    result: OmrReadResult,
+    pdfUrl: string,
+    queueCtx?: { queueRemaining: number; page: number },
+  ): void {
+    if (result.text?.other_comments) setComment(child.slug, result.text.other_comments);
+    if (result.text?.patient_name?.trim() && !storeGet<string>(KEYS.patientName)) {
+      storeSet(KEYS.patientName, result.text.patient_name.trim());
+    }
+    const pdfArea =
+      typeof result.text?.bothersome_area === 'string'
+        ? sanitizeBothersomeArea(result.text.bothersome_area)
+        : '';
+    if (pdfArea) {
+      areas = { ...areas, [child.slug]: pdfArea };
+      setArea(child.slug, pdfArea);
+    }
+    if (child.roleKey && role) storeSet(child.roleKey, role);
+    omrReview = {
+      child,
+      imageUrl: null,
+      pdfUrl,
+      fromCombined: !!queueCtx,
+      queueRemaining: queueCtx?.queueRemaining,
+      pdfPage: queueCtx?.page,
+      response: result.response,
+      area: pdfArea || areas[child.slug],
+      comments: result.text?.other_comments ?? comments[child.slug],
+      requireArea: !!pdfArea,
+      commentsDetected: !!result.text?.other_comments,
+      attention: result.attention,
+    };
+  }
+
+  /**
+   * Open the review for a scanned/photographed sheet read. Builds the
+   * handwriting crops, kicks off OCR of the bothersome-area line, and shows the
+   * flattened scan side-by-side. `queueCtx` is set when this is one step of a
+   * combined scan packet.
+   */
+  function presentScanReview(
+    child: ChildAssessment,
+    result: OmrReadResult,
+    queueCtx?: { queueRemaining: number },
+  ): void {
+    if (child.roleKey && role) storeSet(child.roleKey, role);
+    // A scan carries handwriting crops to recognize.
+    const crops = result.textCrops?.length
+      ? result.textCrops.map((c) => ({
+          key: c.key,
+          label: c.label,
+          kind: c.kind,
+          dataUrl: grayImageToDataURL(c.image),
+          image: c.image,
+          hasInk: c.hasInk,
+        }))
+      : undefined;
+    // Only recognize short single-line fields (the bothersome area) that
+    // actually have ink. Multi-line boxes (comments) are slow and low-value to
+    // OCR, so we skip them and require the reviewer to type them in.
+    const ocrCrops = crops?.filter((c) => c.kind === 'line' && c.hasInk);
+    // Pin the bothersome-area crop next to its field so the reviewer can read
+    // the handwriting directly — the safety net when OCR of a crossed-out /
+    // scribbled correction is unreliable.
+    const areaCrop = crops?.find((c) => c.key === 'bothersome_area' && c.hasInk);
+    omrReview = {
+      child,
+      imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
+      response: result.response,
+      area: areas[child.slug],
+      areaCropUrl: areaCrop?.dataUrl,
+      comments: comments[child.slug],
+      crops: ocrCrops?.length ? ocrCrops : undefined,
+      ocrBusy: !!ocrCrops?.length,
+      // The bothersome-area region must be confirmed by the reviewer when it
+      // carries ink (even if OCR couldn't read it). Comments are only flagged.
+      requireArea: crops?.some((c) => c.key === 'bothersome_area' && c.hasInk),
+      commentsDetected: crops?.some((c) => c.key === 'other_comments' && c.hasInk),
+      // A scan that registered but resolved nothing is the tell for a wrong form
+      // or an unreadable sheet — the reader can't identity-check a photo, so we
+      // flag it for the reviewer rather than presenting empty answers.
+      emptyScan: Object.keys(result.response).length === 0,
+      fromCombined: !!queueCtx,
+      queueRemaining: queueCtx?.queueRemaining,
+      attention: result.attention,
+    };
+    if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
+  }
+
   /** Free the uploaded-PDF object URL, if any, before dropping the review. The
    *  combined document's URL is shared across the queue and freed separately
    *  (see `endCombinedReview`), so it is left alone here. */
   function revokeReviewPdf(): void {
-    if (omrReview?.pdfUrl && !omrReview.pdfFromCombined) URL.revokeObjectURL(omrReview.pdfUrl);
+    if (omrReview?.pdfUrl && !omrReview.fromCombined) URL.revokeObjectURL(omrReview.pdfUrl);
   }
 
   function closeReview(): void {
     // Closing a combined step abandons the rest of the queue.
-    if (omrReview?.pdfFromCombined) {
+    if (omrReview?.fromCombined) {
       endCombinedReview();
       omrReview = null;
       return;
@@ -423,7 +475,7 @@
    *  combined upload, advance to the next queued test instead of closing. */
   function finishReview(child: ChildAssessment): void {
     finishQuestionnaire(child);
-    if (omrReview?.pdfFromCombined) {
+    if (omrReview?.fromCombined) {
       openNextReview();
       return;
     }
@@ -460,98 +512,157 @@
     e.preventDefault();
     combinedDragActive = false;
     if (combinedBusy) return;
-    const file = e.dataTransfer?.files?.[0];
-    if (file) void ingestCombined(file);
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (files.length) void ingestCombined(files);
   }
 
   function onCombinedFileChosen(e: Event): void {
     const input = e.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
+    const files = Array.from(input.files ?? []);
     input.value = '';
-    if (file) void ingestCombined(file);
+    if (files.length) void ingestCombined(files);
   }
 
+  const childTemplates = () =>
+    ACUTE_CHILDREN.map((c) => c.omrTemplate).filter((t): t is NonNullable<typeof t> => !!t);
+
+  const isPdfFile = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+
   /**
-   * Read an uploaded completed-tests PDF, split it into per-assessment reads,
-   * and open a review queue stepping through each filled test in turn. Only a
-   * PDF is accepted here — it's the fillable document the patient flow produces
-   * and forwards; per-test scans stay on each card's own upload.
+   * Read an uploaded completed-tests packet and start a step-through review.
+   * Three shapes are handled: the on-screen "all tests" PDF (answers already
+   * structured), a scanned multi-page PDF, and one or more photos/scans (one
+   * per sheet). A filled PDF is read directly; images and scanned PDFs are
+   * rasterized, OMR-read, and routed to assessments for the reviewer to confirm.
    */
-  async function ingestCombined(file: File): Promise<void> {
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-    if (!isPdf) {
-      combinedError =
-        'Upload the completed-tests PDF here. For a photo or scan of a printed ' +
-        'sheet, use the individual test card below.';
-      return;
-    }
+  async function ingestCombined(files: File[]): Promise<void> {
+    const list = files.filter(Boolean);
+    if (!list.length) return;
 
     combinedError = null;
     combinedBusy = true;
     try {
-      const templates = ACUTE_CHILDREN.map((c) => c.omrTemplate).filter(
-        (t): t is NonNullable<typeof t> => !!t,
-      );
-      const read = await readCombinedPdfFormFromBlob(file, templates);
-      if (!read.ok) {
-        combinedError = read.error;
-        return;
-      }
+      const templates = childTemplates();
+      const pdfs = list.filter(isPdfFile);
+      const images = list.filter((f) => !isPdfFile(f));
 
-      // Map each read back to its child (by template id), in card order, and
-      // build the review queue. Reads whose assessment isn't a known child are
-      // ignored defensively.
-      const bySlug = new Map(ACUTE_CHILDREN.map((c) => [c.omrTemplate?.id, c] as const));
-      const queue: QueuedReview[] = [];
-      let capturedName = '';
-      for (const c of ACUTE_CHILDREN) {
-        const match = read.children.find((r) => r.templateId === c.omrTemplate?.id);
-        if (!match || !bySlug.has(match.templateId)) continue;
-        const text = match.result.text ?? {};
-        const area =
-          typeof text.bothersome_area === 'string'
-            ? sanitizeBothersomeArea(text.bothersome_area)
-            : '';
-        const comments = typeof text.other_comments === 'string' ? text.other_comments : '';
-        // The patient typed their name/ID once per sheet; take the first we see.
-        if (!capturedName && typeof text.patient_name === 'string' && text.patient_name.trim()) {
-          capturedName = text.patient_name.trim();
+      // Fast path: a single fillable PDF is the on-screen "all tests" document —
+      // read its structured answers directly, no rasterizing or routing.
+      if (list.length === 1 && pdfs.length === 1) {
+        const digital = await readCombinedPdfFormFromBlob(pdfs[0], templates);
+        if (digital.ok) {
+          startDigitalQueue(digital.children, pdfs[0]);
+          return;
         }
-        queue.push({
-          child: c,
-          response: match.result.response,
-          area: area || undefined,
-          comments: comments || undefined,
-          requireArea: !!area,
-          commentsDetected: !!comments,
-          page: match.page,
-          attention: match.result.attention,
-        });
+        // Not a fillable form (or filled on paper): fall through and try to
+        // rasterize it as a scan below.
       }
 
-      // Pre-fill the composite report's patient name from the upload, without
-      // clobbering a name already entered for this session.
-      if (capturedName && !storeGet<string>(KEYS.patientName)) {
-        storeSet(KEYS.patientName, capturedName);
+      // Scan path: gather one grayscale page image per sheet, from photos and
+      // by rasterizing any (scanned) PDFs.
+      const pageImages: GrayImage[] = [];
+      for (const img of images) pageImages.push(await blobToGrayImage(img));
+      if (pdfs.length) {
+        const { rasterizePdfToGray } = await import('../lib/omr/pdf-raster');
+        for (const pdf of pdfs) pageImages.push(...(await rasterizePdfToGray(pdf)));
       }
-
-      if (queue.length === 0) {
-        combinedError =
-          "We couldn't match this PDF to any of the four assessments. Upload the " +
-          'completed-tests PDF you downloaded here.';
+      if (!pageImages.length) {
+        combinedError = 'No pages to read from that upload.';
         return;
       }
 
-      combinedPdfUrl = URL.createObjectURL(file);
-      reviewQueue = queue;
-      combinedTotal = queue.length;
+      // Route each page against every template; the reviewer confirms next.
+      const routed: ScanPage[] = pageImages.map((img, index) => {
+        const route = routePage(img, templates);
+        return { index, img, route, choiceId: route.best?.template.id ?? '' };
+      });
+
+      // A single PDF that rasterized but matched nothing is almost certainly a
+      // results report, not answer sheets.
+      if (routed.every((r) => !r.route.best) && pdfs.length === 1 && !images.length) {
+        combinedError =
+          "We couldn't find any answer sheets in that PDF. Upload the completed " +
+          'tests — the on-screen "all tests" form, or photos/scans of the printed sheets.';
+        return;
+      }
+
+      scanPages = routed;
       combinedOpen = false;
-      openNextReview();
+      mappingOpen = true;
     } catch (err) {
-      combinedError = err instanceof Error ? err.message : 'Could not read the file.';
+      combinedError = err instanceof Error ? err.message : 'Could not read the upload.';
     } finally {
       combinedBusy = false;
     }
+  }
+
+  /** Build the review queue from a filled combined PDF's per-assessment reads,
+   *  in card order, and begin stepping through them. */
+  function startDigitalQueue(children: CombinedChildRead[], file: File): void {
+    const queue: QueuedReview[] = [];
+    let capturedName = '';
+    for (const c of ACUTE_CHILDREN) {
+      const match = children.find((r) => r.templateId === c.omrTemplate?.id);
+      if (!match) continue;
+      const text = match.result.text ?? {};
+      const area =
+        typeof text.bothersome_area === 'string' ? sanitizeBothersomeArea(text.bothersome_area) : '';
+      const comments = typeof text.other_comments === 'string' ? text.other_comments : '';
+      if (!capturedName && typeof text.patient_name === 'string' && text.patient_name.trim()) {
+        capturedName = text.patient_name.trim();
+      }
+      queue.push({
+        kind: 'pdf',
+        child: c,
+        response: match.result.response,
+        area: area || undefined,
+        comments: comments || undefined,
+        requireArea: !!area,
+        commentsDetected: !!comments,
+        page: match.page,
+        attention: match.result.attention,
+      });
+    }
+
+    if (capturedName && !storeGet<string>(KEYS.patientName)) {
+      storeSet(KEYS.patientName, capturedName);
+    }
+    if (queue.length === 0) {
+      combinedError =
+        "We couldn't match this PDF to any of the four assessments. Upload the " +
+        'completed-tests PDF you downloaded here.';
+      return;
+    }
+
+    combinedPdfUrl = URL.createObjectURL(file);
+    reviewQueue = queue;
+    combinedTotal = queue.length;
+    combinedOpen = false;
+    openNextReview();
+  }
+
+  /** Confirm the page→assessment mapping and start the scan review queue. */
+  function confirmMapping(): void {
+    const queue: QueuedReview[] = [];
+    for (const p of scanPages) {
+      if (!p.choiceId) continue; // reviewer skipped this page
+      const child = ACUTE_CHILDREN.find((c) => c.omrTemplate?.id === p.choiceId);
+      const candidate = p.route.candidates.find((c) => c.template.id === p.choiceId);
+      if (!child || !candidate) continue;
+      queue.push({ kind: 'scan', child, result: candidate.result });
+    }
+    scanPages = [];
+    mappingOpen = false;
+    if (queue.length === 0) return; // nothing selected — back to the cards
+    reviewQueue = queue;
+    combinedTotal = queue.length;
+    openNextReview();
+  }
+
+  /** Close the mapping step without starting a review. */
+  function closeMapping(): void {
+    scanPages = [];
+    mappingOpen = false;
   }
 
   /** Advance to the next queued test's confirmation, or finish the queue. */
@@ -563,27 +674,28 @@
       return;
     }
     reviewQueue = reviewQueue.slice(1);
+    if (next.kind === 'scan') {
+      presentScanReview(next.child, next.result, { queueRemaining: reviewQueue.length });
+      return;
+    }
+    // Digital combined step: reflect carried free-text on the card, then show
+    // the shared PDF opened to this test's page.
     const { child } = next;
-    // Role-gated children (MSI) need their role set before the survey renders.
-    if (child.roleKey && role) storeSet(child.roleKey, role);
-    // Reflect any carried free-text on the card and in storage, so the review
-    // pre-fills and the card stays consistent if confirmed.
     if (next.comments) setComment(child.slug, next.comments);
     if (next.area) setArea(child.slug, next.area);
-    omrReview = {
-      child,
-      imageUrl: null,
-      pdfUrl: combinedPdfUrl ?? undefined,
-      pdfFromCombined: true,
+    presentPdfReview(child, { ok: true, response: next.response, fields: [], warnings: [], attention: next.attention, text: buildCarriedText(next) }, combinedPdfUrl ?? '', {
       queueRemaining: reviewQueue.length,
-      pdfPage: next.page,
-      response: next.response,
-      area: next.area,
-      comments: next.comments,
-      requireArea: next.requireArea,
-      commentsDetected: next.commentsDetected,
-      attention: next.attention,
-    };
+      page: next.page,
+    });
+  }
+
+  /** Reassemble the typed-text map a digital queue step carried, so
+   *  `presentPdfReview` folds comments / bothersome area in the same way. */
+  function buildCarriedText(next: { comments?: string; area?: string }): Record<string, string> | undefined {
+    const text: Record<string, string> = {};
+    if (next.comments) text.other_comments = next.comments;
+    if (next.area) text.bothersome_area = next.area;
+    return Object.keys(text).length ? text : undefined;
   }
 
   /** Tear down the combined review: drop any remaining queue and free the
@@ -601,6 +713,7 @@
     if (e.key !== 'Escape') return;
     if (uploadChild) closeUpload();
     else if (combinedOpen) closeCombinedUpload();
+    else if (mappingOpen) closeMapping();
     else if (omrReview) closeReview();
     else if (modalChild) closeQuestionnaire();
   }
@@ -631,11 +744,12 @@
       <div class="bulk__text">
         <span class="material-symbols-outlined bulk__icon" aria-hidden="true">upload_file</span>
         <div>
-          <p class="bulk__title">Have a completed-tests PDF from the patient?</p>
+          <p class="bulk__title">Have completed tests from the patient?</p>
           <p class="bulk__desc">
-            Upload the single PDF they filled out and shared — we'll read every
-            test it contains and step you through confirming each one. It can hold
-            all four assessments or just some.
+            Upload what they filled out and shared — the on-screen "all tests" PDF,
+            a scan of the printed sheets, or photos of them. We'll read every test,
+            check the ones we couldn't place with you, and step through confirming
+            each. All four assessments or just some.
           </p>
         </div>
       </div>
@@ -843,8 +957,9 @@
             <div>
               <h2 class="modal__title">Upload completed tests</h2>
               <p class="modal__subtitle">
-                The single PDF the patient filled out and shared. We'll read every
-                test it holds — all four, or just the ones they completed.
+                What the patient filled out and shared: the on-screen "all tests"
+                PDF, a scan of the printed sheets, or photos of them. All four
+                tests, or just the ones they completed.
               </p>
             </div>
             <button type="button" class="modal__close" aria-label="Close" onclick={closeCombinedUpload}>
@@ -863,7 +978,8 @@
           >
             <input
               type="file"
-              accept="application/pdf"
+              accept="image/*,application/pdf"
+              multiple
               class="visually-hidden"
               onchange={onCombinedFileChosen}
               disabled={combinedBusy}
@@ -874,14 +990,70 @@
             {#if combinedBusy}
               <span class="dropzone__text">Reading…</span>
             {:else}
-              <span class="dropzone__text"><strong>Drag the PDF here</strong>, or click to browse</span>
-              <span class="dropzone__hint">The completed-tests PDF · one file</span>
+              <span class="dropzone__text"><strong>Drag files here</strong>, or click to browse</span>
+              <span class="dropzone__hint">PDF, or one photo/scan per sheet</span>
             {/if}
           </label>
           {#if combinedError}
             <p class="dropzone__error" role="alert">{combinedError}</p>
           {/if}
         </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if mappingOpen}
+    <div
+      class="modal-overlay"
+      role="presentation"
+      onclick={(e) => { if (e.target === e.currentTarget) closeMapping(); }}
+    >
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Match pages to assessments">
+        <header class="modal__head">
+          <div class="modal__head-row">
+            <div>
+              <h2 class="modal__title">Which test is each page?</h2>
+              <p class="modal__subtitle">
+                We matched each scanned page to an assessment — confirm or change
+                it, then review the answers. Set a page to "Skip" to leave it out.
+              </p>
+            </div>
+            <button type="button" class="modal__close" aria-label="Close" onclick={closeMapping}>
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+        </header>
+        <div class="modal__body">
+          <ul class="mapping">
+            {#each scanPages as p (p.index)}
+              <li class="mapping__row">
+                <img
+                  class="mapping__thumb"
+                  src={grayImageToDataURL(p.route.best?.result.warped ?? p.img)}
+                  alt={`Scanned page ${p.index + 1}`}
+                />
+                <div class="mapping__pick">
+                  <label class="mapping__label" for={`map-${p.index}`}>Page {p.index + 1}</label>
+                  <select id={`map-${p.index}`} class="mapping__select" bind:value={p.choiceId}>
+                    {#each ACUTE_CHILDREN as c (c.slug)}
+                      <option value={c.omrTemplate?.id ?? ''}>{c.shortName}</option>
+                    {/each}
+                    <option value="">Skip this page</option>
+                  </select>
+                  {#if !p.route.best}
+                    <span class="mapping__note">Couldn't auto-detect — please pick.</span>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ul>
+        </div>
+        <footer class="mapping__footer">
+          <button type="button" class="btn btn--secondary" onclick={closeMapping}>Cancel</button>
+          <button type="button" class="btn btn--primary" onclick={confirmMapping}>
+            Review {scanPages.filter((p) => p.choiceId).length} test{scanPages.filter((p) => p.choiceId).length === 1 ? '' : 's'}
+          </button>
+        </footer>
       </div>
     </div>
   {/if}
@@ -897,7 +1069,7 @@
         <header class="modal__head">
           <div class="modal__head-row">
             <div>
-              {#if rv.pdfFromCombined}
+              {#if rv.fromCombined}
                 <p class="review__step">Test {combinedTotal - (rv.queueRemaining ?? 0)} of {combinedTotal} · {(rv.queueRemaining ?? 0) > 0 ? `${rv.queueRemaining} still to confirm` : 'last one'}</p>
               {/if}
               <h2 class="modal__title">Review {rv.imageUrl ? 'scanned' : 'filled'} {rv.child.shortName}</h2>
@@ -958,7 +1130,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel={rv.pdfFromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
+                submitLabel={rv.fromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'briefslanss'}
@@ -968,7 +1140,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel={rv.pdfFromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
+                submitLabel={rv.fromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'frebaq'}
@@ -982,7 +1154,7 @@
                 areaCorrection={rv.areaCorrection}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel={rv.pdfFromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
+                submitLabel={rv.fromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'phq4'}
@@ -992,7 +1164,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel={rv.pdfFromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
+                submitLabel={rv.fromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {/if}
@@ -1572,6 +1744,82 @@
     background: color-mix(in srgb, var(--color-danger) 10%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
     border-radius: var(--radius-md);
+  }
+
+  /* Page-mapping step: one row per scanned page — a thumbnail beside an
+     assessment picker the reviewer confirms before the review queue starts. */
+  .mapping {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .mapping__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  .mapping__thumb {
+    flex-shrink: 0;
+    width: 96px;
+    height: auto;
+    max-height: 130px;
+    object-fit: contain;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm, 4px);
+    background: #fff;
+  }
+
+  .mapping__pick {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .mapping__label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+
+  .mapping__select {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    background: var(--color-bg);
+    color: var(--color-text);
+    max-width: 20rem;
+  }
+  .mapping__select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
+  }
+
+  .mapping__note {
+    font-size: 0.8rem;
+    color: var(--color-warning, #b45309);
+  }
+
+  .mapping__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border-top: 1px solid var(--color-border);
+    position: sticky;
+    bottom: 0;
+    background: var(--color-bg);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
 
   @media (max-width: 720px) {
