@@ -152,10 +152,9 @@
 
 <style>
   .results {
-    padding-top: var(--space-4);
     display: flex;
     flex-direction: column;
-    gap: var(--space-7);
+    gap: var(--space-4);
   }
 
   /* ----- Patient name ----- */
