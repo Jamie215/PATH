@@ -1065,7 +1065,7 @@
       role="presentation"
       onclick={(e) => { if (e.target === e.currentTarget) closeReview(); }}
     >
-      <div class="modal" class:modal--review={!!rv.imageUrl} role="dialog" aria-modal="true" aria-label={`Review ${rv.child.shortName}`}>
+      <div class="modal modal--review" role="dialog" aria-modal="true" aria-label={`Review ${rv.child.shortName}`}>
         <header class="modal__head">
           <div class="modal__head-row">
             <div>
@@ -1492,15 +1492,15 @@
     max-height: calc(100vh - 2 * var(--space-6));
   }
 
-  /* Reviewing a photo/scan: give the confirmation view far more room, so the
-     flattened sheet is large enough to read each bubble against the form. Wider
-     and taller than the default modal, and near-fullscreen on smaller windows. */
+  /* The confirmation review (photo or filled PDF) gets far more room than the
+     default modal, so the sheet beside the form is large enough to read each
+     bubble against. Wider and taller, and near-fullscreen on smaller windows. */
   .modal--review {
     max-width: min(1400px, 96vw);
     max-height: calc(100vh - 2 * var(--space-4));
   }
 
-  /* Hand more of the wider view to the scan, so the photo reads large. */
+  /* Hand half the wider view to the sheet, so the photo/PDF reads large. */
   .modal--review .review__scan {
     flex-basis: 50%;
   }
