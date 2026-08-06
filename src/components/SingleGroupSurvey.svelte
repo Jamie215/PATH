@@ -54,6 +54,7 @@
     onBack,
     backLabel = 'Back',
     submitLabel = 'See results',
+    submitIcon,
     showProgress = true,
     progress = $bindable(0),
     initialAnswers,
@@ -82,6 +83,9 @@
     /** Label for the back control (e.g. "Previous test", "Back to review"). */
     backLabel?: string;
     submitLabel?: string;
+    /** Optional Material Symbol rendered after the submit label (e.g.
+     *  "arrow_forward" on the composite flow's "Next test" button). */
+    submitIcon?: string;
     /** Hide the in-survey progress bar (e.g. when a parent shows it instead). */
     showProgress?: boolean;
     /** Bindable completion fraction (0–1), so an embedding parent can render it. */
@@ -368,6 +372,9 @@
     {/if}
     <button type="submit" class="btn btn--primary actions__submit">
       {submitLabel}
+      {#if submitIcon}
+        <span class="material-symbols-outlined" aria-hidden="true">{submitIcon}</span>
+      {/if}
     </button>
   </div>
   {/if}

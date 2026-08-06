@@ -41,6 +41,9 @@
   const submitLabel = $derived(
     editingSingle ? 'Save & return to review' : isLast ? 'Finish & review' : 'Next test',
   );
+  // A trailing arrow reinforces that "Next test" advances the walk-through; the
+  // finish/save actions (which leave for review) don't get it.
+  const submitIcon = $derived(!editingSingle && !isLast ? 'arrow_forward' : undefined);
   const backLabel = $derived(editingSingle ? 'Back to review' : 'Previous test');
   // The in-survey back control only steps within the flow (to the prior test or
   // back to review). At the first test there's nowhere to step to — leaving the
@@ -222,6 +225,7 @@
           onBack={showStepBack ? back : undefined}
           {backLabel}
           {submitLabel}
+          {submitIcon}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -233,6 +237,7 @@
           onBack={showStepBack ? back : undefined}
           {backLabel}
           {submitLabel}
+          {submitIcon}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -245,6 +250,7 @@
           onBack={showStepBack ? back : undefined}
           {backLabel}
           {submitLabel}
+          {submitIcon}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -256,6 +262,7 @@
           onBack={showStepBack ? back : undefined}
           {backLabel}
           {submitLabel}
+          {submitIcon}
           showProgress={false}
           bind:progress={surveyProgress}
         />
