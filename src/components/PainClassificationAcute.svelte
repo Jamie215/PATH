@@ -19,9 +19,8 @@
   import BriefSLANSSSurvey from './BriefSLANSSSurvey.svelte';
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
-  import { readSheetFromBlob, blobToGrayImage, grayImageToDataURL } from '../lib/omr/decode-image';
+  import { blobToGrayImage, grayImageToDataURL } from '../lib/omr/decode-image';
   import {
-    readPdfFormFromBlob,
     readCombinedPdfFormFromBlob,
     type CombinedChildRead,
   } from '../lib/omr/pdf-form-reader';
@@ -51,15 +50,7 @@
   // embedded survey so the modal header can render a fixed progress bar.
   let modalProgress = $state(0);
 
-  // OMR upload state.
-  // The child whose upload modal (drag-and-drop / browse) is open, if any.
-  let uploadChild = $state<ChildAssessment | null>(null);
-  // True while a file is being dragged over the dropzone.
-  let dragActive = $state(false);
-  // Slug currently being read, so its dropzone can show a busy label.
-  let omrBusy = $state<string | null>(null);
-  let omrError = $state<string | null>(null);
-  // The scanned sheet awaiting the user's confirmation.
+  // The uploaded sheet awaiting the user's confirmation.
   let omrReview = $state<{
     child: ChildAssessment;
     /** The flattened scan to check answers against (scan channel); null for a
@@ -269,81 +260,6 @@
       areas = { ...areas, [child.slug]: response.bothersome_area };
     }
     modalChild = null;
-  }
-
-  /** Open the upload modal (drag-and-drop or browse) for a child. */
-  function startUpload(child: ChildAssessment): void {
-    if (!child.omrTemplate) return;
-    omrError = null;
-    dragActive = false;
-    uploadChild = child;
-  }
-
-  /** Close the upload modal, unless a read is in progress. */
-  function closeUpload(): void {
-    if (omrBusy) return;
-    uploadChild = null;
-    omrError = null;
-    dragActive = false;
-  }
-
-  function onDragOver(e: DragEvent): void {
-    e.preventDefault();
-    if (!omrBusy) dragActive = true;
-  }
-
-  function onDragLeave(e: DragEvent): void {
-    e.preventDefault();
-    dragActive = false;
-  }
-
-  function onDrop(e: DragEvent): void {
-    e.preventDefault();
-    dragActive = false;
-    if (omrBusy) return;
-    const file = e.dataTransfer?.files?.[0];
-    if (file) void ingestFile(file);
-  }
-
-  /** Browse-input handler: hand the chosen file to the reader. */
-  function onFileChosen(e: Event): void {
-    const input = e.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = ''; // allow re-selecting the same file
-    if (file) void ingestFile(file);
-  }
-
-  /**
-   * Read an uploaded file (dropped or browsed) for one card, then open the
-   * confirmation review on success. A PDF is a form filled on a computer — read
-   * its radio answers back exactly; any other file is a scan/photo through OMR.
-   */
-  async function ingestFile(file: File): Promise<void> {
-    const child = uploadChild;
-    if (!file || !child?.omrTemplate) return;
-
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-
-    omrError = null;
-    omrBusy = child.slug;
-    try {
-      const result = isPdf
-        ? await readPdfFormFromBlob(file, child.omrTemplate)
-        : await readSheetFromBlob(file, child.omrTemplate);
-      if (!result.ok) {
-        omrError =
-          (result.error ?? 'Could not read the file.') +
-          (isPdf ? '' : ' Make sure the whole sheet is visible, well-lit, and reasonably flat.');
-        return;
-      }
-      if (isPdf) presentPdfReview(child, result, URL.createObjectURL(file));
-      else presentScanReview(child, result);
-      uploadChild = null; // success → close the upload modal; the review opens
-    } catch (err) {
-      omrError = err instanceof Error ? err.message : 'Could not read the file.';
-    } finally {
-      omrBusy = null;
-    }
   }
 
   /**
@@ -766,8 +682,7 @@
 
   function onWindowKey(e: KeyboardEvent): void {
     if (e.key !== 'Escape') return;
-    if (uploadChild) closeUpload();
-    else if (combinedOpen) closeCombinedUpload();
+    if (combinedOpen) closeCombinedUpload();
     else if (mappingOpen) closeMapping();
     else if (omrReview) closeReview();
     else if (modalChild) closeQuestionnaire();
@@ -832,17 +747,6 @@
                 </button>
                 {#if child.omrTemplate}
                   <OmrSheetButton template={child.omrTemplate} label="Download test" compact={true} />
-                  <div class="omr-sheet omr-sheet--compact">
-                    <button
-                      type="button"
-                      class="btn btn--secondary btn--compact-block"
-                      onclick={() => startUpload(child)}
-                      disabled={omrBusy === child.slug}
-                    >
-                      <span class="material-symbols-outlined" aria-hidden="true">upload</span>
-                      {omrBusy === child.slug ? 'Reading…' : 'Upload test'}
-                    </button>
-                  </div>
                 {/if}
               </div>
             </header>
@@ -938,62 +842,6 @@
             <FreBAQSurvey initialArea={areas[child.slug]} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'phq4'}
             <PHQ4Survey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
-          {/if}
-        </div>
-      </div>
-    </div>
-  {/if}
-
-  {#if uploadChild}
-    {@const uc = uploadChild}
-    <div
-      class="modal-overlay"
-      role="presentation"
-      onclick={(e) => { if (e.target === e.currentTarget) closeUpload(); }}
-    >
-      <div class="modal modal--narrow" role="dialog" aria-modal="true" aria-label={`Upload ${uc.shortName} answer sheet`}>
-        <header class="modal__head">
-          <div class="modal__head-row">
-            <div>
-              <h2 class="modal__title">Upload {uc.shortName} answer sheet</h2>
-              <p class="modal__subtitle">
-                The {uc.shortName} answer sheet — filled in on-screen, or a photo/scan
-                of the printed one. Not the results PDF.
-              </p>
-            </div>
-            <button type="button" class="modal__close" aria-label="Close" onclick={closeUpload}>
-              <span class="material-symbols-outlined" aria-hidden="true">close</span>
-            </button>
-          </div>
-        </header>
-        <div class="modal__body">
-          <label
-            class="dropzone"
-            class:dropzone--active={dragActive}
-            class:dropzone--busy={omrBusy === uc.slug}
-            ondragover={onDragOver}
-            ondragleave={onDragLeave}
-            ondrop={onDrop}
-          >
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              class="visually-hidden"
-              onchange={onFileChosen}
-              disabled={omrBusy === uc.slug}
-            />
-            <span class="material-symbols-outlined dropzone__icon" aria-hidden="true">
-              {omrBusy === uc.slug ? 'hourglass_top' : 'upload_file'}
-            </span>
-            {#if omrBusy === uc.slug}
-              <span class="dropzone__text">Reading…</span>
-            {:else}
-              <span class="dropzone__text"><strong>Drag a file here</strong>, or click to browse</span>
-              <span class="dropzone__hint">PDF, photo, or scan · one sheet</span>
-            {/if}
-          </label>
-          {#if omrError}
-            <p class="dropzone__error" role="alert">{omrError}</p>
           {/if}
         </div>
       </div>
@@ -1428,8 +1276,8 @@
     margin: var(--space-1) 0 0 0;
   }
 
-  /* Action button group — column so a second (e.g. "Upload image") button
-     stacks neatly beneath the first at matching width. */
+  /* Action button group — column so "Take the test" and "Download test" stack
+     neatly at matching width. */
   .card__actions {
     flex-shrink: 0;
     display: flex;
