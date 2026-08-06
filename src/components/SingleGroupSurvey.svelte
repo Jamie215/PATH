@@ -358,7 +358,7 @@
   <div class="actions">
     {#if onBack}
       <div class="actions__back">
-        <BackLink {onBack} label={backLabel} />
+        <BackLink {onBack} label={backLabel} variant="button" />
       </div>
     {/if}
     {#if submitAttempted && !isComplete}
@@ -651,14 +651,10 @@
     gap: var(--space-3);
   }
 
-  /* Push the back control to the left so the submit button stays right-aligned.
-     Drop BackLink's default entry-page margins inside the actions row. */
+  /* Push the back control to the left so the submit button stays right-aligned. */
   .actions__back {
     margin-right: auto;
     align-self: center;
-  }
-  .actions__back :global(.back-link) {
-    margin: 0;
   }
 
   .actions__hint {

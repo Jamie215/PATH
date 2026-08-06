@@ -19,6 +19,7 @@
   import BriefSLANSSSurvey from './BriefSLANSSSurvey.svelte';
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
+  import BackLink from './BackLink.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
 
   const REVIEW_URL = '/pain-classification/review/';
@@ -40,7 +41,11 @@
   const submitLabel = $derived(
     editingSingle ? 'Save & return to review' : isLast ? 'Finish & review' : 'Next test',
   );
-  const backLabel = $derived(editingSingle ? 'Back to review' : step === 0 ? 'Back' : 'Previous test');
+  const backLabel = $derived(editingSingle ? 'Back to review' : 'Previous test');
+  // The in-survey back control only steps within the flow (to the prior test or
+  // back to review). At the first test there's nowhere to step to — leaving the
+  // flow entirely is the top-of-page "Go back" control's job — so it's hidden.
+  const showStepBack = $derived(editingSingle || step > 0);
 
   /** Pre-fill values for a test, pulled from any answers it already has stored
    *  (so returning to edit shows the previous responses). */
@@ -156,6 +161,8 @@
 
 {#if ready}
   <section class="flow">
+    <BackLink fallback="/pain-classification/" />
+
     {#if !editingSingle}
       <!-- Guidance for the full four-test walk-through, with the download beside it. -->
       <h1 class="flow__heading">Pain Classification</h1>
@@ -212,7 +219,7 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
-          onBack={back}
+          onBack={showStepBack ? back : undefined}
           {backLabel}
           {submitLabel}
           showProgress={false}
@@ -223,7 +230,7 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
-          onBack={back}
+          onBack={showStepBack ? back : undefined}
           {backLabel}
           {submitLabel}
           showProgress={false}
@@ -235,7 +242,7 @@
           initialArea={initial.area}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
-          onBack={back}
+          onBack={showStepBack ? back : undefined}
           {backLabel}
           {submitLabel}
           showProgress={false}
@@ -246,7 +253,7 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
-          onBack={back}
+          onBack={showStepBack ? back : undefined}
           {backLabel}
           {submitLabel}
           showProgress={false}
