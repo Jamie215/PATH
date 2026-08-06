@@ -159,14 +159,12 @@
     {#if !editingSingle}
       <!-- Guidance for the full four-test walk-through, with the download beside it. -->
       <div class="flow__intro">
-        <div class="flow__instructions">
-          <span class="material-symbols-outlined flow__instructions-icon" aria-hidden="true">info</span>
-          <p class="flow__instructions-text">
-            Fill out all four assessments below. Once they're complete, you can review your responses.
-            Alternatively, you can download the tests as a PDF to fill out separately and forward to
-            your healthcare professional.
-          </p>
-        </div>
+        <h1 class="flow__heading">Pain Classification</h1>
+        <p class="flow__instructions">
+          Fill out all four assessments below. Once they're complete, you can review your responses.
+          Alternatively, you can download the tests as a PDF to fill out separately and forward to
+          your healthcare professional.
+        </p>
         {@render downloadButton()}
       </div>
 
@@ -263,38 +261,20 @@
     padding-top: var(--space-2);
   }
 
-  /* Instruction callout + download, shown above the progress bar in the full
-     walk-through. The card grows; the download sits beside it. */
   .flow__intro {
     display: flex;
     align-items: center;
     gap: var(--space-4);
-    margin-bottom: var(--space-4);
+  }
+
+  .flow__heading {
+    margin-bottom: var(--space-3);
   }
 
   .flow__instructions {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-3);
-    padding: var(--space-4);
-    background: var(--color-primary-tint-ghost);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
-    border-radius: var(--radius-md);
-  }
-
-  .flow__instructions-icon {
-    flex-shrink: 0;
-    color: var(--color-primary);
-    font-size: 1.35rem;
-  }
-
-  .flow__instructions-text {
-    margin: 0;
-    font-size: 0.95rem;
-    line-height: 1.5;
-    color: var(--color-text);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-7);
+    font-size: 1.05rem;
   }
 
   /* Top bar: segmented progress (one segment per test) on the left, Download all
@@ -314,6 +294,7 @@
 
   .flow__download {
     flex-shrink: 0;
+    background: #793CC8;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);

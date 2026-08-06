@@ -746,10 +746,8 @@
     <a class="collect__back" href="/pain-classification/">&larr; Go back</a>
     <h1 class="collect__heading">Acute Pain Classification</h1>
     <p class="collect__lede">
-      Provide a result for each of the four assessments below — either enter a
-      known result manually, take the test directly, or download the test,
-      complete and upload it. When all four are complete, calculate the
-      composite classification.
+      Provide a result for each of the four assessments below — either enter
+      known results, take the test directly, or upload completed tests.
     </p>
 
     <div class="bulk">
@@ -758,10 +756,7 @@
         <div>
           <p class="bulk__title">Have completed tests from the patient?</p>
           <p class="bulk__desc">
-            Upload what they filled out and shared — the on-screen "all tests" PDF,
-            a scan of the printed sheets, or photos of them. We'll read every test,
-            check the ones we couldn't place with you, and step through confirming
-            each. All four assessments or just some.
+            Upload completed test(s), either PDF or photos.
           </p>
         </div>
       </div>
@@ -785,7 +780,7 @@
               </div>
               <div class="card__actions">
                 <button type="button" class="btn btn--success card__btn" onclick={() => openQuestionnaire(child)}>
-                  {childHasResponse(child.slug) ? 'Edit the response' : 'Take the test'}
+                  {childHasResponse(child.slug) ? 'Edit the response' : 'Take test'}
                 </button>
                 {#if child.omrTemplate}
                   <OmrSheetButton template={child.omrTemplate} label="Download test" compact={true} />

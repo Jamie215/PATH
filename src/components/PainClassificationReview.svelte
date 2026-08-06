@@ -144,7 +144,7 @@
         disabled={downloadBusy}
       >
         <span class="material-symbols-outlined" aria-hidden="true">download</span>
-        {downloadBusy ? 'Preparing…' : 'Download my response'}
+        {downloadBusy ? 'Preparing…' : 'Download my responses'}
       </button>
     </div>
 
