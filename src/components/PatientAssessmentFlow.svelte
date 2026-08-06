@@ -158,8 +158,8 @@
   <section class="flow">
     {#if !editingSingle}
       <!-- Guidance for the full four-test walk-through, with the download beside it. -->
+      <h1 class="flow__heading">Pain Classification</h1>
       <div class="flow__intro">
-        <h1 class="flow__heading">Pain Classification</h1>
         <p class="flow__instructions">
           Fill out all four assessments below. Once they're complete, you can review your responses.
           Alternatively, you can download the tests as a PDF to fill out separately and forward to

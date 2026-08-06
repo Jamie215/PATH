@@ -13,7 +13,7 @@
    *
    * A child is "complete" once all its numeric fields hold finite values,
    * whether typed directly or populated by a questionnaire/upload.
-   * "Calculate Results" unlocks once every child is complete.
+   * "Calculate results" unlocks once every child is complete.
    *
    * Guards: if no role is stored, redirects back to the intake. (Patients get
    * PatientAssessmentFlow instead — see the `isPatient` branch.)
@@ -756,7 +756,7 @@
         <div>
           <p class="bulk__title">Have completed tests from the patient?</p>
           <p class="bulk__desc">
-            Upload completed test(s), either PDF or photos.
+            Upload completed test(s), in PDF or photo(.png).
           </p>
         </div>
       </div>
@@ -843,7 +843,7 @@
         </p>
       {/if}
       <button type="button" class="btn btn--primary collect__calc" disabled={!allDone} onclick={proceed}>
-        Calculate Results
+        Calculate results
       </button>
     </div>
   </section>
