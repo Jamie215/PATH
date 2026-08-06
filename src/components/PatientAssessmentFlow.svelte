@@ -212,6 +212,8 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
+          onBack={back}
+          {backLabel}
           {submitLabel}
           showProgress={false}
           bind:progress={surveyProgress}
@@ -221,6 +223,8 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
+          onBack={back}
+          {backLabel}
           {submitLabel}
           showProgress={false}
           bind:progress={surveyProgress}
@@ -231,6 +235,8 @@
           initialArea={initial.area}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
+          onBack={back}
+          {backLabel}
           {submitLabel}
           showProgress={false}
           bind:progress={surveyProgress}
@@ -240,19 +246,14 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
+          onBack={back}
+          {backLabel}
           {submitLabel}
           showProgress={false}
           bind:progress={surveyProgress}
         />
       {/if}
     {/key}
-
-    <div class="flow__footer">
-      <button type="button" class="flow__back" onclick={back}>
-        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-        {backLabel}
-      </button>
-    </div>
   </section>
 {/if}
 
@@ -382,35 +383,6 @@
     background: color-mix(in srgb, var(--color-danger) 10%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
     border-radius: var(--radius-md);
-  }
-
-  /* Bottom-left back control, below the survey. */
-  .flow__footer {
-    display: flex;
-    justify-content: flex-start;
-    margin-top: var(--space-6);
-    padding-top: var(--space-5);
-    border-top: 1px solid var(--color-border);
-  }
-
-  .flow__back {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    background: none;
-    border: none;
-    padding: var(--space-2) var(--space-3);
-    color: var(--color-text-muted);
-    font-size: 0.95rem;
-    cursor: pointer;
-    border-radius: var(--radius-md);
-  }
-  .flow__back:hover {
-    color: var(--color-text);
-    background: var(--color-primary-tint-ghost);
-  }
-  .flow__back .material-symbols-outlined {
-    font-size: 1.2rem;
   }
 
   @media (max-width: 560px) {

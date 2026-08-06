@@ -9,6 +9,7 @@
    * acute collection page. Chronic short-circuits to a placeholder.
    */
   import { set as storeSet, remove as storeRemove } from '../lib/storage';
+  import BackLink from './BackLink.svelte';
   import { KEYS, RETURN_URL, type PainType, type Role } from '../assessments/pain-classification/config';
 
   let painType = $state<PainType | null>(null);
@@ -36,6 +37,7 @@
 </script>
 
 <section class="intake">
+  <BackLink />
   <h1 class="intake__heading">Pain Classification</h1>
   <p class="intake__lede">
     A composite assessment that combines the Symptom Index, Sensory Profile,
