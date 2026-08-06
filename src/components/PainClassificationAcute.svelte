@@ -140,9 +140,16 @@
   let combinedTotal = $state(0);
 
   // Page-mapping step for a scanned/photographed combined packet: each page,
-  // its best-fit routing, and the assessment the reviewer has chosen for it
+  // its best-fit routing, a pre-encoded title-band thumbnail (enough to read
+  // which assessment it is), and the assessment the reviewer has chosen for it
   // (template id, or '' to skip). Shown before the review queue begins.
-  type ScanPage = { index: number; img: GrayImage; route: PageRoute; choiceId: string };
+  type ScanPage = {
+    index: number;
+    img: GrayImage;
+    route: PageRoute;
+    thumb: string;
+    choiceId: string;
+  };
   let mappingOpen = $state(false);
   let scanPages = $state<ScanPage[]>([]);
 
@@ -529,6 +536,24 @@
   const isPdfFile = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
 
   /**
+   * Crop the title band (top strip) of a flattened sheet — enough to read the
+   * assessment name, and far cheaper to encode than the whole page. Used for the
+   * page-mapping thumbnails; on a registered (warped) sheet the title sits in a
+   * fixed spot, so a constant top slice always catches it.
+   */
+  function titleStrip(img: GrayImage): GrayImage {
+    const top = Math.round(img.height * 0.03);
+    const bottom = Math.round(img.height * 0.14);
+    const h = Math.max(1, bottom - top);
+    const data = new Uint8Array(img.width * h);
+    for (let row = 0; row < h; row += 1) {
+      const src = (top + row) * img.width;
+      data.set(img.data.subarray(src, src + img.width), row * img.width);
+    }
+    return { width: img.width, height: h, data };
+  }
+
+  /**
    * Read an uploaded completed-tests packet and start a step-through review.
    * Three shapes are handled: the on-screen "all tests" PDF (answers already
    * structured), a scanned multi-page PDF, and one or more photos/scans (one
@@ -571,10 +596,20 @@
         return;
       }
 
-      // Route each page against every template; the reviewer confirms next.
+      // Route each page against every template; the reviewer confirms next. The
+      // thumbnail is a title-band crop of the flattened sheet (any candidate's
+      // warp works — they share fiducials), encoded once here so binding the
+      // picker later never re-encodes it.
       const routed: ScanPage[] = pageImages.map((img, index) => {
         const route = routePage(img, templates);
-        return { index, img, route, choiceId: route.best?.template.id ?? '' };
+        const flattened = route.candidates[0]?.result.warped ?? img;
+        return {
+          index,
+          img,
+          route,
+          thumb: grayImageToDataURL(titleStrip(flattened)),
+          choiceId: route.best?.template.id ?? '',
+        };
       });
 
       // A single PDF that rasterized but matched nothing is almost certainly a
@@ -1027,11 +1062,7 @@
           <ul class="mapping">
             {#each scanPages as p (p.index)}
               <li class="mapping__row">
-                <img
-                  class="mapping__thumb"
-                  src={grayImageToDataURL(p.route.best?.result.warped ?? p.img)}
-                  alt={`Scanned page ${p.index + 1}`}
-                />
+                <img class="mapping__thumb" src={p.thumb} alt={`Title of scanned page ${p.index + 1}`} />
                 <div class="mapping__pick">
                   <label class="mapping__label" for={`map-${p.index}`}>Page {p.index + 1}</label>
                   <select id={`map-${p.index}`} class="mapping__select" bind:value={p.choiceId}>
@@ -1765,29 +1796,38 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-4);
   }
 
   .mapping__row {
     display: flex;
-    align-items: center;
-    gap: var(--space-4);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
     padding: var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
   }
 
+  /* Title-band crop: a wide, short banner. Left-anchored so the assessment name
+     stays visible if the strip is scaled down. */
   .mapping__thumb {
-    flex-shrink: 0;
-    width: 96px;
+    width: 100%;
     height: auto;
-    max-height: 130px;
+    max-height: 70px;
     object-fit: contain;
+    object-position: left center;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm, 4px);
     background: #fff;
+  }
+
+  @media (max-width: 620px) {
+    .mapping {
+      grid-template-columns: 1fr;
+    }
   }
 
   .mapping__pick {
