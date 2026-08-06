@@ -95,7 +95,6 @@ const COLOR_TEXT = rgb(0.122, 0.122, 0.122); // #1F1F1F
 const COLOR_MUTED = rgb(0.361, 0.361, 0.361); // #5C5C5C
 const COLOR_SUBTLE = rgb(0.533, 0.533, 0.533); // #888
 const COLOR_BORDER = rgb(0.898, 0.898, 0.898); // #E5E5E5
-const COLOR_TINT = rgb(0.961, 0.941, 0.98); // #F5F0FA
 const COLOR_WHITE = rgb(1, 1, 1);
 
 interface Ctx {

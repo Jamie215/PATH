@@ -12,7 +12,7 @@
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import type { freBAQResult } from '../assessments/frebaq/scoring';
 
-  let result = $state<FreBAQ | null>(null);
+  let result = $state<freBAQResult | null>(null);
   let bothersomeArea = $state('');
   let loaded = $state(false);
 

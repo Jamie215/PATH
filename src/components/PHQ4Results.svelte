@@ -12,7 +12,7 @@
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import type { phq4Result } from '../assessments/phq4/scoring';
 
-  let result = $state<PHQ4 | null>(null);
+  let result = $state<phq4Result | null>(null);
   let loaded = $state(false);
 
   // Patient name — bound to input; "Save" commits to displayedName which

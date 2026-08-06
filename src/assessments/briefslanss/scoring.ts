@@ -19,10 +19,11 @@ export type Experience = 0 | 1;
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export interface briefSLANSSResponse {
-  [key: `${Symptom}_exp`]: Experience;
+export type briefSLANSSResponse = {
+  [K in `${Symptom}_exp`]: Experience;
+} & {
   other_comments?: string;
-}
+};
 
 /**
  * Result shape — identical keys to the original Python return dict so it

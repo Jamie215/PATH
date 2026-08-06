@@ -27,10 +27,11 @@ function interpret(total: number): string {
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export interface phq4Response {
-  [key: `${Symptom}_exp`]: Experience;
+export type phq4Response = {
+  [K in `${Symptom}_exp`]: Experience;
+} & {
   other_comments?: string;
-}
+};
 
 /**
  * Result shape — identical keys to the original Python return dict so it

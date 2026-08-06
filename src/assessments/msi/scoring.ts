@@ -56,11 +56,13 @@ export type Interference = 1 | 2 | 3 | 4;
  * For each symptom: `<symptom>_freq` is always present (required).
  * `<symptom>_interference` is present only if freq > 0.
  */
-export interface MSIResponse {
-  [key: `${Symptom}_freq`]: Frequency;
-  [key: `${Symptom}_interference`]?: Interference;
+export type MSIResponse = {
+  [K in `${Symptom}_freq`]: Frequency;
+} & {
+  [K in `${Symptom}_interference`]?: Interference;
+} & {
   other_comments?: string;
-}
+};
 
 /**
  * Result shape — identical keys to the original Python return dict so it

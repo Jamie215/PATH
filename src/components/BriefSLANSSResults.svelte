@@ -12,7 +12,7 @@
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import type { briefSLANSSResult } from '../assessments/briefslanss/scoring';
 
-  let result = $state<briefSLANSS | null>(null);
+  let result = $state<briefSLANSSResult | null>(null);
   let loaded = $state(false);
 
   // Patient name — bound to input; "Save" commits to displayedName which

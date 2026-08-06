@@ -10,6 +10,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "check": "astro check",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -23,6 +24,8 @@
     "svelte": "^5.39.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.9.3",
     "vitest": "^2.1.9"
   }
 }
