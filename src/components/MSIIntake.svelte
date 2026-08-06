@@ -10,6 +10,7 @@
    * (e.g. acute vs chronic for Pain Classification) will need.
    */
   import { set as storeSet, remove as storeRemove } from '../lib/storage';
+  import BackLink from './BackLink.svelte';
   import type { MSIRole } from '../assessments/msi/questions';
 
   let role = $state<MSIRole | null>(null);
@@ -29,6 +30,7 @@
 </script>
 
 <section class="intake">
+  <BackLink />
   <h1 class="intake__heading">Symptom Index</h1>
   <p class="intake__lede">
     A ten-symptom screening that gathers frequency and bothersomeness ratings.

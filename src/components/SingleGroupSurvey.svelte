@@ -11,6 +11,7 @@
    * its area-* props are simply unused.
    */
   import RatingScale from './RatingScale.svelte';
+  import BackLink from './BackLink.svelte';
   import { set as storeSet } from '../lib/storage';
 
   interface Question {
@@ -50,7 +51,10 @@
     personalizeArea,
     // --- Runtime props (embedding parent / scan review) ---
     onComplete,
+    onBack,
+    backLabel = 'Back',
     submitLabel = 'See results',
+    submitIcon,
     showProgress = true,
     progress = $bindable(0),
     initialAnswers,
@@ -73,7 +77,15 @@
     normalizeArea?: (text: string) => string;
     personalizeArea?: (label: string, area: string) => string;
     onComplete?: () => void;
+    /** When supplied (e.g. the survey is a step in a composite flow), render a
+     *  back control beside the submit button that invokes this handler. */
+    onBack?: () => void;
+    /** Label for the back control (e.g. "Previous test", "Back to review"). */
+    backLabel?: string;
     submitLabel?: string;
+    /** Optional Material Symbol rendered after the submit label (e.g.
+     *  "arrow_forward" on the composite flow's "Next test" button). */
+    submitIcon?: string;
     /** Hide the in-survey progress bar (e.g. when a parent shows it instead). */
     showProgress?: boolean;
     /** Bindable completion fraction (0–1), so an embedding parent can render it. */
@@ -348,6 +360,11 @@
   </div>
 
   <div class="actions">
+    {#if onBack}
+      <div class="actions__back">
+        <BackLink {onBack} label={backLabel} variant="button" />
+      </div>
+    {/if}
     {#if submitAttempted && !isComplete}
       <p class="actions__hint">
         {missing.length} question{missing.length === 1 ? '' : 's'} still to answer.
@@ -355,6 +372,9 @@
     {/if}
     <button type="submit" class="btn btn--primary actions__submit">
       {submitLabel}
+      {#if submitIcon}
+        <span class="material-symbols-outlined" aria-hidden="true">{submitIcon}</span>
+      {/if}
     </button>
   </div>
   {/if}
@@ -636,6 +656,12 @@
     justify-content: flex-end;
     align-items: stretch;
     gap: var(--space-3);
+  }
+
+  /* Push the back control to the left so the submit button stays right-aligned. */
+  .actions__back {
+    margin-right: auto;
+    align-self: center;
   }
 
   .actions__hint {

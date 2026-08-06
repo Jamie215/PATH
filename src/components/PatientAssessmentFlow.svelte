@@ -19,6 +19,7 @@
   import BriefSLANSSSurvey from './BriefSLANSSSurvey.svelte';
   import FreBAQSurvey from './FreBAQSurvey.svelte';
   import PHQ4Survey from './PHQ4Survey.svelte';
+  import BackLink from './BackLink.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
 
   const REVIEW_URL = '/pain-classification/review/';
@@ -40,7 +41,14 @@
   const submitLabel = $derived(
     editingSingle ? 'Save & return to review' : isLast ? 'Finish & review' : 'Next test',
   );
-  const backLabel = $derived(editingSingle ? 'Back to review' : step === 0 ? 'Back' : 'Previous test');
+  // A trailing arrow reinforces that "Next test" advances the walk-through; the
+  // finish/save actions (which leave for review) don't get it.
+  const submitIcon = $derived(!editingSingle && !isLast ? 'arrow_forward' : undefined);
+  const backLabel = $derived(editingSingle ? 'Back to review' : 'Previous test');
+  // The in-survey back control only steps within the flow (to the prior test or
+  // back to review). At the first test there's nowhere to step to — leaving the
+  // flow entirely is the top-of-page "Go back" control's job — so it's hidden.
+  const showStepBack = $derived(editingSingle || step > 0);
 
   /** Pre-fill values for a test, pulled from any answers it already has stored
    *  (so returning to edit shows the previous responses). */
@@ -156,6 +164,8 @@
 
 {#if ready}
   <section class="flow">
+    <BackLink fallback="/pain-classification/" />
+
     {#if !editingSingle}
       <!-- Guidance for the full four-test walk-through, with the download beside it. -->
       <h1 class="flow__heading">Pain Classification</h1>
@@ -212,7 +222,10 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
+          onBack={showStepBack ? back : undefined}
+          {backLabel}
           {submitLabel}
+          {submitIcon}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -221,7 +234,10 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
+          onBack={showStepBack ? back : undefined}
+          {backLabel}
           {submitLabel}
+          {submitIcon}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -231,7 +247,10 @@
           initialArea={initial.area}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
+          onBack={showStepBack ? back : undefined}
+          {backLabel}
           {submitLabel}
+          {submitIcon}
           showProgress={false}
           bind:progress={surveyProgress}
         />
@@ -240,19 +259,15 @@
           initialAnswers={initial.answers}
           initialComments={initial.comments}
           onComplete={() => handleComplete(child)}
+          onBack={showStepBack ? back : undefined}
+          {backLabel}
           {submitLabel}
+          {submitIcon}
           showProgress={false}
           bind:progress={surveyProgress}
         />
       {/if}
     {/key}
-
-    <div class="flow__footer">
-      <button type="button" class="flow__back" onclick={back}>
-        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-        {backLabel}
-      </button>
-    </div>
   </section>
 {/if}
 
@@ -382,35 +397,6 @@
     background: color-mix(in srgb, var(--color-danger) 10%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
     border-radius: var(--radius-md);
-  }
-
-  /* Bottom-left back control, below the survey. */
-  .flow__footer {
-    display: flex;
-    justify-content: flex-start;
-    margin-top: var(--space-6);
-    padding-top: var(--space-5);
-    border-top: 1px solid var(--color-border);
-  }
-
-  .flow__back {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    background: none;
-    border: none;
-    padding: var(--space-2) var(--space-3);
-    color: var(--color-text-muted);
-    font-size: 0.95rem;
-    cursor: pointer;
-    border-radius: var(--radius-md);
-  }
-  .flow__back:hover {
-    color: var(--color-text);
-    background: var(--color-primary-tint-ghost);
-  }
-  .flow__back .material-symbols-outlined {
-    font-size: 1.2rem;
   }
 
   @media (max-width: 560px) {

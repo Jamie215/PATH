@@ -1,8 +1,10 @@
 ---
 import Base from '../../layouts/Base.astro';
 import PHQ4Survey from '../../components/PHQ4Survey.svelte';
+import BackLink from '../../components/BackLink.svelte';
 ---
 <Base title="Anxiety & Depression · Survey" description="Anxiety & Depression — survey" wide>
+  <BackLink client:only="svelte" />
   <h1 class="survey-heading">Symptom assessment</h1>
   <PHQ4Survey client:only="svelte" />
 </Base>
