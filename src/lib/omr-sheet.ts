@@ -206,6 +206,16 @@ export async function generateCombinedAnswerSheets(
   const doc = await PDFDocument.create();
   doc.setTitle('All Tests');
   doc.setSubject('Assessment forms');
+  // Machine-readable manifest, mirroring the `form:<id>` marker a lone sheet
+  // carries. `omr-combined` flags a multi-sheet document; each `t<i>:<id>` maps
+  // a field namespace (see `fieldPrefix` below) to the assessment drawn there,
+  // so the upload reader can split one combined PDF back into per-assessment
+  // results without inferring identity from field keys.
+  doc.setKeywords([
+    'omr-answer-sheet',
+    'omr-combined',
+    ...entries.map((entry, i) => `t${i}:${entry.template.id}`),
+  ]);
   doc.setProducer('PATH — Pain Assessment Tools Hub');
   doc.setCreator('PATH');
   doc.setCreationDate(new Date());

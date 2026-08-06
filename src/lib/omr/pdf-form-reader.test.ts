@@ -6,10 +6,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { generateAnswerSheet } from '../omr-sheet';
-import { readPdfForm } from './pdf-form-reader';
+import { generateAnswerSheet, generateCombinedAnswerSheets } from '../omr-sheet';
+import { readPdfForm, readCombinedPdfForm } from './pdf-form-reader';
 import { FREBAQ_OMR_TEMPLATE } from '../../assessments/frebaq/omr-template';
 import { MSI_OMR_TEMPLATE } from '../../assessments/msi/omr-template';
+import { BRIEFSLANSS_OMR_TEMPLATE } from '../../assessments/briefslanss/omr-template';
+import { PHQ4_OMR_TEMPLATE } from '../../assessments/phq4/omr-template';
 import type { OmrTemplate } from '../../assessments/omr/types';
 
 /** Generate the template's sheet, select the given options, return the bytes. */
@@ -147,5 +149,136 @@ describe('readPdfForm', () => {
     const result = await readPdfForm(new TextEncoder().encode('not a pdf'), FREBAQ_OMR_TEMPLATE);
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/not a readable pdf/i);
+  });
+});
+
+/** Pick a valid selection for every field of a template — the last (highest)
+ *  bubble value per field, so an MSI frequency is > 0 and its bothersomeness
+ *  follow-up is also answered (no conditional warnings). */
+function fullAnswers(template: OmrTemplate): Record<string, number> {
+  const answers: Record<string, number> = {};
+  for (const section of template.sections) {
+    for (const row of section.rows) {
+      for (const field of row.fields) {
+        answers[field.key] = field.bubbles[field.bubbles.length - 1].value;
+      }
+    }
+  }
+  return answers;
+}
+
+const ALL_TEMPLATES = [
+  MSI_OMR_TEMPLATE,
+  BRIEFSLANSS_OMR_TEMPLATE,
+  FREBAQ_OMR_TEMPLATE,
+  PHQ4_OMR_TEMPLATE,
+];
+
+describe('readCombinedPdfForm', () => {
+  it('splits a full "all tests" PDF into one result per assessment', async () => {
+    const entries = ALL_TEMPLATES.map((template) => ({
+      template,
+      answers: fullAnswers(template),
+    }));
+    const bytes = await generateCombinedAnswerSheets(entries);
+
+    const result = await readCombinedPdfForm(bytes, ALL_TEMPLATES);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.children.map((c) => c.templateId)).toEqual(
+      ALL_TEMPLATES.map((t) => t.id),
+    );
+    // Each child's response is keyed by bare scorer keys and carries the answers.
+    const frebaqChild = result.children.find((c) => c.templateId === FREBAQ_OMR_TEMPLATE.id)!;
+    expect(frebaqChild.prefix).toMatch(/^t\d+_$/);
+    for (const [key, value] of Object.entries(fullAnswers(FREBAQ_OMR_TEMPLATE))) {
+      expect(frebaqChild.result.response[key]).toBe(value);
+    }
+    // Each sheet is one page, laid in order — so the review UI can open the
+    // combined PDF straight to each test's page.
+    expect(result.children.map((c) => c.page)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('returns only the assessments that were actually filled (partial upload)', async () => {
+    // A combined document laid out with all four sheets, but only two filled in.
+    const entries = ALL_TEMPLATES.map((template) => ({
+      template,
+      answers:
+        template === MSI_OMR_TEMPLATE || template === PHQ4_OMR_TEMPLATE
+          ? fullAnswers(template)
+          : undefined,
+    }));
+    const bytes = await generateCombinedAnswerSheets(entries);
+
+    const result = await readCombinedPdfForm(bytes, ALL_TEMPLATES);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.children.map((c) => c.templateId).sort()).toEqual(
+      [MSI_OMR_TEMPLATE.id, PHQ4_OMR_TEMPLATE.id].sort(),
+    );
+  });
+
+  it('carries free-text (comments / bothersome area) through per child', async () => {
+    const entries = ALL_TEMPLATES.map((template) => ({
+      template,
+      answers: {
+        ...fullAnswers(template),
+        ...(template === FREBAQ_OMR_TEMPLATE
+          ? { bothersome_area: 'left knee', other_comments: 'Worse at night.' }
+          : {}),
+      },
+    }));
+    const bytes = await generateCombinedAnswerSheets(entries);
+
+    const result = await readCombinedPdfForm(bytes, ALL_TEMPLATES);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const frebaq = result.children.find((c) => c.templateId === FREBAQ_OMR_TEMPLATE.id)!;
+    expect(frebaq.result.text?.bothersome_area).toBe('left knee');
+    expect(frebaq.result.text?.other_comments).toBe('Worse at night.');
+  });
+
+  it('accepts a lone single-assessment sheet dropped into the combined reader', async () => {
+    const doc = await PDFDocument.load(await generateAnswerSheet(MSI_OMR_TEMPLATE));
+    const form = doc.getForm();
+    const answers = fullAnswers(MSI_OMR_TEMPLATE);
+    for (const [key, value] of Object.entries(answers)) {
+      form.getRadioGroup(key).select(String(value));
+    }
+    const bytes = await doc.save();
+
+    const result = await readCombinedPdfForm(bytes, ALL_TEMPLATES);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.children).toHaveLength(1);
+    expect(result.children[0].templateId).toBe(MSI_OMR_TEMPLATE.id);
+    expect(result.children[0].prefix).toBe('');
+    expect(result.children[0].page).toBe(0);
+  });
+
+  it('rejects a completed-tests PDF with nothing filled in', async () => {
+    const entries = ALL_TEMPLATES.map((template) => ({ template }));
+    const bytes = await generateCombinedAnswerSheets(entries);
+
+    const result = await readCombinedPdfForm(bytes, ALL_TEMPLATES);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/no.*answers|filled in/i);
+  });
+
+  it('rejects a PDF with no form fields', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([612, 792]);
+    const bytes = await doc.save();
+
+    const result = await readCombinedPdfForm(bytes, ALL_TEMPLATES);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/results report|no answer fields/i);
   });
 });
