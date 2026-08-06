@@ -49,6 +49,10 @@
   // Completion fraction (0–1) of the open questionnaire, bound from the
   // embedded survey so the modal header can render a fixed progress bar.
   let modalProgress = $state(0);
+  // Per-question answers to pre-fill the open questionnaire with, read from the
+  // child's stored response when it opens — so re-opening a completed test edits
+  // the existing answers rather than starting blank.
+  let modalInitialAnswers = $state<Record<string, number>>({});
 
   // The uploaded sheet awaiting the user's confirmation.
   let omrReview = $state<{
@@ -159,6 +163,11 @@
   const hasDuplicateChoices = $derived(duplicateChoiceIds.size > 0);
   const mappedCount = $derived(scanPages.filter((p) => p.choiceId).length);
 
+  // Overwrite confirmation: assessments that already hold a result which an
+  // upload is about to replace. Listed for the user to confirm before review.
+  let overwriteOpen = $state(false);
+  let overwriteList = $state<ChildAssessment[]>([]);
+
   onMount(() => {
     role = storeGet<Role>(KEYS.role);
     if (!role) {
@@ -230,10 +239,23 @@
     else storeRemove(slug + ':response');
   }
 
+  /** Per-question numeric answers stored for a child (from a completed
+   *  questionnaire, upload, or scan), for pre-filling its survey. Empty when the
+   *  child has no per-question answers (e.g. a result typed as manual scores). */
+  function storedAnswers(slug: string): Record<string, number> {
+    const r = storeGet<Record<string, number | string>>(`${slug}:response`) ?? {};
+    const answers: Record<string, number> = {};
+    for (const [k, v] of Object.entries(r)) if (typeof v === 'number') answers[k] = v;
+    return answers;
+  }
+
   function openQuestionnaire(child: ChildAssessment): void {
     // Role-gated children (MSI) read their role from storage on mount, so it
     // must be set before the survey renders — otherwise the survey redirects.
     if (child.roleKey && role) storeSet(child.roleKey, role);
+    // Pre-fill with the existing response so re-opening edits it rather than
+    // starting blank.
+    modalInitialAnswers = storedAnswers(child.slug);
     modalProgress = 0;
     modalChild = child;
   }
@@ -607,7 +629,7 @@
     reviewQueue = queue;
     combinedTotal = queue.length;
     combinedOpen = false;
-    openNextReview();
+    beginReviewQueue();
   }
 
   /** Confirm the page→assessment mapping and start the scan review queue.
@@ -627,13 +649,41 @@
     if (queue.length === 0) return; // nothing selected — back to the cards
     reviewQueue = queue;
     combinedTotal = queue.length;
-    openNextReview();
+    beginReviewQueue();
   }
 
   /** Close the mapping step without starting a review. */
   function closeMapping(): void {
     scanPages = [];
     mappingOpen = false;
+  }
+
+  /** Start the review queue — but first, if the upload will replace results the
+   *  user already recorded, surface those assessments to confirm. The queue is
+   *  built but nothing is written until each step is confirmed in review, so a
+   *  cancel here leaves existing results untouched. */
+  function beginReviewQueue(): void {
+    const clashes = reviewQueue.map((q) => q.child).filter((c) => childComplete(c));
+    if (clashes.length) {
+      overwriteList = clashes;
+      overwriteOpen = true;
+      return;
+    }
+    openNextReview();
+  }
+
+  function confirmOverwrite(): void {
+    overwriteOpen = false;
+    overwriteList = [];
+    openNextReview();
+  }
+
+  /** Abandon the upload: drop the pending queue and free the shared PDF, leaving
+   *  every existing result as it was. */
+  function cancelOverwrite(): void {
+    overwriteOpen = false;
+    overwriteList = [];
+    endCombinedReview();
   }
 
   /** Advance to the next queued test's confirmation, or finish the queue. */
@@ -684,6 +734,7 @@
     if (e.key !== 'Escape') return;
     if (combinedOpen) closeCombinedUpload();
     else if (mappingOpen) closeMapping();
+    else if (overwriteOpen) cancelOverwrite();
     else if (omrReview) closeReview();
     else if (modalChild) closeQuestionnaire();
   }
@@ -743,7 +794,7 @@
               </div>
               <div class="card__actions">
                 <button type="button" class="btn btn--success card__btn" onclick={() => openQuestionnaire(child)}>
-                  Take the test
+                  {childComplete(child) ? 'Edit the response' : 'Take the test'}
                 </button>
                 {#if child.omrTemplate}
                   <OmrSheetButton template={child.omrTemplate} label="Download test" compact={true} />
@@ -835,13 +886,13 @@
         </header>
         <div class="modal__body">
           {#if child.slug === 'msi'}
-            <MSISurvey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <MSISurvey initialAnswers={modalInitialAnswers} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'briefslanss'}
-            <BriefSLANSSSurvey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <BriefSLANSSSurvey initialAnswers={modalInitialAnswers} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'frebaq'}
-            <FreBAQSurvey initialArea={areas[child.slug]} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <FreBAQSurvey initialAnswers={modalInitialAnswers} initialArea={areas[child.slug]} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {:else if child.slug === 'phq4'}
-            <PHQ4Survey initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
+            <PHQ4Survey initialAnswers={modalInitialAnswers} initialComments={comments[child.slug]} onComplete={() => finishQuestionnaire(child)} submitLabel="Done" showProgress={false} bind:progress={modalProgress} />
           {/if}
         </div>
       </div>
@@ -979,6 +1030,50 @@
             disabled={hasDuplicateChoices || mappedCount === 0}
           >
             Review {mappedCount} test{mappedCount === 1 ? '' : 's'}
+          </button>
+        </footer>
+      </div>
+    </div>
+  {/if}
+
+  {#if overwriteOpen}
+    <div
+      class="modal-overlay"
+      role="presentation"
+      onclick={(e) => { if (e.target === e.currentTarget) cancelOverwrite(); }}
+    >
+      <div class="modal modal--narrow" role="dialog" aria-modal="true" aria-label="Replace existing results?">
+        <header class="modal__head">
+          <div class="modal__head-row">
+            <div>
+              <h2 class="modal__title">Replace existing results?</h2>
+              <p class="modal__subtitle">
+                This upload covers {overwriteList.length === 1 ? 'a test' : 'tests'} that already
+                {overwriteList.length === 1 ? 'has' : 'have'} a result. Continuing will replace
+                {overwriteList.length === 1 ? 'it' : 'them'} as you confirm each in review — other
+                results are untouched.
+              </p>
+            </div>
+            <button type="button" class="modal__close" aria-label="Close" onclick={cancelOverwrite}>
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+        </header>
+        <div class="modal__body">
+          <p class="overwrite__lead">Already has a result:</p>
+          <ul class="overwrite__list">
+            {#each overwriteList as c (c.slug)}
+              <li class="overwrite__item">
+                <span class="material-symbols-outlined overwrite__icon" aria-hidden="true">warning</span>
+                {c.shortName}
+              </li>
+            {/each}
+          </ul>
+        </div>
+        <footer class="mapping__footer">
+          <button type="button" class="btn btn--secondary" onclick={cancelOverwrite}>Cancel</button>
+          <button type="button" class="btn btn--primary" onclick={confirmOverwrite}>
+            Continue &amp; replace
           </button>
         </footer>
       </div>
@@ -1804,6 +1899,38 @@
     margin: 0 auto 0 0;
     font-size: 0.85rem;
     color: var(--color-danger);
+  }
+
+  /* Overwrite confirmation: the list of assessments about to be replaced. */
+  .overwrite__lead {
+    margin: 0 0 var(--space-2) 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .overwrite__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .overwrite__item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.95rem;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    border-radius: var(--radius-md);
+  }
+
+  .overwrite__icon {
+    color: var(--color-warning, #b45309);
+    font-size: 1.2rem;
   }
 
   .mapping__footer .btn:disabled {
