@@ -152,6 +152,17 @@
   };
   let mappingOpen = $state(false);
   let scanPages = $state<ScanPage[]>([]);
+  // Assessment ids picked for more than one page — a page can only map to one
+  // test, so these must be resolved before the review can start.
+  const duplicateChoiceIds = $derived.by(() => {
+    const counts = new Map<string, number>();
+    for (const p of scanPages) {
+      if (p.choiceId) counts.set(p.choiceId, (counts.get(p.choiceId) ?? 0) + 1);
+    }
+    return new Set([...counts].filter(([, n]) => n > 1).map(([id]) => id));
+  });
+  const hasDuplicateChoices = $derived(duplicateChoiceIds.size > 0);
+  const mappedCount = $derived(scanPages.filter((p) => p.choiceId).length);
 
   onMount(() => {
     role = storeGet<Role>(KEYS.role);
@@ -676,8 +687,10 @@
     openNextReview();
   }
 
-  /** Confirm the page→assessment mapping and start the scan review queue. */
+  /** Confirm the page→assessment mapping and start the scan review queue.
+   *  Blocked while two pages claim the same assessment (see the mapping UI). */
   function confirmMapping(): void {
+    if (hasDuplicateChoices) return;
     const queue: QueuedReview[] = [];
     for (const p of scanPages) {
       if (!p.choiceId) continue; // reviewer skipped this page
@@ -1061,17 +1074,28 @@
         <div class="modal__body">
           <ul class="mapping">
             {#each scanPages as p (p.index)}
-              <li class="mapping__row">
+              {@const duplicated = !!p.choiceId && duplicateChoiceIds.has(p.choiceId)}
+              <li class="mapping__row" class:mapping__row--dup={duplicated}>
                 <img class="mapping__thumb" src={p.thumb} alt={`Title of scanned page ${p.index + 1}`} />
                 <div class="mapping__pick">
                   <label class="mapping__label" for={`map-${p.index}`}>Page {p.index + 1}</label>
-                  <select id={`map-${p.index}`} class="mapping__select" bind:value={p.choiceId}>
+                  <select
+                    id={`map-${p.index}`}
+                    class="mapping__select"
+                    class:mapping__select--dup={duplicated}
+                    bind:value={p.choiceId}
+                    aria-invalid={duplicated}
+                  >
                     {#each ACUTE_CHILDREN as c (c.slug)}
                       <option value={c.omrTemplate?.id ?? ''}>{c.shortName}</option>
                     {/each}
                     <option value="">Skip this page</option>
                   </select>
-                  {#if !p.route.best}
+                  {#if duplicated}
+                    <span class="mapping__note mapping__note--dup">
+                      Same test as another page — pick different tests or skip one.
+                    </span>
+                  {:else if !p.route.best}
                     <span class="mapping__note">Couldn't auto-detect — please pick.</span>
                   {/if}
                 </div>
@@ -1080,9 +1104,19 @@
           </ul>
         </div>
         <footer class="mapping__footer">
+          {#if hasDuplicateChoices}
+            <p class="mapping__footer-note" role="alert">
+              Two pages are set to the same test — resolve the highlighted ones to continue.
+            </p>
+          {/if}
           <button type="button" class="btn btn--secondary" onclick={closeMapping}>Cancel</button>
-          <button type="button" class="btn btn--primary" onclick={confirmMapping}>
-            Review {scanPages.filter((p) => p.choiceId).length} test{scanPages.filter((p) => p.choiceId).length === 1 ? '' : 's'}
+          <button
+            type="button"
+            class="btn btn--primary"
+            onclick={confirmMapping}
+            disabled={hasDuplicateChoices || mappedCount === 0}
+          >
+            Review {mappedCount} test{mappedCount === 1 ? '' : 's'}
           </button>
         </footer>
       </div>
@@ -1858,13 +1892,34 @@
     box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
   }
 
+  /* A page sharing its assessment with another: flag the whole card and its
+     picker so the reviewer can see exactly which ones collide. */
+  .mapping__row--dup {
+    border-color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 6%, transparent);
+  }
+
+  .mapping__select--dup {
+    border-color: var(--color-danger);
+  }
+  .mapping__select--dup:focus {
+    border-color: var(--color-danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 25%, transparent);
+  }
+
   .mapping__note {
     font-size: 0.8rem;
     color: var(--color-warning, #b45309);
   }
 
+  .mapping__note--dup {
+    color: var(--color-danger);
+    font-weight: 600;
+  }
+
   .mapping__footer {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: var(--space-3);
     padding: var(--space-4) var(--space-5);
@@ -1873,6 +1928,18 @@
     bottom: 0;
     background: var(--color-bg);
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+
+  /* Push the blocking note to the left, buttons stay right. */
+  .mapping__footer-note {
+    margin: 0 auto 0 0;
+    font-size: 0.85rem;
+    color: var(--color-danger);
+  }
+
+  .mapping__footer .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   @media (max-width: 720px) {
