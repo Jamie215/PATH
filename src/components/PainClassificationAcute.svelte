@@ -1,17 +1,22 @@
 <script lang="ts">
   /**
-   * Acute pain-classification collection page.
+   * Acute pain-classification collection page (professional view).
    *
-   * One card per child assessment, laid out in three columns: the assessment
-   * name, inline manual-entry inputs, and a "Fill Out Questionnaire" button
-   * that opens the child's survey in a modal. Each card also has an optional
-   * comment box; completing the questionnaire carries its comment over here.
+   * One card per child assessment. Each offers "Take the test" — which opens
+   * the child's survey in a modal, becoming "Edit the response" (pre-filled)
+   * once answered — a "Download test" answer sheet, inline manual-entry inputs,
+   * and an optional comment box.
+   *
+   * A whole completed-tests upload is handled separately, above the cards: the
+   * on-screen "all tests" PDF, a scanned PDF, or photos are read, routed to
+   * assessments, and stepped through a per-test confirmation review.
    *
    * A child is "complete" once all its numeric fields hold finite values,
-   * whether typed directly or populated by a finished questionnaire.
+   * whether typed directly or populated by a questionnaire/upload.
    * "Calculate Results" unlocks once every child is complete.
    *
-   * Guards: if no role is stored, redirects back to the intake.
+   * Guards: if no role is stored, redirects back to the intake. (Patients get
+   * PatientAssessmentFlow instead — see the `isPatient` branch.)
    */
   import { onMount } from 'svelte';
   import { get as storeGet, set as storeSet, remove as storeRemove } from '../lib/storage';
@@ -92,11 +97,9 @@
      *  wrong form (a photo can't be identity-checked the way a filled PDF is)
      *  or an unreadable/blank sheet — surfaced as a warning banner in review. */
     emptyScan?: boolean;
-    /** This review is one step of a combined "completed tests" upload (a filled
-     *  PDF split by namespace, or a scan/PDF packet split by page). For a filled
-     *  combined PDF, `pdfUrl` points at the shared document (not revoked between
-     *  steps); `queueRemaining` counts the tests still to confirm after this one. */
-    fromCombined?: boolean;
+    /** Every review is one step of a combined "completed tests" upload (a filled
+     *  PDF split by namespace, or a scan/PDF packet split by page).
+     *  `queueRemaining` counts the tests still to confirm after this one. */
     queueRemaining?: number;
     /** Zero-based page of the combined PDF this test sits on, so the side-by-side
      *  viewer opens straight to it instead of page 1. */
@@ -104,8 +107,8 @@
     attention: string[];
   } | null>(null);
 
-  // Combined "upload completed tests" state — a single PDF holding one or more
-  // filled sheets, split into a per-test review queue.
+  // Combined "upload completed tests" state — a filled PDF, a scanned PDF, or
+  // photos, split into a per-test review queue.
   // The upload modal (drag-and-drop / browse) is open.
   let combinedOpen = $state(false);
   let combinedDragActive = $state(false);
@@ -298,37 +301,30 @@
   }
 
   /**
-   * Open the review for a filled-PDF read. Carries the PDF's typed text
-   * (comments, bothersome area, patient name) into the same places a
-   * questionnaire's would, and shows the PDF side-by-side. `queueCtx` is set
-   * when this is one step of a combined upload (shared document, page to open).
+   * Open the review for one filled-PDF step of a combined upload. Carries the
+   * PDF's typed text (comments, bothersome area) into the same places a
+   * questionnaire's would, and shows the shared document opened to this test's
+   * page. `queueCtx` gives the page and how many steps remain.
    */
   function presentPdfReview(
     child: ChildAssessment,
     result: OmrReadResult,
     pdfUrl: string,
-    queueCtx?: { queueRemaining: number; page: number },
+    queueCtx: { queueRemaining: number; page: number },
   ): void {
     if (result.text?.other_comments) setComment(child.slug, result.text.other_comments);
-    if (result.text?.patient_name?.trim() && !storeGet<string>(KEYS.patientName)) {
-      storeSet(KEYS.patientName, result.text.patient_name.trim());
-    }
     const pdfArea =
       typeof result.text?.bothersome_area === 'string'
         ? sanitizeBothersomeArea(result.text.bothersome_area)
         : '';
-    if (pdfArea) {
-      areas = { ...areas, [child.slug]: pdfArea };
-      setArea(child.slug, pdfArea);
-    }
+    if (pdfArea) setArea(child.slug, pdfArea);
     if (child.roleKey && role) storeSet(child.roleKey, role);
     omrReview = {
       child,
       imageUrl: null,
       pdfUrl,
-      fromCombined: !!queueCtx,
-      queueRemaining: queueCtx?.queueRemaining,
-      pdfPage: queueCtx?.page,
+      queueRemaining: queueCtx.queueRemaining,
+      pdfPage: queueCtx.page,
       response: result.response,
       area: pdfArea || areas[child.slug],
       comments: result.text?.other_comments ?? comments[child.slug],
@@ -347,7 +343,7 @@
   function presentScanReview(
     child: ChildAssessment,
     result: OmrReadResult,
-    queueCtx?: { queueRemaining: number },
+    queueCtx: { queueRemaining: number },
   ): void {
     if (child.roleKey && role) storeSet(child.roleKey, role);
     // A scan carries handwriting crops to recognize.
@@ -386,28 +382,16 @@
       // or an unreadable sheet — the reader can't identity-check a photo, so we
       // flag it for the reviewer rather than presenting empty answers.
       emptyScan: Object.keys(result.response).length === 0,
-      fromCombined: !!queueCtx,
-      queueRemaining: queueCtx?.queueRemaining,
+      queueRemaining: queueCtx.queueRemaining,
       attention: result.attention,
     };
     if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
   }
 
-  /** Free the uploaded-PDF object URL, if any, before dropping the review. The
-   *  combined document's URL is shared across the queue and freed separately
-   *  (see `endCombinedReview`), so it is left alone here. */
-  function revokeReviewPdf(): void {
-    if (omrReview?.pdfUrl && !omrReview.fromCombined) URL.revokeObjectURL(omrReview.pdfUrl);
-  }
-
+  /** Closing a review step abandons the rest of the upload's queue and frees
+   *  the shared PDF (see `endCombinedReview`). */
   function closeReview(): void {
-    // Closing a combined step abandons the rest of the queue.
-    if (omrReview?.fromCombined) {
-      endCombinedReview();
-      omrReview = null;
-      return;
-    }
-    revokeReviewPdf();
+    endCombinedReview();
     omrReview = null;
   }
 
@@ -443,17 +427,12 @@
     if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
   }
 
-  /** The user confirmed the scanned answers via the embedded survey (which
-   *  has already scored and persisted the result); fold it into the card. In a
-   *  combined upload, advance to the next queued test instead of closing. */
+  /** The user confirmed a step's answers via the embedded survey (which has
+   *  already scored and persisted the result); fold it into the card, then
+   *  advance to the next queued test (or finish the queue). */
   function finishReview(child: ChildAssessment): void {
     finishQuestionnaire(child);
-    if (omrReview?.fromCombined) {
-      openNextReview();
-      return;
-    }
-    revokeReviewPdf();
-    omrReview = null;
+    openNextReview();
   }
 
   /** Open the combined "upload completed tests" modal. */
@@ -712,15 +691,14 @@
       presentScanReview(next.child, next.result, { queueRemaining: reviewQueue.length });
       return;
     }
-    // Digital combined step: reflect carried free-text on the card, then show
-    // the shared PDF opened to this test's page.
-    const { child } = next;
-    if (next.comments) setComment(child.slug, next.comments);
-    if (next.area) setArea(child.slug, next.area);
-    presentPdfReview(child, { ok: true, response: next.response, fields: [], warnings: [], attention: next.attention, text: buildCarriedText(next) }, combinedPdfUrl ?? '', {
-      queueRemaining: reviewQueue.length,
-      page: next.page,
-    });
+    // Digital combined step: presentPdfReview folds the carried free-text onto
+    // the card and shows the shared PDF opened to this test's page.
+    presentPdfReview(
+      next.child,
+      { ok: true, response: next.response, fields: [], warnings: [], attention: next.attention, text: buildCarriedText(next) },
+      combinedPdfUrl ?? '',
+      { queueRemaining: reviewQueue.length, page: next.page },
+    );
   }
 
   /** Reassemble the typed-text map a digital queue step carried, so
@@ -1104,9 +1082,7 @@
         <header class="modal__head">
           <div class="modal__head-row">
             <div>
-              {#if rv.fromCombined}
-                <p class="review__step">Test {combinedTotal - (rv.queueRemaining ?? 0)} of {combinedTotal} · {(rv.queueRemaining ?? 0) > 0 ? `${rv.queueRemaining} still to confirm` : 'last one'}</p>
-              {/if}
+              <p class="review__step">Test {combinedTotal - (rv.queueRemaining ?? 0)} of {combinedTotal} · {(rv.queueRemaining ?? 0) > 0 ? `${rv.queueRemaining} still to confirm` : 'last one'}</p>
               <h2 class="modal__title">Review {rv.imageUrl ? 'scanned' : 'filled'} {rv.child.shortName}</h2>
               <p class="modal__subtitle">
                 {rv.imageUrl
@@ -1165,7 +1141,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel={rv.fromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
+                submitLabel={(rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'briefslanss'}
@@ -1175,7 +1151,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel={rv.fromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
+                submitLabel={(rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'frebaq'}
@@ -1189,7 +1165,7 @@
                 areaCorrection={rv.areaCorrection}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel={rv.fromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
+                submitLabel={(rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {:else if rv.child.slug === 'phq4'}
@@ -1199,7 +1175,7 @@
                 commentsDetected={rv.commentsDetected}
                 attentionKeys={rv.attention}
                 onComplete={() => finishReview(rv.child)}
-                submitLabel={rv.fromCombined && (rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
+                submitLabel={(rv.queueRemaining ?? 0) > 0 ? 'Confirm & next' : 'Confirm'}
                 showProgress={false}
               />
             {/if}

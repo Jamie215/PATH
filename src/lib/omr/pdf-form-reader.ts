@@ -75,7 +75,7 @@ function readFormFields(
     return fail(
       'This PDF has no answer fields to read — it looks like a results report, ' +
         'not the answer sheet. Upload the answer sheet you downloaded ' +
-        '("Download OMR form"), filled in on-screen or scanned from print.',
+        '("Download test"), filled in on-screen or scanned from print.',
     );
   }
 

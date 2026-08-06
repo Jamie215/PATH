@@ -7,11 +7,13 @@
  *
  * The user reaches this from the hub, answers two intake questions
  * (pain type + role), and — for the acute pathway — lands on a collection
- * page where each child assessment can be satisfied two ways:
+ * page where each child assessment's result can come from any of:
  *
- *   1. "Fill Out Questionnaire" — opens the child's survey inline in a modal
- *      that writes its result back to this page, or
- *   2. Manual entry — the user types the child's result directly.
+ *   1. "Take the test" — the child's survey inline in a modal (pre-filled to
+ *      "Edit the response" once answered), which writes its result back here;
+ *   2. Manual entry — the user types the child's sub-scores directly; or
+ *   3. A completed-tests upload — one filled/scanned/photographed packet read
+ *      and routed to the children (handled by the collection page, not here).
  *
  * This file is the single source of truth shared by the collection page and
  * the scoring module (./scoring.ts), so wiring a child differently — or
@@ -68,10 +70,10 @@ export interface ChildAssessment {
    */
   fromResult: (result: unknown) => Record<string, number> | null;
   /**
-   * If set, this child can also be satisfied by uploading a scan/photo of its
-   * printed OMR answer sheet. The reader decodes the sheet against this
-   * template; the user then confirms via the child's own survey before it
-   * feeds the composite. Only MSI has a sheet today.
+   * If set, this child has a printable/fillable OMR answer sheet, and can be
+   * satisfied by uploading it (filled PDF, scan, or photo). The reader decodes
+   * the sheet against this template; the user then confirms via the child's own
+   * survey before it feeds the composite. All four acute children have a sheet.
    */
   omrTemplate?: OmrTemplate;
   /**
