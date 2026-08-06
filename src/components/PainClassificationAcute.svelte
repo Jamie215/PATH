@@ -147,7 +147,11 @@
     index: number;
     img: GrayImage;
     route: PageRoute;
+    /** Title-band crop — names the assessment. */
     thumb: string;
+    /** Taller crop through the Name/ID + Date line — shown when this page
+     *  collides with another so the two can be told apart. */
+    thumbWide: string;
     choiceId: string;
   };
   let mappingOpen = $state(false);
@@ -547,14 +551,16 @@
   const isPdfFile = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
 
   /**
-   * Crop the title band (top strip) of a flattened sheet — enough to read the
-   * assessment name, and far cheaper to encode than the whole page. Used for the
-   * page-mapping thumbnails; on a registered (warped) sheet the title sits in a
-   * fixed spot, so a constant top slice always catches it.
+   * Crop a horizontal band (normalized top→bottom fractions) from a flattened
+   * sheet. On a registered (warped) sheet the header sits in fixed spots, so a
+   * constant slice always catches it — far cheaper to encode than the whole
+   * page. The title alone (~0.03–0.14) names the assessment; extending to
+   * ~0.33 also catches the Name/ID + Date line, which the mapping step shows
+   * when two pages match the same assessment so they can be told apart.
    */
-  function titleStrip(img: GrayImage): GrayImage {
-    const top = Math.round(img.height * 0.03);
-    const bottom = Math.round(img.height * 0.14);
+  function cropBand(img: GrayImage, topNorm: number, bottomNorm: number): GrayImage {
+    const top = Math.round(img.height * topNorm);
+    const bottom = Math.round(img.height * bottomNorm);
     const h = Math.max(1, bottom - top);
     const data = new Uint8Array(img.width * h);
     for (let row = 0; row < h; row += 1) {
@@ -618,7 +624,8 @@
           index,
           img,
           route,
-          thumb: grayImageToDataURL(titleStrip(flattened)),
+          thumb: grayImageToDataURL(cropBand(flattened, 0.03, 0.14)),
+          thumbWide: grayImageToDataURL(cropBand(flattened, 0.03, 0.33)),
           choiceId: route.best?.template.id ?? '',
         };
       });
@@ -1076,7 +1083,14 @@
             {#each scanPages as p (p.index)}
               {@const duplicated = !!p.choiceId && duplicateChoiceIds.has(p.choiceId)}
               <li class="mapping__row" class:mapping__row--dup={duplicated}>
-                <img class="mapping__thumb" src={p.thumb} alt={`Title of scanned page ${p.index + 1}`} />
+                <img
+                  class="mapping__thumb"
+                  class:mapping__thumb--wide={duplicated}
+                  src={duplicated ? p.thumbWide : p.thumb}
+                  alt={duplicated
+                    ? `Title, name and date of scanned page ${p.index + 1}`
+                    : `Title of scanned page ${p.index + 1}`}
+                />
                 <div class="mapping__pick">
                   <label class="mapping__label" for={`map-${p.index}`}>Page {p.index + 1}</label>
                   <select
@@ -1856,6 +1870,13 @@
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm, 4px);
     background: #fff;
+  }
+
+  /* Conflicted rows show a taller crop (title through the name/date line), so
+     give it more height and anchor it to the top. */
+  .mapping__thumb--wide {
+    max-height: 220px;
+    object-position: left top;
   }
 
   @media (max-width: 620px) {
