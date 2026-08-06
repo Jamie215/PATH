@@ -53,6 +53,9 @@
   // child's stored response when it opens — so re-opening a completed test edits
   // the existing answers rather than starting blank.
   let modalInitialAnswers = $state<Record<string, number>>({});
+  // Bumped whenever a child's stored per-question answers change, so the card's
+  // "Edit the response" label (which reads storage) re-evaluates.
+  let answersVersion = $state(0);
 
   // The uploaded sheet awaiting the user's confirmation.
   let omrReview = $state<{
@@ -281,7 +284,17 @@
     if (typeof response?.bothersome_area === 'string' && response.bothersome_area) {
       areas = { ...areas, [child.slug]: response.bothersome_area };
     }
+    answersVersion += 1; // the child now has per-question answers stored
     modalChild = null;
+  }
+
+  /** Whether a child has stored per-question answers to edit — true after a
+   *  questionnaire, upload, or scan, but not for a result typed as manual
+   *  scores (which the questionnaire can't pre-fill). Reactive via
+   *  `answersVersion`, so the card label flips when answers are recorded. */
+  function childHasResponse(slug: string): boolean {
+    void answersVersion;
+    return Object.keys(storedAnswers(slug)).length > 0;
   }
 
   /**
@@ -794,7 +807,7 @@
               </div>
               <div class="card__actions">
                 <button type="button" class="btn btn--success card__btn" onclick={() => openQuestionnaire(child)}>
-                  {childComplete(child) ? 'Edit the response' : 'Take the test'}
+                  {childHasResponse(child.slug) ? 'Edit the response' : 'Take the test'}
                 </button>
                 {#if child.omrTemplate}
                   <OmrSheetButton template={child.omrTemplate} label="Download test" compact={true} />
