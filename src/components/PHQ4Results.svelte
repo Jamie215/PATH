@@ -75,7 +75,7 @@
         />
         <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdf.busy}>
           <span class="material-symbols-outlined" aria-hidden="true">download</span>
-          {pdf.busy ? 'Downloading…' : 'Download PDF'}
+          {pdf.busy ? 'Downloading…' : 'Download results'}
         </button>
       </label>
       {#if name.display}

@@ -756,7 +756,7 @@
         <div>
           <p class="bulk__title">Have completed tests from the patient?</p>
           <p class="bulk__desc">
-            Upload completed test(s), in PDF or photo(.png).
+            Upload completed test(s), in PDF or photo (.png).
           </p>
         </div>
       </div>
@@ -897,9 +897,8 @@
             <div>
               <h2 class="modal__title">Upload completed tests</h2>
               <p class="modal__subtitle">
-                What the patient filled out and shared: the on-screen "all tests"
-                PDF, a scan of the printed sheets, or photos of them. All four
-                tests, or just the ones they completed.
+                What the patient filled out and shared: the on-screen
+                PDFs, a scan of the printed sheets, or photos of them. It can be all or just the tests they completed.
               </p>
             </div>
             <button type="button" class="modal__close" aria-label="Close" onclick={closeCombinedUpload}>

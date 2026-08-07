@@ -2,7 +2,7 @@
  * Shared reactive helpers for assessment results views.
  *
  * Every results component renders a "Patient name / ID" field and a
- * "Download PDF" button with identical behavior — only the storage key and
+ * "Download results" button with identical behavior — only the storage key and
  * the PDF-producing call differ. These two small rune-based controllers own
  * that shared state and plumbing so each component supplies just the parts
  * unique to its assessment.
