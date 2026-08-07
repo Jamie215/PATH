@@ -9,13 +9,18 @@ All scoring runs client-side; no patient data leaves the browser.
 
 ## Status
 
-Milestone 1: scaffold + hub home. Individual assessments arrive in
-subsequent milestones.
+All current assessments are implemented and score client-side. The
+Sensory Profile and Anxiety & Depression screens are reached as steps
+within the Pain Classification composite rather than as standalone hub
+cards.
 
 | Assessment | Status |
 |---|---|
-| Multi-dimensional Symptom Index (MSI) | Planned |
-| Pain Classification Assessment | Planned |
+| Symptom Index (MSI) | Available |
+| Body Awareness (FreBAQ) | Available |
+| Sensory Profile (briefSLANSS) | Available (within Pain Classification) |
+| Anxiety & Depression (PHQ-4) | Available (within Pain Classification) |
+| Pain Classification Assessment | Available |
 
 ## Getting started
 
