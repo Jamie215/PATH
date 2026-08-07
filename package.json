@@ -15,9 +15,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@astrojs/svelte": "^7.1.0",
+    "@astrojs/svelte": "^9.0.1",
     "@huggingface/transformers": "^4.2.0",
-    "astro": "^5.16.0",
+    "astro": "^7.2.0",
     "chart.js": "^4.5.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.2.108",
