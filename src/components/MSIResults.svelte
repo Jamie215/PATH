@@ -12,7 +12,8 @@
    */
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
-  import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { get as storeGet } from '../lib/storage';
+  import { PatientNameField, PdfDownload } from '../lib/results.svelte';
   import type { MSIResult } from '../assessments/msi/scoring';
   import type { MSIRole } from '../assessments/msi/questions';
   import SomaticBarChart from './SomaticBarChart.svelte';
@@ -22,14 +23,8 @@
   let role = $state<MSIRole | null>(null);
   let loaded = $state(false);
 
-  // Patient name — bound to input; "Save" commits to displayedName which
-  // is what appears in the heading (and later in the PDF).
-  let nameInput = $state('');
-  let displayedName = $state('');
-
-  // PDF download state — busy flag prevents double-clicks during generation.
-  let pdfBusy = $state(false);
-  let pdfError = $state<string | null>(null);
+  const name = new PatientNameField('msi:patientName');
+  const pdf = new PdfDownload();
 
   const BAR_CANVAS_ID = 'msi-pdf-bar-chart';
   const RADAR_CANVAS_ID = 'msi-pdf-radar-chart';
@@ -37,29 +32,12 @@
   onMount(() => {
     result = storeGet<MSIResult>('msi:result');
     role = storeGet<MSIRole>('msi:role');
-    const savedName = storeGet<string>('msi:patientName');
-    if (savedName) {
-      nameInput = savedName;
-      displayedName = savedName;
-    }
+    name.load();
     loaded = true;
     if (!result || !role) {
       window.location.replace('/msi/');
     }
   });
-
-  function saveName(): void {
-    const trimmed = nameInput.trim();
-    displayedName = trimmed;
-    storeSet('msi:patientName', trimmed);
-  }
-
-  function handleNameKey(e: KeyboardEvent): void {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveName();
-    }
-  }
 
   /**
    * Generate the PDF report and trigger a download. The pdf-lib module
@@ -68,9 +46,9 @@
    */
   async function downloadPDF(): Promise<void> {
     if (!result || !role) return;
-    pdfBusy = true;
-    pdfError = null;
-    try {
+    const r = result;
+    const activeRole = role;
+    await pdf.run(async () => {
       const barCanvas = document.getElementById(BAR_CANVAS_ID) as HTMLCanvasElement | null;
       const radarCanvas = document.getElementById(RADAR_CANVAS_ID) as HTMLCanvasElement | null;
       if (!barCanvas || !radarCanvas) {
@@ -80,30 +58,15 @@
       const somaticBar = barCanvas.toDataURL('image/png');
       const radar = radarCanvas.toDataURL('image/png');
 
-      // Lazy-load pdf-lib only at download time.
       const { generateMSIReport, buildFilename } = await import('../lib/msi-pdf');
       const bytes = await generateMSIReport({
-        result,
-        role,
-        patientName: displayedName || nameInput.trim(),
+        result: r,
+        role: activeRole,
+        patientName: name.value,
         chartImages: { somaticBar, radar },
       });
-
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = buildFilename(displayedName || nameInput.trim());
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      // Defer revocation so the browser has time to start the download
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      pdfError = err instanceof Error ? err.message : 'Could not generate the PDF.';
-    } finally {
-      pdfBusy = false;
-    }
+      return { bytes, filename: buildFilename(name.value) };
+    });
   }
 
   /**
@@ -153,17 +116,17 @@
           class="name-row__input"
           type="text"
           placeholder="Enter name"
-          bind:value={nameInput}
-          onkeydown={handleNameKey}
-          oninput={saveName}
+          bind:value={name.input}
+          onkeydown={name.handleKey}
+          oninput={name.save}
         />
-        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdf.busy}>
           <span class="material-symbols-outlined" aria-hidden="true">download</span>
-          {pdfBusy ? 'Downloading…' : 'Download PDF'}
+          {pdf.busy ? 'Downloading…' : 'Download PDF'}
         </button>
       </label>
-      {#if displayedName}
-        <h2 class="name-display">{displayedName}</h2>
+      {#if name.display}
+        <h2 class="name-display">{name.display}</h2>
       {/if}
     </section>
 
@@ -289,8 +252,8 @@
       <a href="/" class="btn btn--secondary">Return to Home</a>
       <a href="/msi/" data-clear-session class="btn btn--primary">Redo Assessment</a>
     </div>
-    {#if pdfError}
-      <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>
+    {#if pdf.error}
+      <p class="pdf-error" role="alert">PDF download failed: {pdf.error}</p>
     {/if}
   </div>
 {/if}

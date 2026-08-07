@@ -13,7 +13,8 @@
   import AssessmentDate from './AssessmentDate.svelte';
   import SomaticBarChart from './SomaticBarChart.svelte';
   import SymptomRadarChart from './SymptomRadarChart.svelte';
-  import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { get as storeGet } from '../lib/storage';
+  import { PatientNameField, PdfDownload } from '../lib/results.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role } from '../assessments/pain-classification/config';
   import type { MSIResult } from '../assessments/msi/scoring';
   import {
@@ -38,13 +39,8 @@
   let msiNonsomatic = $state<number | null>(null);
   let msiRadar = $state<{ labels: string[]; values: number[] } | null>(null);
 
-  // Patient name — bound to input; "Save" commits to displayedName.
-  let nameInput = $state('');
-  let displayedName = $state('');
-
-  // PDF download state.
-  let pdfBusy = $state(false);
-  let pdfError = $state<string | null>(null);
+  const name = new PatientNameField(KEYS.patientName);
+  const pdf = new PdfDownload();
 
   onMount(() => {
     // The composite classification is for professionals only; a patient who
@@ -91,28 +87,11 @@
       (a, b) => b.prob - a.prob,
     );
 
-    const savedName = storeGet<string>(KEYS.patientName);
-    if (savedName) {
-      nameInput = savedName;
-      displayedName = savedName;
-    }
+    name.load();
     loaded = true;
   });
 
   const pct = (p: number): string => `${(p * 100).toFixed(1)}%`;
-
-  function saveName(): void {
-    const trimmed = nameInput.trim();
-    displayedName = trimmed;
-    storeSet(KEYS.patientName, trimmed);
-  }
-
-  function handleNameKey(e: KeyboardEvent): void {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveName();
-    }
-  }
 
   /**
    * Generate and download the composite PDF. pdf-lib is lazy-imported so the
@@ -120,32 +99,19 @@
    */
   async function downloadPDF(): Promise<void> {
     if (!result) return;
-    pdfBusy = true;
-    pdfError = null;
-    try {
+    const r = result;
+    await pdf.run(async () => {
       const { generatePainClassificationReport, buildFilename } = await import(
         '../lib/pain-classification-pdf'
       );
       const bytes = await generatePainClassificationReport({
-        classification: result.classification,
+        classification: r.classification,
         probs: probs.map((p) => ({ category: p.category, prob: p.prob })),
         rows,
-        patientName: displayedName || nameInput.trim(),
+        patientName: name.value,
       });
-      const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = buildFilename(displayedName || nameInput.trim());
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      pdfError = err instanceof Error ? err.message : 'Could not generate the PDF.';
-    } finally {
-      pdfBusy = false;
-    }
+      return { bytes, filename: buildFilename(name.value) };
+    });
   }
 </script>
 
@@ -163,13 +129,13 @@
           class="name-row__input"
           type="text"
           placeholder="Enter name"
-          bind:value={nameInput}
-          onkeydown={handleNameKey}
-          oninput={saveName}
+          bind:value={name.input}
+          onkeydown={name.handleKey}
+          oninput={name.save}
         />
-        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdf.busy}>
           <span class="material-symbols-outlined" aria-hidden="true">download</span>
-          {pdfBusy ? 'Downloading…' : 'Download PDF'}
+          {pdf.busy ? 'Downloading…' : 'Download PDF'}
         </button>
       </label>
     </section>
@@ -244,8 +210,8 @@
       <a href="/" class="btn btn--secondary">Return to Home</a>
       <a href="/pain-classification/" data-clear-session class="btn btn--primary">Redo Assessment</a>
     </div>
-    {#if pdfError}
-      <p class="results__pdf-error" role="alert">{pdfError}</p>
+    {#if pdf.error}
+      <p class="results__pdf-error" role="alert">{pdf.error}</p>
     {/if}
   </section>
 {/if}
