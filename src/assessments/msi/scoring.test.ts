@@ -20,7 +20,7 @@ interface Case {
   expected: MSIResult;
 }
 
-const cases = groundTruth as Case[];
+const cases = groundTruth as unknown as Case[];
 
 describe('MSI scoring — parity with Python reference', () => {
   for (const c of cases) {

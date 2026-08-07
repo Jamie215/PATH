@@ -23,7 +23,8 @@ export async function rasterizePdfToGray(blob: Blob): Promise<GrayImage[]> {
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
   const data = new Uint8Array(await blob.arrayBuffer());
-  const doc = await pdfjs.getDocument({ data }).promise;
+  const loadingTask = pdfjs.getDocument({ data });
+  const doc = await loadingTask.promise;
   const pages: GrayImage[] = [];
   try {
     for (let i = 1; i <= doc.numPages; i += 1) {
@@ -43,7 +44,9 @@ export async function rasterizePdfToGray(blob: Blob): Promise<GrayImage[]> {
       // clear region reads as paper, not black.
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, width, height);
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      // pdf.js v6 requires the canvas itself in the render params (not just
+      // its 2D context).
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
       const { data: rgba } = ctx.getImageData(0, 0, width, height);
       const gray = new Uint8Array(width * height);
@@ -55,7 +58,8 @@ export async function rasterizePdfToGray(blob: Blob): Promise<GrayImage[]> {
       page.cleanup();
     }
   } finally {
-    await doc.destroy();
+    // In pdf.js v6 the document is torn down via the loading task.
+    await loadingTask.destroy();
   }
   return pages;
 }

@@ -9,46 +9,24 @@
    */
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
-  import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { get as storeGet } from '../lib/storage';
+  import { PatientNameField, PdfDownload } from '../lib/results.svelte';
   import type { briefSLANSSResult } from '../assessments/briefslanss/scoring';
 
-  let result = $state<briefSLANSS | null>(null);
+  let result = $state<briefSLANSSResult | null>(null);
   let loaded = $state(false);
 
-  // Patient name — bound to input; "Save" commits to displayedName which
-  // is what appears in the heading (and later in the PDF).
-  let nameInput = $state('');
-  let displayedName = $state('');
-
-  // PDF download state — busy flag prevents double-clicks during generation.
-  let pdfBusy = $state(false);
-  let pdfError = $state<string | null>(null);
+  const name = new PatientNameField('briefslanss:patientName');
+  const pdf = new PdfDownload();
 
   onMount(() => {
     result = storeGet<briefSLANSSResult>('briefslanss:result');
-    const savedName = storeGet<string>('briefslanss:patientName');
-    if (savedName) {
-      nameInput = savedName;
-      displayedName = savedName;
-    }
+    name.load();
     loaded = true;
     if (!result) {
       window.location.replace('/briefslanss/');
     }
   });
-
-  function saveName(): void {
-    const trimmed = nameInput.trim();
-    displayedName = trimmed;
-    storeSet('briefslanss:patientName', trimmed);
-  }
-
-  function handleNameKey(e: KeyboardEvent): void {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveName();
-    }
-  }
 
   /**
    * Generate the PDF report and trigger a download. The pdf-lib module
@@ -57,31 +35,12 @@
    */
   async function downloadPDF(): Promise<void> {
     if (!result) return;
-    pdfBusy = true;
-    pdfError = null;
-    try {
-      // Lazy-load pdf-lib only at download time.
+    const r = result;
+    await pdf.run(async () => {
       const { generateBriefSLANSSReport, buildFilename } = await import('../lib/briefslanss-pdf');
-      const bytes = await generateBriefSLANSSReport({
-        result,
-        patientName: displayedName || nameInput.trim(),
-      });
-
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = buildFilename(displayedName || nameInput.trim());
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      // Defer revocation so the browser has time to start the download
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      pdfError = err instanceof Error ? err.message : 'Could not generate the PDF.';
-    } finally {
-      pdfBusy = false;
-    }
+      const bytes = await generateBriefSLANSSReport({ result: r, patientName: name.value });
+      return { bytes, filename: buildFilename(name.value) };
+    });
   }
 
   // Brief S-LANSS flips to "predominantly neuropathic" above 2 (see scoring.ts).
@@ -103,17 +62,17 @@
           class="name-row__input"
           type="text"
           placeholder="Enter name"
-          bind:value={nameInput}
-          onkeydown={handleNameKey}
-          oninput={saveName}
+          bind:value={name.input}
+          onkeydown={name.handleKey}
+          oninput={name.save}
         />
-        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdf.busy}>
           <span class="material-symbols-outlined" aria-hidden="true">download</span>
-          {pdfBusy ? 'Downloading…' : 'Download PDF'}
+          {pdf.busy ? 'Downloading…' : 'Download PDF'}
         </button>
       </label>
-      {#if displayedName}
-        <h2 class="name-display">{displayedName}</h2>
+      {#if name.display}
+        <h2 class="name-display">{name.display}</h2>
       {/if}
     </section>
 
@@ -141,8 +100,8 @@
       <a href="/" class="btn btn--secondary">Return to Home</a>
       <a href="/briefslanss/" data-clear-session class="btn btn--primary">Redo Assessment</a>
     </div>
-    {#if pdfError}
-      <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>
+    {#if pdf.error}
+      <p class="pdf-error" role="alert">PDF download failed: {pdf.error}</p>
     {/if}
   </div>
 {/if}

@@ -9,49 +9,27 @@
    */
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
-  import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { get as storeGet } from '../lib/storage';
+  import { PatientNameField, PdfDownload } from '../lib/results.svelte';
   import type { freBAQResult } from '../assessments/frebaq/scoring';
 
-  let result = $state<FreBAQ | null>(null);
+  let result = $state<freBAQResult | null>(null);
   let bothersomeArea = $state('');
   let loaded = $state(false);
 
-  // Patient name — bound to input; "Save" commits to displayedName which
-  // is what appears in the heading (and later in the PDF).
-  let nameInput = $state('');
-  let displayedName = $state('');
-
-  // PDF download state — busy flag prevents double-clicks during generation.
-  let pdfBusy = $state(false);
-  let pdfError = $state<string | null>(null);
+  const name = new PatientNameField('frebaq:patientName');
+  const pdf = new PdfDownload();
 
   onMount(() => {
     result = storeGet<freBAQResult>('frebaq:result');
     const response = storeGet<Record<string, unknown>>('frebaq:response');
     if (typeof response?.bothersome_area === 'string') bothersomeArea = response.bothersome_area;
-    const savedName = storeGet<string>('frebaq:patientName');
-    if (savedName) {
-      nameInput = savedName;
-      displayedName = savedName;
-    }
+    name.load();
     loaded = true;
     if (!result) {
       window.location.replace('/frebaq/');
     }
   });
-
-  function saveName(): void {
-    const trimmed = nameInput.trim();
-    displayedName = trimmed;
-    storeSet('frebaq:patientName', trimmed);
-  }
-
-  function handleNameKey(e: KeyboardEvent): void {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveName();
-    }
-  }
 
   /**
    * Generate the PDF report and trigger a download. The pdf-lib module
@@ -60,31 +38,12 @@
    */
   async function downloadPDF(): Promise<void> {
     if (!result) return;
-    pdfBusy = true;
-    pdfError = null;
-    try {
-      // Lazy-load pdf-lib only at download time.
+    const r = result;
+    await pdf.run(async () => {
       const { generateFreBAQReport, buildFilename } = await import('../lib/frebaq-pdf');
-      const bytes = await generateFreBAQReport({
-        result,
-        patientName: displayedName || nameInput.trim(),
-      });
-
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = buildFilename(displayedName || nameInput.trim());
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      // Defer revocation so the browser has time to start the download
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      pdfError = err instanceof Error ? err.message : 'Could not generate the PDF.';
-    } finally {
-      pdfBusy = false;
-    }
+      const bytes = await generateFreBAQReport({ result: r, patientName: name.value });
+      return { bytes, filename: buildFilename(name.value) };
+    });
   }
 
   // FreBAQ has no firm validated cutoff; flag the upper half of the 0–24 range
@@ -107,17 +66,17 @@
           class="name-row__input"
           type="text"
           placeholder="Enter name"
-          bind:value={nameInput}
-          onkeydown={handleNameKey}
-          oninput={saveName}
+          bind:value={name.input}
+          onkeydown={name.handleKey}
+          oninput={name.save}
         />
-        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdfBusy}>
+        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdf.busy}>
           <span class="material-symbols-outlined" aria-hidden="true">download</span>
-          {pdfBusy ? 'Downloading…' : 'Download PDF'}
+          {pdf.busy ? 'Downloading…' : 'Download PDF'}
         </button>
       </label>
-      {#if displayedName}
-        <h2 class="name-display">{displayedName}</h2>
+      {#if name.display}
+        <h2 class="name-display">{name.display}</h2>
       {/if}
     </section>
 
@@ -154,8 +113,8 @@
       <a href="/" class="btn btn--secondary">Return to Home</a>
       <a href="/frebaq/" data-clear-session class="btn btn--primary">Redo Assessment</a>
     </div>
-    {#if pdfError}
-      <p class="pdf-error" role="alert">PDF download failed: {pdfError}</p>
+    {#if pdf.error}
+      <p class="pdf-error" role="alert">PDF download failed: {pdf.error}</p>
     {/if}
   </div>
 {/if}

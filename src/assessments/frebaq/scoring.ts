@@ -19,13 +19,14 @@ export type Experience = 0 | 1 | 2 | 3 | 4;
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export interface freBAQResponse {
-  [key: `${Symptom}_exp`]: Experience;
+export type freBAQResponse = {
+  [K in `${Symptom}_exp`]: Experience;
+} & {
   /** Free-text body region the respondent named as most bothersome. Context
    *  only — not scored. */
   bothersome_area?: string;
   other_comments?: string;
-}
+};
 
 /**
  * Result shape — identical keys to the original Python return dict so it
