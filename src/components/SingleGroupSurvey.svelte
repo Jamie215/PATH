@@ -370,7 +370,7 @@
         {missing.length} question{missing.length === 1 ? '' : 's'} still to answer.
       </p>
     {/if}
-    <button type="submit" class="btn btn--primary actions__submit">
+    <button type="submit" class="btn btn--next actions__submit">
       {submitLabel}
       {#if submitIcon}
         <span class="material-symbols-outlined" aria-hidden="true">{submitIcon}</span>
@@ -542,7 +542,6 @@
   }
 
   .area__confirm:disabled {
-    opacity: 0.5;
     cursor: not-allowed;
   }
 

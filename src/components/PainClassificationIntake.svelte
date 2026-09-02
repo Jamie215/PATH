@@ -37,7 +37,12 @@
 </script>
 
 <section class="intake">
-  <BackLink />
+  <!-- This is the tool's entry page (reached from the hub), so "Go back"
+       always returns to the hub. Using history.back() here can instead send
+       the user *forward* into the questionnaire, because the collect/survey
+       pages link back here with a plain <a href> that pushes a new history
+       entry, leaving the questionnaire ahead of this page in history. -->
+  <BackLink onBack={() => { window.location.href = '/'; }} />
   <h1 class="intake__heading">Pain Classification</h1>
   <p class="intake__lede">
     A composite assessment that combines the Symptom Index, Sensory Profile,
@@ -96,7 +101,7 @@
     </div>
 
     <div class="intake__actions">
-      <button type="button" class="btn btn--primary intake__next" disabled={!role} onclick={proceed}>
+      <button type="button" class="btn btn--next intake__next" disabled={!role} onclick={proceed}>
         Next
       </button>
     </div>
@@ -188,7 +193,6 @@
   }
 
   .intake__next:disabled {
-    opacity: 0.5;
     cursor: not-allowed;
   }
 
