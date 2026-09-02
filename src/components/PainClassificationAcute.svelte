@@ -13,7 +13,7 @@
    *
    * A child is "complete" once all its numeric fields hold finite values,
    * whether typed directly or populated by a questionnaire/upload.
-   * "Calculate results" unlocks once every child is complete.
+   * "See results" unlocks once every child is complete.
    *
    * Guards: if no role is stored, redirects back to the intake. (Patients get
    * PatientAssessmentFlow instead — see the `isPatient` branch.)
@@ -744,7 +744,7 @@
   {:else}
   <section class="collect">
     <a class="collect__back" href="/pain-classification/">&larr; Go back</a>
-    <h1 class="collect__heading">Acute Pain Classification</h1>
+    <h1 class="collect__heading">Pain Classification</h1>
     <p class="collect__lede">
       Provide a result for each of the four assessments below — either enter
       known results, take the test directly, or upload completed tests.
@@ -842,8 +842,8 @@
           {ACUTE_CHILDREN.length - doneCount} of {ACUTE_CHILDREN.length} assessments still need a result.
         </p>
       {/if}
-      <button type="button" class="btn btn--primary collect__calc" disabled={!allDone} onclick={proceed}>
-        Calculate results
+      <button type="button" class="btn btn--next collect__calc" disabled={!allDone} onclick={proceed}>
+        See results
       </button>
     </div>
   </section>
@@ -1917,7 +1917,6 @@
   }
 
   .mapping__footer .btn:disabled {
-    opacity: 0.5;
     cursor: not-allowed;
   }
 

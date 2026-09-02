@@ -154,6 +154,28 @@ button {
   background: var(--color-primary-tint-soft);
 }
 
+/* Forward / results actions — "Next", "See results", and the like. A lighter
+   purple sets them apart from the royal-purple primary. Defined after the
+   variants above so it wins on equal-specificity (including :hover). */
+.btn--next {
+  background: #793CC8;
+  color: white;
+}
+.btn--next:hover { background: #8B54D1; }
+.btn--next:active { background: #6832AB; }
+
+/* Disabled buttons read as grey, never a faded tint of their active colour.
+   Placed after every variant so it overrides their background and hover. */
+.btn:disabled,
+.btn[disabled],
+.btn:disabled:hover,
+.btn[disabled]:hover {
+  background: var(--color-border);
+  color: var(--color-text-subtle);
+  border-color: var(--color-border);
+  cursor: not-allowed;
+}
+
 /* Compact, full-width button. Single source of truth so paired controls
    (e.g. the Download / Upload OMR form buttons) stay identical in size. */
 .btn--compact-block {
