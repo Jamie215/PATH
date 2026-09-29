@@ -8,12 +8,14 @@
  * the UI can pre-select the most likely assessment and let the reviewer confirm
  * or override it before the page enters review.
  *
- * It builds only on the DOM-free `readSheet`, so it's unit-testable headlessly
- * against synthetic sheets.
+ * It builds only on the DOM-free reader, so it's unit-testable headlessly
+ * against synthetic sheets. Corner detection and warping — the expensive part
+ * — run once per distinct sheet geometry (all current templates share one),
+ * not once per template.
  */
 import type { GrayImage, OmrReadResult } from './types';
 import type { OmrTemplate } from '../../assessments/omr/types';
-import { readSheet } from './reader';
+import { geometryKey, readRectified, rectify, type Rectified } from './reader';
 
 /** One template's read of a page, with a fit score (higher = better match). */
 export interface RouteCandidate {
@@ -59,12 +61,19 @@ const MIN_CONFIDENT_SCORE = 1;
 
 /**
  * Read one page against every template and rank the fits. The `result` on each
- * candidate is a full `readSheet` outcome (warped image, text crops, response),
+ * candidate is a full sheet read (warped image, text crops, response),
  * so the chosen one feeds review directly with no re-read.
  */
 export function routePage(img: GrayImage, templates: OmrTemplate[]): PageRoute {
+  const rectified = new Map<string, Rectified>();
   const candidates: RouteCandidate[] = templates.map((template) => {
-    const result = readSheet(img, template);
+    const key = geometryKey(template);
+    let rect = rectified.get(key);
+    if (!rect) {
+      rect = rectify(img, template);
+      rectified.set(key, rect);
+    }
+    const result = readRectified(rect, template);
     return { template, score: scoreRead(result), result };
   });
   candidates.sort((a, b) => b.score - a.score);

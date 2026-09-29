@@ -78,7 +78,7 @@ export async function generatePainClassificationReport(input: PDFInput): Promise
 
 /** Filename suggestion — sanitized for filesystem safety. */
 export function buildFilename(patientName: string): string {
-  return kitBuildFilename('pain_classification_Results', patientName);
+  return kitBuildFilename('Pain_Classification_Results', patientName);
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +155,7 @@ function drawInputs(ctx: Ctx, rows: PDFInputRow[]): void {
     drawText(ctx, row.shortName, { bold: true, size: 11, color: COLOR_TEXT });
     moveDown(ctx, 16);
     for (const [label, val] of row.entries) {
+      ensureSpace(ctx, 15);
       drawText(ctx, label, { x: MARGIN_X + 12, size: 10, color: COLOR_MUTED });
       drawRightText(ctx, String(val), { size: 10, bold: true });
       moveDown(ctx, 15);

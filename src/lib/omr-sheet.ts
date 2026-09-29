@@ -16,16 +16,20 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFForm } from 'pdf-lib';
 import type { OmrTemplate, OmrSection, OmrColumnGroup } from '../assessments/omr/types';
 
-const COLOR_INK = rgb(0, 0, 0);
-const COLOR_TEXT = rgb(0.12, 0.12, 0.12);
-const COLOR_PRIMARY = rgb(0.31, 0.149, 0.514); // #4F2683
-const COLOR_MUTED = rgb(0.361, 0.361, 0.361);
-const COLOR_SUBTLE = rgb(0.533, 0.533, 0.533);
-const COLOR_HAIRLINE = rgb(0.88, 0.88, 0.88); // eye-tracking separators
-const COLOR_TINT = rgb(0.961, 0.941, 0.98); // #F5F0FA callout background
-const COLOR_TINT_BORDER = rgb(0.82, 0.76, 0.9); // callout border
+import {
+  COLOR_MUTED,
+  COLOR_PRIMARY,
+  COLOR_SUBTLE,
+  COLOR_TEXT,
+  COLOR_TINT,
+  MARGIN_X,
+  wrapText,
+} from './pdf/report-kit';
 
-const MARGIN_X = 50;
+// Sheet-only colours; the shared palette comes from the report kit.
+const COLOR_INK = rgb(0, 0, 0);
+const COLOR_HAIRLINE = rgb(0.88, 0.88, 0.88); // eye-tracking separators
+const COLOR_TINT_BORDER = rgb(0.82, 0.76, 0.9); // callout border
 
 interface Ctx {
   doc: PDFDocument;
@@ -45,24 +49,6 @@ interface Ctx {
 const toX = (ctx: Ctx, xNorm: number): number => xNorm * ctx.pageW;
 /** Normalized top-left y → point y (flip to pdf-lib's bottom-left origin). */
 const toY = (ctx: Ctx, yNorm: number): number => ctx.pageH - yNorm * ctx.pageH;
-
-/** Greedy word-wrap `text` to fit `maxWidth` at the given font/size. */
-function wrapText(text: string, maxWidth: number, font: PDFFont, size: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = candidate;
-    }
-  }
-  if (current) lines.push(current);
-  return lines.length ? lines : [''];
-}
 
 /** Draw text centered horizontally on a point x. */
 function drawCentered(
@@ -87,7 +73,7 @@ function drawBubbleGlyph(
   ctx: Ctx,
   cxPt: number,
   cyPt: number,
-  kind: 'filled' | 'empty' | 'crossed',
+  kind: 'filled' | 'crossed',
   radiusPt = 5,
 ): void {
   ctx.page.drawCircle({ x: cxPt, y: cyPt, size: radiusPt, borderColor: COLOR_INK, borderWidth: 1 });
@@ -157,7 +143,7 @@ function renderSheet(
   for (const section of template.sections) {
     gridContentBottomY = Math.min(gridContentBottomY, drawSection(ctx, section, template));
   }
-  drawFooter(ctx, template);
+  drawFooterOn(ctx, ctx.page, template);
   drawCommentBox(ctx, template, gridContentBottomY);
 
   if (options.answers) fillAnswers(form, options.answers, ctx.fieldPrefix);
@@ -619,10 +605,6 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): numb
   });
 
   return contentBottomY;
-}
-
-function drawFooter(ctx: Ctx, template: OmrTemplate): void {
-  drawFooterOn(ctx, ctx.page, template);
 }
 
 function drawFooterOn(ctx: Ctx, page: PDFPage, template: OmrTemplate): void {

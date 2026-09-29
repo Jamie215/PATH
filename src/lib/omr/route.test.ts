@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { routePage, scoreRead } from './route';
-import { readSheet } from './reader';
+import { readSheet, geometryKey } from './reader';
 import { renderSyntheticSheet } from './__fixtures__/synth';
 import { MSI_OMR_TEMPLATE } from '../../assessments/msi/omr-template';
 import { BRIEFSLANSS_OMR_TEMPLATE } from '../../assessments/briefslanss/omr-template';
@@ -53,5 +53,13 @@ describe('routePage', () => {
     // A blank image with no fiducials can't be located → readSheet fails.
     const blank = { width: 200, height: 260, data: new Uint8Array(200 * 260).fill(255) };
     expect(scoreRead(readSheet(blank, MSI_OMR_TEMPLATE))).toBe(-Infinity);
+  });
+});
+
+describe('shared sheet geometry', () => {
+  it('all assessment sheets share one page/fiducial layout (routing rectifies once)', () => {
+    // Not required for correctness — routing handles differing layouts — but
+    // a new sheet with its own layout would make every page cost another warp.
+    expect(new Set(ALL.map(geometryKey)).size).toBe(1);
   });
 });

@@ -18,7 +18,6 @@ import {
   buildFilename as kitBuildFilename,
   createReport,
   drawComments,
-  drawHeader,
   drawRule,
   drawSectionHeading,
   drawText,
@@ -33,11 +32,7 @@ import {
   COLOR_TINT,
   COLOR_WARNING,
   CONTENT_W,
-  MARGIN_BOTTOM,
-  MARGIN_TOP,
   MARGIN_X,
-  PAGE_H,
-  PAGE_W,
   type Ctx,
 } from './pdf/report-kit';
 
@@ -179,14 +174,8 @@ function drawScreening(ctx: Ctx, result: MSIResult): void {
 }
 
 function drawCharts(ctx: Ctx, barImg: PDFImage, radarImg: PDFImage): void {
-  // Charts together need ~ 480pt of vertical space. Force a new page
-  // if we don't have room (rather than half-chart at bottom of page).
-  if (ctx.y - 480 < MARGIN_BOTTOM) {
-    ctx.page = ctx.doc.addPage([PAGE_W, PAGE_H]);
-    ctx.pageNum += 1;
-    ctx.y = PAGE_H - MARGIN_TOP;
-    drawHeader(ctx, { compact: true });
-  }
+  // Charts together need ~480pt; start a new page rather than split them.
+  ensureSpace(ctx, 480);
 
   drawSectionHeading(ctx, 'Charts');
 
@@ -194,7 +183,6 @@ function drawCharts(ctx: Ctx, barImg: PDFImage, radarImg: PDFImage): void {
   const barTargetW = CONTENT_W;
   const barAspect = barImg.height / barImg.width;
   const barTargetH = Math.min(barTargetW * barAspect, 160);
-  moveDown(ctx, 0);
   ctx.page.drawImage(barImg, {
     x: MARGIN_X,
     y: ctx.y - barTargetH,

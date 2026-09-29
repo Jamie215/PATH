@@ -1,56 +1,32 @@
 # Deploying PATH to Cloudflare Pages
 
-One-time setup, then every push to `main` deploys automatically.
+The site is a static Astro build. Every push to `main` deploys automatically;
+pull requests get their own preview URLs without affecting production.
 
-## 1. Push the scaffold to GitHub
+## Cloudflare Pages settings
+
+In **Workers & Pages** → the PATH project → **Settings**:
+
+- **Framework preset:** Astro
+- **Build command:** `npm run build`
+- **Build output directory:** `dist`
+- **Root directory:** *(empty)*
+- **Environment variable:** `NODE_VERSION = 22` — Astro 7 and pdf.js 6
+  need Node 22.13 or later; an older default fails the build.
+
+## Setting up from scratch
+
+If the project ever needs recreating: in Cloudflare, **Workers & Pages** →
+**Create** → **Pages** → **Connect to Git**, authorize GitHub, select
+**Jamie215/PATH**, and use the settings above. The first build takes about a
+minute and yields a `*.pages.dev` URL. Update `site` in `astro.config.mjs`
+to the production URL.
+
+## Before pushing
+
+Cloudflare only runs the build. Type errors and failing tests are caught by
+the GitHub Actions CI workflow on each pull request, or locally with:
 
 ```bash
-cd path
-git init
-git add .
-git commit -m "Scaffold: Astro + Svelte + hub home"
-git branch -M main
-git remote add origin https://github.com/Jamie215/PATH.git
-git push -u origin main
+npm run check && npm test && npm run build
 ```
-
-If the repo already has a `README.md` on `main` and the push is
-rejected, either pull first (`git pull origin main --allow-unrelated-histories`)
-or force-push (`git push -u origin main --force`) if you're sure
-you want the scaffold's README to win.
-
-## 2. Connect Cloudflare Pages
-
-1. Sign in to [Cloudflare](https://dash.cloudflare.com). The free
-   account is sufficient.
-2. In the sidebar: **Workers & Pages** → **Create** → **Pages** →
-   **Connect to Git**.
-3. Authorize Cloudflare to access GitHub, then select **Jamie215/PATH**.
-4. Set up build:
-   - **Framework preset:** Astro
-   - **Build command:** `npm run build`
-   - **Build output directory:** `dist`
-   - **Root directory:** *(leave empty)*
-5. Click **Save and Deploy**.
-
-The first build takes about a minute. When it succeeds you'll get a
-URL like `path-xxx.pages.dev`.
-
-## 3. Subsequent deploys
-
-Push to `main` → Cloudflare builds and deploys automatically.
-Pull requests get their own preview URLs without affecting production.
-
-## Troubleshooting
-
-**Build fails on Cloudflare but works locally**
-
-Cloudflare Pages uses Node 20 by default but a different default can
-cause mismatches. To pin the Node version, add an environment variable
-in Pages settings: `NODE_VERSION = 20`.
-
-**TypeScript errors in CI**
-
-Astro doesn't type-check during build by default, so most TS issues
-won't break the deploy. To catch them earlier, run `npx astro check`
-locally before pushing.
