@@ -12,6 +12,8 @@
    * collection page (this view is only meaningful once all four are done).
    */
   import { onMount } from 'svelte';
+  import { PdfDownload } from '../lib/results.svelte';
+  import { buildCompletedSheets } from '../lib/completed-sheets';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
   import { summarizeChild, type ChildSummary } from '../assessments/pain-classification/summary';
@@ -24,8 +26,7 @@
 
   let loaded = $state(false);
   let summaries = $state<AssessmentSummary[]>([]);
-  let downloadBusy = $state(false);
-  let downloadError = $state<string | null>(null);
+  const sheets = new PdfDownload();
 
   // Patient name / ID — bound to the input, persisted so it survives an edit
   // round-trip and pre-fills the downloaded answer sheets.
@@ -74,35 +75,8 @@
    * carrying their own answers, no scores) and download it. Generated on click
    * so the page stays light; a busy state covers the short build.
    */
-  async function download(): Promise<void> {
-    downloadBusy = true;
-    downloadError = null;
-    try {
-      const { generateCombinedAnswerSheets, buildCombinedAnswerSheetFilename } = await import('../lib/omr-sheet');
-      const today = new Date().toLocaleDateString();
-      const name = nameInput.trim();
-      const entries = ACUTE_CHILDREN.filter((c) => c.omrTemplate).map((c) => {
-        const response = storeGet<Record<string, number | string>>(`${c.slug}:response`) ?? {};
-        return {
-          template: c.omrTemplate!,
-          answers: { ...response, patient_date: today, ...(name ? { patient_name: name } : {}) },
-        };
-      });
-      const bytes = await generateCombinedAnswerSheets(entries);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = buildCombinedAnswerSheetFilename();
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      downloadError = err instanceof Error ? err.message : 'Could not prepare the download.';
-    } finally {
-      downloadBusy = false;
-    }
+  function download(): Promise<void> {
+    return sheets.run(() => buildCompletedSheets(nameInput));
   }
 </script>
 
@@ -141,15 +115,15 @@
         type="button"
         class="btn btn--primary review__download"
         onclick={download}
-        disabled={downloadBusy}
+        disabled={sheets.busy}
       >
         <span class="material-symbols-outlined" aria-hidden="true">download</span>
-        {downloadBusy ? 'Preparing…' : 'Download my responses'}
+        {sheets.busy ? 'Preparing…' : 'Download my responses'}
       </button>
     </div>
 
-    {#if downloadError}
-      <p class="review__error" role="alert">{downloadError}</p>
+    {#if sheets.error}
+      <p class="review__error" role="alert">{sheets.error}</p>
     {/if}
 
     {#each summaries as a, i (a.slug)}

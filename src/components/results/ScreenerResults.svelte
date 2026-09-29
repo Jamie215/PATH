@@ -7,7 +7,7 @@
    * "most bothersome area", and comments. Cutoffs, bands and report copy all
    * come from the screener's spec — nothing clinical is defined here.
    */
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import AssessmentDate from '../AssessmentDate.svelte';
   import ResultsHeader from './ResultsHeader.svelte';
   import ResultsActions from './ResultsActions.svelte';
@@ -21,16 +21,15 @@
   }
 
   let { slug }: Props = $props();
-  // The spec is fixed for the lifetime of the page.
-  // svelte-ignore state_referenced_locally
-  const spec = SCREENER_REPORTS[slug];
-  const homeHref = `/${slug}/`;
+  const spec = $derived(SCREENER_REPORTS[slug]);
+  const homeHref = $derived(`/${slug}/`);
 
   let result = $state<ScreenerResult | null>(null);
   let bothersomeArea = $state('');
   let loaded = $state(false);
 
-  const name = new PatientNameField(`${slug}:patientName`);
+  // The slug is fixed for the page's lifetime, so the storage key is too.
+  const name = new PatientNameField(untrack(() => `${slug}:patientName`));
   const pdf = new PdfDownload();
 
   onMount(() => {

@@ -7,6 +7,7 @@
    * page until someone actually prints a sheet.
    */
   import type { OmrTemplate } from '../assessments/omr/types';
+  import { PdfDownload } from '../lib/results.svelte';
 
   let { template, label = 'Download a copy', compact = false }: {
     template: OmrTemplate;
@@ -15,44 +16,28 @@
     compact?: boolean;
   } = $props();
 
-  let busy = $state(false);
-  let error = $state<string | null>(null);
+  const sheet = new PdfDownload();
 
-  async function download(): Promise<void> {
-    busy = true;
-    error = null;
-    try {
+  function download(): Promise<void> {
+    return sheet.run(async () => {
       const { generateAnswerSheet, buildAnswerSheetFilename } = await import('../lib/omr-sheet');
-      const bytes = await generateAnswerSheet(template);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = buildAnswerSheetFilename(template);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Could not generate the answer sheet.';
-    } finally {
-      busy = false;
-    }
+      return { bytes: await generateAnswerSheet(template), filename: buildAnswerSheetFilename(template) };
+    });
   }
 </script>
 
 <div class="omr-sheet" class:omr-sheet--compact={compact}>
-  <button type="button" class="btn btn--secondary omr-sheet__btn" class:btn--compact-block={compact} onclick={download} disabled={busy}>
+  <button type="button" class="btn btn--secondary omr-sheet__btn" class:btn--compact-block={compact} onclick={download} disabled={sheet.busy}>
     <span class="material-symbols-outlined" aria-hidden="true">download</span>
-    {busy ? 'Preparing…' : label}
+    {sheet.busy ? 'Preparing…' : label}
   </button>
   {#if !compact}
     <p class="omr-sheet__hint">
       Print, fill out by hand, then scan or photograph it to enter results.
     </p>
   {/if}
-  {#if error}
-    <p class="omr-sheet__error" role="alert">Could not generate the sheet: {error}</p>
+  {#if sheet.error}
+    <p class="omr-sheet__error" role="alert">Could not generate the sheet: {sheet.error}</p>
   {/if}
 </div>
 
