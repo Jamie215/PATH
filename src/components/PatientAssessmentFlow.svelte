@@ -17,10 +17,7 @@
   import { PdfDownload } from '../lib/results.svelte';
   import { buildCompletedSheets } from '../lib/completed-sheets';
   import { get as storeGet, set as storeSet } from '../lib/storage';
-  import MSISurvey from './MSISurvey.svelte';
-  import BriefSLANSSSurvey from './BriefSLANSSSurvey.svelte';
-  import FreBAQSurvey from './FreBAQSurvey.svelte';
-  import PHQ4Survey from './PHQ4Survey.svelte';
+  import ChildSurvey from './pain-classification/ChildSurvey.svelte';
   import BackLink from './BackLink.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
 
@@ -73,10 +70,6 @@
       window.location.replace('/pain-classification/');
       return;
     }
-    // MSI is role-gated: its survey redirects if no role is stored, so seed the
-    // role key(s) before any survey renders.
-    for (const c of ACUTE_CHILDREN) if (c.roleKey) storeSet(c.roleKey, role);
-
     // Deep link from the review view to edit one specific test.
     const editSlug = new URLSearchParams(window.location.search).get('edit');
     if (editSlug) {
@@ -131,7 +124,7 @@
 {#snippet downloadButton()}
   <button
     type="button"
-    class="btn btn--primary flow__download"
+    class="btn btn--next flow__download"
     onclick={downloadAll}
     disabled={sheets.busy}
   >
@@ -145,11 +138,11 @@
     <BackLink fallback="/pain-classification/" />
 
     {#if !editingSingle}
-      <!-- Guidance for the full four-test walk-through, with the download beside it. -->
+      <!-- Guidance for the full walk-through, with the download beside it. -->
       <h1 class="flow__heading">Pain Classification</h1>
       <div class="flow__intro">
         <p class="flow__instructions">
-          Fill out all four assessments below. Once they're complete, you can review your responses.
+          Fill out all {total} assessments below. Once they're complete, you can review your responses.
           Alternatively, you can download the tests as a PDF to fill out separately and forward to
           your healthcare professional.
         </p>
@@ -192,59 +185,22 @@
       <p class="flow__error" role="alert">{sheets.error}</p>
     {/if}
 
-    <h1 class="flow__title">{step + 1}. {child.shortName}</h1>
+    <svelte:element this={editingSingle ? 'h1' : 'h2'} class="flow__title">{step + 1}. {child.shortName}</svelte:element>
 
     {#key child.slug}
-      {#if child.slug === 'msi'}
-        <MSISurvey
-          initialAnswers={initial.answers}
-          initialComments={initial.comments}
-          onComplete={() => handleComplete(child)}
-          onBack={showStepBack ? back : undefined}
-          {backLabel}
-          {submitLabel}
-          {submitIcon}
-          showProgress={false}
-          bind:progress={surveyProgress}
-        />
-      {:else if child.slug === 'briefslanss'}
-        <BriefSLANSSSurvey
-          initialAnswers={initial.answers}
-          initialComments={initial.comments}
-          onComplete={() => handleComplete(child)}
-          onBack={showStepBack ? back : undefined}
-          {backLabel}
-          {submitLabel}
-          {submitIcon}
-          showProgress={false}
-          bind:progress={surveyProgress}
-        />
-      {:else if child.slug === 'frebaq'}
-        <FreBAQSurvey
-          initialAnswers={initial.answers}
-          initialArea={initial.area}
-          initialComments={initial.comments}
-          onComplete={() => handleComplete(child)}
-          onBack={showStepBack ? back : undefined}
-          {backLabel}
-          {submitLabel}
-          {submitIcon}
-          showProgress={false}
-          bind:progress={surveyProgress}
-        />
-      {:else if child.slug === 'phq4'}
-        <PHQ4Survey
-          initialAnswers={initial.answers}
-          initialComments={initial.comments}
-          onComplete={() => handleComplete(child)}
-          onBack={showStepBack ? back : undefined}
-          {backLabel}
-          {submitLabel}
-          {submitIcon}
-          showProgress={false}
-          bind:progress={surveyProgress}
-        />
-      {/if}
+      <ChildSurvey
+        slug={child.slug}
+        initialAnswers={initial.answers}
+        initialArea={initial.area}
+        initialComments={initial.comments}
+        onComplete={() => handleComplete(child)}
+        onBack={showStepBack ? back : undefined}
+        {backLabel}
+        {submitLabel}
+        {submitIcon}
+        showProgress={false}
+        bind:progress={surveyProgress}
+      />
     {/key}
   </section>
 {/if}
@@ -287,7 +243,6 @@
 
   .flow__download {
     flex-shrink: 0;
-    background: #793CC8;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
@@ -339,12 +294,12 @@
 
   .flow__step--current .flow__step-num {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-bg);
   }
 
   .flow__step--done .flow__step-num {
     background: var(--color-success);
-    color: #fff;
+    color: var(--color-bg);
   }
 
   .flow__seg {

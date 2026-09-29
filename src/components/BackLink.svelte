@@ -13,15 +13,21 @@
    * Pass `onBack` to override the navigation with a custom handler, e.g. the
    * pain-classification flow steps back through its in-page tests rather than
    * touching browser history.
+   *
+   * Pass `href` to make it a plain link to a fixed parent page instead — used
+   * by entry pages, where history.back() could send the user *forward* into a
+   * survey that linked back here.
    */
   let {
     label = 'Go back',
     onBack,
+    href,
     fallback = '/',
     variant = 'link',
   }: {
     label?: string;
     onBack?: () => void;
+    href?: string;
     fallback?: string;
     variant?: 'link' | 'button';
   } = $props();
@@ -39,16 +45,28 @@
   }
 </script>
 
-<button
-  type="button"
-  class="back-link"
-  class:back-link--link={variant === 'link'}
-  class:back-link--button={variant === 'button'}
-  onclick={handleClick}
->
-  <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-  {label}
-</button>
+{#if href}
+  <a
+    {href}
+    class="back-link"
+    class:back-link--link={variant === 'link'}
+    class:back-link--button={variant === 'button'}
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+    {label}
+  </a>
+{:else}
+  <button
+    type="button"
+    class="back-link"
+    class:back-link--link={variant === 'link'}
+    class:back-link--button={variant === 'button'}
+    onclick={handleClick}
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+    {label}
+  </button>
+{/if}
 
 <style>
   .back-link {

@@ -9,9 +9,15 @@
    * An optional `areaField` renders a free-text "most bothersome area" input
    * above the questions (currently only FreBAQ); when absent that block and all
    * its area-* props are simply unused.
+   *
+   * When `onComplete` is supplied (the survey is embedded in a parent flow), it
+   * is called after scoring instead of navigating to the standalone results
+   * page. The scored result is persisted to sessionStorage either way.
    */
   import RatingScale from './RatingScale.svelte';
-  import BackLink from './BackLink.svelte';
+  import SurveyShell from './survey/SurveyShell.svelte';
+  import QuestionItem from './survey/QuestionItem.svelte';
+  import type { EmbeddedSurveyProps } from './survey/types';
   import { set as storeSet } from '../lib/storage';
 
   interface Question {
@@ -22,37 +28,42 @@
     description?: string;
   }
 
-  /**
-   * When `onComplete` is supplied (e.g. the survey is embedded in a modal
-   * from a parent composite assessment), it is called after scoring instead
-   * of navigating to the standalone results page. The scored result is still
-   * persisted to sessionStorage either way, so `onComplete` can read it back.
-   */
+  interface Props extends EmbeddedSurveyProps {
+    questions: readonly Question[];
+    experienceOptions: readonly { value: number; label: string }[];
+    intro: string;
+    /** sessionStorage key prefix; the survey writes `${slug}:response`/`:result`. */
+    slug: string;
+    /** Standalone results page to navigate to when not embedded. */
+    resultsUrl: string;
+    /** Scores a built response record into the assessment's result object. */
+    score: (response: Record<string, number | string>) => unknown;
+    /** Enables the free-text "most bothersome area" field above the questions. */
+    areaField?: { label: string; placeholder: string };
+    /** Normalizes the area text before it is stored (e.g. FreBAQ's sanitizer). */
+    sanitizeArea?: (text: string) => string;
+    /** Fully normalizes a confirmed area (punctuation + leading "my"/"the"
+     *  strip). Falls back to sanitizeArea when absent. */
+    normalizeArea?: (text: string) => string;
+    /** Rewrites a question label to reference the confirmed area (e.g. FreBAQ's
+     *  "the area" → "my right knee"). */
+    personalizeArea?: (label: string, area: string) => string;
+  }
+
   let {
-    // --- Assessment configuration (supplied by the wrapper) ---
     questions,
     experienceOptions,
     intro,
-    /** sessionStorage key prefix; the survey writes `${slug}:response`/`:result`. */
     slug,
-    /** Standalone results page to navigate to when not embedded. */
     resultsUrl,
-    /** Scores a built response record into the assessment's result object. */
     score,
-    /** Enables the free-text "most bothersome area" field above the questions. */
     areaField,
-    /** Normalizes the area text before it is stored (e.g. FreBAQ's sanitizer). */
     sanitizeArea,
-    /** Fully normalizes a confirmed area (punctuation + leading "my"/"the"
-     *  strip). Falls back to sanitizeArea when absent. */
     normalizeArea,
-    /** Rewrites a question label to reference the confirmed area (e.g. FreBAQ's
-     *  "the area" → "my right knee"). */
     personalizeArea,
-    // --- Runtime props (embedding parent / scan review) ---
     onComplete,
     onBack,
-    backLabel = 'Back',
+    backLabel,
     submitLabel = 'See results',
     submitIcon,
     showProgress = true,
@@ -60,83 +71,41 @@
     initialAnswers,
     initialArea,
     initialComments,
+    review = false,
     requireArea,
     commentsDetected,
     areaCropUrl,
     areaCorrection,
     attentionKeys,
-  }: {
-    questions: readonly Question[];
-    experienceOptions: readonly { value: number; label: string }[];
-    intro: string;
-    slug: string;
-    resultsUrl: string;
-    score: (response: Record<string, number | string>) => unknown;
-    areaField?: { label: string; placeholder: string };
-    sanitizeArea?: (text: string) => string;
-    normalizeArea?: (text: string) => string;
-    personalizeArea?: (label: string, area: string) => string;
-    onComplete?: () => void;
-    /** When supplied (e.g. the survey is a step in a composite flow), render a
-     *  back control beside the submit button that invokes this handler. */
-    onBack?: () => void;
-    /** Label for the back control (e.g. "Previous test", "Back to review"). */
-    backLabel?: string;
-    submitLabel?: string;
-    /** Optional Material Symbol rendered after the submit label (e.g.
-     *  "arrow_forward" on the composite flow's "Next test" button). */
-    submitIcon?: string;
-    /** Hide the in-survey progress bar (e.g. when a parent shows it instead). */
-    showProgress?: boolean;
-    /** Bindable completion fraction (0–1), so an embedding parent can render it. */
-    progress?: number;
-    /** Pre-fill answers (e.g. from an OMR-scanned sheet being confirmed). */
-    initialAnswers?: Record<string, number>;
-    /** Pre-fill the bothersome-area text (e.g. from a filled/scanned sheet). */
-    initialArea?: string;
-    /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
-    initialComments?: string;
-    /** The scanned bothersome-area region carried content, so the reviewer must
-     *  confirm it: highlight the field and require it to stay filled. */
-    requireArea?: boolean;
-    /** The scanned comments region had ink, so highlight the field for
-     *  attention. Optional — never blocks submission (comments aren't OCR'd, so
-     *  there's nothing to verify, only a nudge to transcribe if relevant). */
-    commentsDetected?: boolean;
-    /** Zoomed crop of the scanned bothersome-area handwriting, pinned next to
-     *  the field so the reviewer can transcribe/verify it directly. */
-    areaCropUrl?: string;
-    /** Correction-mark outcome for the area crop: `cleaned` = marks were
-     *  removed before reading (verify); `unread` = marks dominated, so it must
-     *  be entered from the crop. Drives the field's hint text. */
-    areaCorrection?: 'cleaned' | 'unread';
-    /** Answer keys flagged by the OMR read; matching questions are highlighted. */
-    attentionKeys?: string[];
-  } = $props();
+  }: Props = $props();
+
+  const uid = $props.id();
+  const areaId = `${uid}-area`;
+  const questionId = (symptom: string) => `${uid}-q-${symptom}`;
 
   const normalize = (text: string): string =>
     normalizeArea ? normalizeArea(text) : sanitizeArea ? sanitizeArea(text) : text.trim();
 
-  // A scan/PDF review arrives with pre-filled answers to confirm; the fresh
-  // "take the test" flow does not. The two differ in how the area field behaves
-  // (see below), so decide once up front.
-  const isReview = Object.keys(initialAnswers ?? {}).length > 0;
-
+  // Seed from the initial props once; afterwards the form owns its state.
+  // svelte-ignore state_referenced_locally
   let answers = $state<Record<string, number>>({ ...(initialAnswers ?? {}) });
   // `area` is the live text in the input; `confirmedArea` is the value woven
-  // into the questions — it only changes when the user presses "Use this area"
+  // into the questions — it only changes when the user presses "Confirm"
   // (or, in review, tracks the live text so scanned edits reflect immediately).
+  // svelte-ignore state_referenced_locally
   let area = $state(initialArea ?? '');
+  // svelte-ignore state_referenced_locally
   let confirmedArea = $state(initialArea ? normalize(initialArea) : '');
   // Whether the area input is expanded for (re-)entry. Fresh flow starts open
   // when nothing is confirmed yet; the user can reopen it via "Change area".
   let editingArea = $state(false);
+  // svelte-ignore state_referenced_locally
   let comments = $state(initialComments ?? '');
   let submitAttempted = $state(false);
 
   // In review the questions personalize from the live text (there's no confirm
-  // step); in the fresh flow they follow the confirmed value.
-  const activeArea = $derived(isReview ? area : confirmedArea);
+  // step); otherwise they follow the confirmed value.
+  const activeArea = $derived(review ? area : confirmedArea);
 
   function confirmArea(): void {
     const normalized = normalize(area);
@@ -146,62 +115,40 @@
     editingArea = false;
   }
 
-  function editArea(): void {
-    editingArea = true;
-  }
-
-  function setAnswer(key: string, value: number): void {
-    // Fresh object so Svelte 5 picks up the change reliably
-    answers = { ...answers, [key]: value };
-  }
-
   // Each symptom needs exactly one answer (no follow-ups).
-  const missing = $derived(
-    questions.filter((q) => answers[`${q.symptom}_exp`] === undefined),
-  );
-
-  const isComplete = $derived(missing.length === 0);
+  const missing = $derived(questions.filter((q) => answers[`${q.symptom}_exp`] === undefined));
 
   // With an area field, the rated items reference that area (e.g. FreBAQ's "the
   // area feels lopsided"), so keep the questions hidden until the user confirms
-  // one: the questions then read with the specific region instead of a generic
-  // placeholder. This gate is for the fresh "take the test" flow only — a
-  // scan/PDF review arrives with pre-filled answers to confirm (area may have
-  // been left blank on the sheet), so it's never gated.
-  const questionsReady = $derived(!areaField || isReview || confirmedArea.trim().length > 0);
+  // one. A review of an uploaded sheet is never gated: it arrives with answers
+  // to confirm, and the area may have been left blank on the sheet.
+  const questionsReady = $derived(!areaField || review || confirmedArea.trim().length > 0);
 
-  // The area input is expanded when reviewing (its rich crop/hint UI), while
+  // The area input is expanded when reviewing (its crop/hint UI), while
   // (re-)entering, or before anything is confirmed. Otherwise it collapses to a
   // one-line summary with a "Change area" button.
-  const showAreaInput = $derived(isReview || editingArea || confirmedArea.trim().length === 0);
+  const showAreaInput = $derived(review || editingArea || confirmedArea.trim().length === 0);
 
   // The bothersome-area field must be filled because the scanned region had
   // ink. Comments are only highlighted for attention, never required.
   const areaMissing = $derived(submitAttempted && !!requireArea && area.trim().length === 0);
 
-  const totalQuestions = $derived(questions.length);
-  const answeredQuestions = $derived(
-    Object.values(answers).filter((v) => v !== undefined).length,
-  );
-
   // Report progress up so an embedding parent (e.g. the modal header) can
   // render the bar itself.
   $effect(() => {
-    progress = totalQuestions > 0 ? Math.min(1, answeredQuestions / totalQuestions) : 0;
+    progress = questions.length > 0 ? (questions.length - missing.length) / questions.length : 0;
   });
 
-  function handleSubmit(e: Event): void {
-    e.preventDefault();
+  function submit(): void {
     submitAttempted = true;
-    if (!isComplete) {
-      // Scroll the first missing question into view
-      const firstMissing = missing[0];
-      const el = document.getElementById(`q-${firstMissing.symptom}`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (missing.length > 0) {
+      document
+        .getElementById(questionId(missing[0].symptom))
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (requireArea && !area.trim()) {
-      document.getElementById('bothersome_area')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById(areaId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -209,201 +156,125 @@
     if (areaField) {
       // Store the confirmed value in the fresh flow; in review the live text is
       // the source of truth (there's no confirm step).
-      const cleanedArea = normalize(isReview ? area : confirmedArea);
-      if (cleanedArea.length > 0) {
-        response.bothersome_area = cleanedArea;
-      }
+      const cleanedArea = normalize(review ? area : confirmedArea);
+      if (cleanedArea.length > 0) response.bothersome_area = cleanedArea;
     }
-    if (comments.trim().length > 0) {
-      response.other_comments = comments.trim();
-    }
+    if (comments.trim().length > 0) response.other_comments = comments.trim();
 
-    const result = score(response);
     storeSet(`${slug}:response`, response);
-    storeSet(`${slug}:result`, result);
-    if (onComplete) {
-      onComplete();
-      return;
-    }
-    window.location.href = resultsUrl;
+    storeSet(`${slug}:result`, score(response));
+    if (onComplete) onComplete();
+    else window.location.href = resultsUrl;
   }
 </script>
 
-<form class="survey" onsubmit={handleSubmit} novalidate>
-  {#if showProgress}
-    <div class="survey__progress" aria-hidden="true">
-      <div
-        class="survey__progress-bar"
-        style:width={`${Math.min(100, (answeredQuestions / totalQuestions) * 100)}%`}
-      ></div>
-    </div>
-  {/if}
-
-  <p class="survey__intro">{intro}</p>
-
-  {#if areaField}
-    {#if showAreaInput}
-      <div class="area">
-        <label for="bothersome_area" class="area__label">
-          {areaField.label}
-          {#if requireArea}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
-        </label>
-        <div class="area__row">
-          <input
-            id="bothersome_area"
-            class="area__input"
-            class:field--error={areaMissing}
-            class:field--flagged={requireArea && !areaMissing}
-            type="text"
-            bind:value={area}
-            placeholder={areaField.placeholder}
-            onkeydown={(e) => { if (!isReview && e.key === 'Enter') { e.preventDefault(); confirmArea(); } }}
-          />
-          {#if !isReview}
-            <button
-              type="button"
-              class="btn btn--primary area__confirm"
-              onclick={confirmArea}
-              disabled={area.trim().length === 0}
-            >
-              Confirm
-            </button>
-          {/if}
-        </div>
-        {#if areaCropUrl}
-          <figure class="area__crop">
-            <figcaption class="area__crop-label">From the scanned sheet</figcaption>
-            <img class="area__crop-img" src={areaCropUrl} alt="Scanned handwriting for the most bothersome area" />
-          </figure>
-        {/if}
-        {#if areaMissing}
-          <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
-        {:else if areaCorrection === 'unread'}
-          <p class="field__hint">Correction marks made this hard to read automatically — please enter it from the scan above.</p>
-        {:else if areaCorrection === 'cleaned'}
-          <p class="field__hint">Possible correction marks were removed before reading — please verify against the scan.</p>
-        {:else if requireArea}
-          <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
-        {:else if !isReview}
-          <p class="field__hint">The questions below will refer to “{area.trim() ? area.trim().toLowerCase() : '…'}”.</p>
-        {/if}
-      </div>
-    {:else}
-      <div class="area-summary">
-        <span class="area-summary__text">
-          Bothersome area: <strong>my {confirmedArea}</strong>
-        </span>
-        <button type="button" class="btn btn--secondary area-summary__change" onclick={editArea}>
-          Change area
-        </button>
-      </div>
-    {/if}
-  {/if}
-
-  {#if areaField && !questionsReady}
-    <p class="survey__gate">Enter your most bothersome area above and press “Confirm” to see the questions.</p>
-  {:else}
-  <ol class="survey__list">
-    {#each questions as q, i (q.symptom)}
-      {@const expKey = `${q.symptom}_exp`}
-      {@const expValue = answers[expKey] ?? null}
-      {@const flagMissing = submitAttempted && expValue === null}
-      {@const flagged = (attentionKeys?.includes(expKey) ?? false) && expValue === null}
-      {@const title = personalizeArea ? personalizeArea(q.symptomLabel, activeArea) : q.symptomLabel}
-
-      <li class="question" class:question--flagged={flagged} id={`q-${q.symptom}`}>
-        <div class="question__head">
-          <span class="question__num" class:question__num--flagged={flagged}>{i + 1}</span>
-          <div class="question__body">
-            <h3 class="question__title">{title}</h3>
-            {#if q.description}
-              <p class="question__desc">{q.description}</p>
-            {/if}
-            {#if flagged}
-              <span class="question__flag">
-                <span class="material-symbols-outlined" aria-hidden="true">error</span>
-                Scan unclear here — please confirm from your sheet
-              </span>
+<SurveyShell
+  {intro}
+  {progress}
+  {showProgress}
+  bind:comments
+  {commentsDetected}
+  showFooter={questionsReady}
+  missingCount={missing.length}
+  {submitAttempted}
+  {submitLabel}
+  {submitIcon}
+  {onBack}
+  {backLabel}
+  onSubmit={submit}
+>
+  {#snippet header()}
+    {#if areaField}
+      {#if showAreaInput}
+        <div class="area">
+          <label for={areaId} class="area__label">
+            {areaField.label}
+            {#if requireArea}<span class="req" title="Written on the sheet — please confirm">*</span>{/if}
+          </label>
+          <div class="area__row">
+            <input
+              id={areaId}
+              class="area__input"
+              class:field--error={areaMissing}
+              class:field--flagged={requireArea && !areaMissing}
+              type="text"
+              bind:value={area}
+              placeholder={areaField.placeholder}
+              onkeydown={(e) => { if (!review && e.key === 'Enter') { e.preventDefault(); confirmArea(); } }}
+            />
+            {#if !review}
+              <button
+                type="button"
+                class="btn btn--primary area__confirm"
+                onclick={confirmArea}
+                disabled={area.trim().length === 0}
+              >
+                Confirm
+              </button>
             {/if}
           </div>
+          {#if areaCropUrl}
+            <figure class="area__crop">
+              <figcaption class="area__crop-label">From the scanned sheet</figcaption>
+              <img class="area__crop-img" src={areaCropUrl} alt="Scanned handwriting for the most bothersome area" />
+            </figure>
+          {/if}
+          {#if areaMissing}
+            <p class="field__error">This was written on the scanned sheet — please enter it from the scan.</p>
+          {:else if areaCorrection === 'unread'}
+            <p class="field__hint">Correction marks made this hard to read automatically — please enter it from the scan above.</p>
+          {:else if areaCorrection === 'cleaned'}
+            <p class="field__hint">Possible correction marks were removed before reading — please verify against the scan.</p>
+          {:else if requireArea}
+            <p class="field__hint">From the scanned sheet — please verify against the scan.</p>
+          {:else if !review}
+            <p class="field__hint">The questions below will refer to “{area.trim() ? area.trim().toLowerCase() : '…'}”.</p>
+          {/if}
         </div>
-
-        <RatingScale
-          label={`Experience of ${title}`}
-          options={experienceOptions}
-          value={expValue}
-          name={expKey}
-          onChange={(v) => setAnswer(expKey, v)}
-        />
-        {#if flagMissing}
-          <p class="question__error">Please select an option.</p>
-        {/if}
-      </li>
-    {/each}
-  </ol>
-
-  <div class="comments">
-    <label for="other_comments" class="comments__label">
-      If there is anything you would like to say about these or any other symptoms, please enter below.
-    </label>
-    <textarea
-      id="other_comments"
-      class="comments__input"
-      class:field--flagged={commentsDetected}
-      rows="4"
-      bind:value={comments}
-      placeholder={commentsDetected ? 'A comment was detected on the scan — transcribe it here if relevant' : 'Optional'}
-    ></textarea>
-    {#if commentsDetected}
-      <p class="field__hint">A comment was detected on the scanned sheet — transcribe it here if relevant (optional).</p>
-    {/if}
-  </div>
-
-  <div class="actions">
-    {#if onBack}
-      <div class="actions__back">
-        <BackLink {onBack} label={backLabel} variant="button" />
-      </div>
-    {/if}
-    {#if submitAttempted && !isComplete}
-      <p class="actions__hint">
-        {missing.length} question{missing.length === 1 ? '' : 's'} still to answer.
-      </p>
-    {/if}
-    <button type="submit" class="btn btn--next actions__submit">
-      {submitLabel}
-      {#if submitIcon}
-        <span class="material-symbols-outlined" aria-hidden="true">{submitIcon}</span>
+      {:else}
+        <div class="area-summary">
+          <span class="area-summary__text">
+            Bothersome area: <strong>my {confirmedArea}</strong>
+          </span>
+          <button type="button" class="btn btn--secondary area-summary__change" onclick={() => (editingArea = true)}>
+            Change area
+          </button>
+        </div>
       {/if}
-    </button>
-  </div>
+    {/if}
+  {/snippet}
+
+  {#if !questionsReady}
+    <p class="survey__gate">Enter your most bothersome area above and press “Confirm” to see the questions.</p>
+  {:else}
+    <ol class="survey-list">
+      {#each questions as q, i (q.symptom)}
+        {@const expKey = `${q.symptom}_exp`}
+        {@const expValue = answers[expKey] ?? null}
+        {@const title = personalizeArea ? personalizeArea(q.symptomLabel, activeArea) : q.symptomLabel}
+        <QuestionItem
+          id={questionId(q.symptom)}
+          number={i + 1}
+          {title}
+          description={q.description}
+          flagged={(attentionKeys?.includes(expKey) ?? false) && expValue === null}
+        >
+          <RatingScale
+            label={`Experience of ${title}`}
+            options={experienceOptions}
+            value={expValue}
+            onChange={(v) => (answers[expKey] = v)}
+          />
+          {#if submitAttempted && expValue === null}
+            <p class="field__error">Please select an option.</p>
+          {/if}
+        </QuestionItem>
+      {/each}
+    </ol>
   {/if}
-</form>
+</SurveyShell>
 
 <style>
-  .survey__progress {
-    position: sticky;
-    top: 0;
-    height: 4px;
-    background: var(--color-border);
-    border-radius: 999px;
-    overflow: hidden;
-    margin-bottom: var(--space-6);
-    z-index: 10;
-  }
-
-  .survey__progress-bar {
-    height: 100%;
-    background: var(--color-primary);
-    transition: width 0.2s ease-out;
-  }
-
-  .survey__intro {
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-6);
-    font-size: 0.95rem;
-  }
-
   .survey__gate {
     color: var(--color-text-muted);
     font-size: 0.95rem;
@@ -412,92 +283,6 @@
     border-radius: var(--radius-md);
     background: var(--color-bg-subtle);
     text-align: center;
-  }
-
-  .survey__list {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 var(--space-7) 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
-  }
-
-  .question {
-    border-top: 1px solid var(--color-border);
-    padding-top: var(--space-5);
-  }
-
-  .question--flagged {
-    background: var(--color-warning-tint);
-    box-shadow: inset 3px 0 0 var(--color-warning);
-    border-radius: var(--radius-md);
-    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
-    margin: 0 calc(-1 * var(--space-4));
-    border-top-color: transparent;
-  }
-
-  .question__num--flagged {
-    background: var(--color-warning);
-    color: #fff;
-  }
-
-  .question__flag {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    margin-top: var(--space-2);
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--color-warning);
-  }
-
-  .question__flag .material-symbols-outlined {
-    font-size: 1rem;
-  }
-
-  .question__head {
-    display: flex;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
-  }
-
-  .question__num {
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    border-radius: 999px;
-    background: var(--color-primary-tint-ghost);
-    color: var(--color-primary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.9rem;
-  }
-
-  .question__body {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .question__title {
-    font-size: 1.02rem;
-    font-weight: 600;
-    margin: 0 0 var(--space-1) 0;
-    line-height: 1.4;
-  }
-
-  .question__desc {
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    margin: 0;
-  }
-
-  .question__error {
-    color: var(--color-danger);
-    font-size: 0.9rem;
-    margin: var(--space-2) 0 0 0;
   }
 
   .area {
@@ -592,87 +377,9 @@
     image-rendering: crisp-edges;
   }
 
-  .comments {
-    border-top: 1px solid var(--color-border);
-    padding-top: var(--space-5);
-    margin-bottom: var(--space-6);
-  }
-
   .req {
     color: var(--color-danger);
     font-weight: 700;
     margin-left: 2px;
-  }
-
-  .field--error {
-    border-color: var(--color-danger) !important;
-  }
-
-  .field__error {
-    color: var(--color-danger);
-    font-size: 0.85rem;
-    margin: var(--space-2) 0 0 0;
-  }
-
-  .field--flagged {
-    border-color: var(--color-warning) !important;
-    background: var(--color-warning-tint);
-  }
-
-  .field__hint {
-    color: var(--color-warning);
-    font-size: 0.85rem;
-    margin: var(--space-2) 0 0 0;
-  }
-
-  .comments__label {
-    display: block;
-    font-size: 0.95rem;
-    font-weight: 500;
-    margin-bottom: var(--space-3);
-  }
-
-  .comments__input {
-    width: 100%;
-    padding: var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.95rem;
-    resize: vertical;
-    background: var(--color-bg);
-    color: var(--color-text);
-  }
-
-  .comments__input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    align-items: stretch;
-    gap: var(--space-3);
-  }
-
-  /* Push the back control to the left so the submit button stays right-aligned. */
-  .actions__back {
-    margin-right: auto;
-    align-self: center;
-  }
-
-  .actions__hint {
-    color: var(--color-danger);
-    font-size: 0.9rem;
-    margin: 0;
-    text-align: center;
-  }
-
-  .actions__submit {
-    align-self: center;
-    padding: var(--space-3) var(--space-7);
-    font-size: 1rem;
   }
 </style>

@@ -6,6 +6,7 @@
    * the area field) and forwards the embedding/scan-review props through.
    */
   import SingleGroupSurvey from './SingleGroupSurvey.svelte';
+  import type { EmbeddedSurveyProps } from './survey/types';
   import { QUESTIONS, EXPERIENCE_OPTIONS } from '../assessments/frebaq/questions';
   import { score, type FreBAQResponse } from '../assessments/frebaq/scoring';
   import {
@@ -14,7 +15,7 @@
     normalizeBothersomeArea,
   } from '../assessments/frebaq/area';
 
-  let { progress = $bindable(0), ...rest } = $props();
+  let { progress = $bindable(0), ...rest }: EmbeddedSurveyProps = $props();
 </script>
 
 <SingleGroupSurvey

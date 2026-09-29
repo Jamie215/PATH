@@ -3,16 +3,19 @@
    * Renders the 10 MSI symptom questions, each with a conditional
    * "how bothersome" follow-up shown only when frequency > 0.
    *
-   * On submit, the response is scored client-side, stored in
-   * sessionStorage along with the user's role, and the user is
-   * routed to the results page.
+   * On submit, the response is scored client-side and stored in
+   * sessionStorage; the user is routed to the results page, or — when
+   * `onComplete` is supplied (the survey is embedded in a parent flow) —
+   * that callback runs instead.
    *
-   * Guards against missing intake: if no role is found in storage,
-   * redirects back to /msi/.
+   * `requireRole` (the standalone /msi/survey/ page) sends the user back to
+   * the MSI intake if no role was chosen; embedded uses don't need a role.
    */
   import { onMount } from 'svelte';
   import RatingScale from './RatingScale.svelte';
-  import BackLink from './BackLink.svelte';
+  import SurveyShell from './survey/SurveyShell.svelte';
+  import QuestionItem from './survey/QuestionItem.svelte';
+  import type { EmbeddedSurveyProps } from './survey/types';
   import {
     QUESTIONS,
     FREQUENCY_OPTIONS,
@@ -22,16 +25,15 @@
   import { score, type MSIResponse } from '../assessments/msi/scoring';
   import { get as storeGet, set as storeSet } from '../lib/storage';
 
-  /**
-   * When `onComplete` is supplied (e.g. the survey is embedded in a modal
-   * from a parent composite assessment), it is called after scoring instead
-   * of navigating to the standalone results page. The scored result is still
-   * persisted to sessionStorage either way, so `onComplete` can read it back.
-   */
+  interface Props extends EmbeddedSurveyProps {
+    requireRole?: boolean;
+  }
+
   let {
+    requireRole = false,
     onComplete,
     onBack,
-    backLabel = 'Back',
+    backLabel,
     submitLabel = 'See results',
     submitIcon,
     showProgress = true,
@@ -40,439 +42,151 @@
     initialComments,
     commentsDetected,
     attentionKeys,
-  }: {
-    onComplete?: () => void;
-    /** When supplied (e.g. the survey is a step in a composite flow), render a
-     *  back control beside the submit button that invokes this handler. */
-    onBack?: () => void;
-    /** Label for the back control (e.g. "Previous test", "Back to review"). */
-    backLabel?: string;
-    submitLabel?: string;
-    /** Optional Material Symbol rendered after the submit label (e.g.
-     *  "arrow_forward" on the composite flow's "Next test" button). */
-    submitIcon?: string;
-    /** Hide the in-survey progress bar (e.g. when a parent shows it instead). */
-    showProgress?: boolean;
-    /** Bindable completion fraction (0–1), so an embedding parent can render it. */
-    progress?: number;
-    /**
-     * Pre-fill the answers (e.g. from an OMR-scanned sheet the user is
-     * confirming). Keys are `<symptom>_freq` / `<symptom>_interference`.
-     */
-    initialAnswers?: Record<string, number>;
-    /** Pre-fill the comments text (e.g. from a filled/scanned sheet). */
-    initialComments?: string;
-    /** The scanned comments region had ink, so highlight the field for
-     *  attention. Optional — never blocks submission (comments aren't OCR'd, so
-     *  there's nothing to verify, only a nudge to transcribe if relevant). */
-    commentsDetected?: boolean;
-    /**
-     * Answer keys the OMR read flagged for review (blank, contested, or a
-     * missing follow-up). The matching questions are highlighted until the
-     * user resolves them.
-     */
-    attentionKeys?: string[];
-  } = $props();
+  }: Props = $props();
 
-  type AnswerKey =
-    | `${(typeof QUESTIONS)[number]['symptom']}_freq`
-    | `${(typeof QUESTIONS)[number]['symptom']}_interference`;
+  const uid = $props.id();
+  const questionId = (symptom: string) => `${uid}-q-${symptom}`;
 
-  let answers = $state<Partial<Record<AnswerKey, number>>>({
-    ...(initialAnswers as Partial<Record<AnswerKey, number>> | undefined),
-  });
+  // Seed from the initial props once; afterwards the form owns its state.
+  // svelte-ignore state_referenced_locally
+  let answers = $state<Record<string, number>>({ ...(initialAnswers ?? {}) });
+  // svelte-ignore state_referenced_locally
   let comments = $state(initialComments ?? '');
   let submitAttempted = $state(false);
-  let roleConfirmed = $state(false);
+  let ready = $state(false);
 
   onMount(() => {
-    const role = storeGet<MSIRole>('msi:role');
-    if (!role) {
+    if (requireRole && !storeGet<MSIRole>('msi:role')) {
       window.location.replace('/msi/');
       return;
     }
-    roleConfirmed = true;
+    ready = true;
   });
 
-  function setAnswer(key: AnswerKey, value: number): void {
-    // Mutate a fresh object so Svelte 5 picks up the change reliably
-    const next = { ...answers, [key]: value };
-    // If frequency drops to 0, drop the matching interference value too
-    if (key.endsWith('_freq') && value === 0) {
-      const interfKey = key.replace('_freq', '_interference') as AnswerKey;
-      delete next[interfKey];
-    }
-    answers = next;
+  function setFrequency(symptom: string, value: number): void {
+    answers[`${symptom}_freq`] = value;
+    // A symptom that never occurs has no bothersomeness rating.
+    if (value === 0) delete answers[`${symptom}_interference`];
   }
 
   // A question is satisfied if freq is answered AND (freq==0 OR interference is answered).
   const missing = $derived(
     QUESTIONS.filter((q) => {
-      const freq = answers[`${q.symptom}_freq` as AnswerKey];
+      const freq = answers[`${q.symptom}_freq`];
       if (freq === undefined) return true;
-      if (freq > 0 && answers[`${q.symptom}_interference` as AnswerKey] === undefined) return true;
-      return false;
+      return freq > 0 && answers[`${q.symptom}_interference`] === undefined;
     }),
   );
 
-  const isComplete = $derived(missing.length === 0);
-
-
-  const totalQuestions = $derived(
-    QUESTIONS.length + QUESTIONS.filter((q) => (answers[`${q.symptom}_freq` as AnswerKey] ?? 0) > 0).length,
-  );
-  const answeredQuestions = $derived(
-    Object.values(answers).filter((v) => v !== undefined).length,
+  // Every frequency, plus a bothersomeness follow-up for each symptom that occurs.
+  const totalAnswers = $derived(
+    QUESTIONS.length + QUESTIONS.filter((q) => (answers[`${q.symptom}_freq`] ?? 0) > 0).length,
   );
 
-  // Report progress up so an embedding parent (e.g. the modal header) can
-  // render the bar itself.
   $effect(() => {
-    progress = totalQuestions > 0 ? Math.min(1, answeredQuestions / totalQuestions) : 0;
+    progress = Math.min(1, Object.keys(answers).length / totalAnswers);
   });
 
-  function handleSubmit(e: Event): void {
-    e.preventDefault();
+  function submit(): void {
     submitAttempted = true;
-    if (!isComplete) {
-      // Scroll the first missing question into view
-      const firstMissing = missing[0];
-      const el = document.getElementById(`q-${firstMissing.symptom}`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (missing.length > 0) {
+      document
+        .getElementById(questionId(missing[0].symptom))
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    const response: Record<string, number | string> = { ...(answers as Record<string, number>) };
-    if (comments.trim().length > 0) {
-      response.other_comments = comments.trim();
-    }
+    const response: Record<string, number | string> = { ...answers };
+    if (comments.trim().length > 0) response.other_comments = comments.trim();
 
-    const result = score(response as unknown as MSIResponse);
     storeSet('msi:response', response);
-    storeSet('msi:result', result);
-    if (onComplete) {
-      onComplete();
-      return;
-    }
-    window.location.href = '/msi/results/';
+    storeSet('msi:result', score(response as unknown as MSIResponse));
+    if (onComplete) onComplete();
+    else window.location.href = '/msi/results/';
   }
 </script>
 
-{#if roleConfirmed}
-  <form class="survey" onsubmit={handleSubmit} novalidate>
-    {#if showProgress}
-      <div class="survey__progress" aria-hidden="true">
-        <div
-          class="survey__progress-bar"
-          style:width={`${Math.min(100, (answeredQuestions / totalQuestions) * 100)}%`}
-        ></div>
-      </div>
-    {/if}
-
-    <p class="survey__intro">
-      For each symptom, indicate how often you experience it.
-      If it occurs, you'll also be asked how bothersome it is.
-      Consider only symptoms you believe are due to the condition
-      for which you're seeking treatment.
-    </p>
-
-    <ol class="survey__list">
+{#if ready}
+  <SurveyShell
+    intro="For each symptom, indicate how often you experience it. If it occurs, you'll also be asked how bothersome it is. Consider only symptoms you believe are due to the condition for which you're seeking treatment."
+    {progress}
+    {showProgress}
+    bind:comments
+    {commentsDetected}
+    missingCount={missing.length}
+    {submitAttempted}
+    {submitLabel}
+    {submitIcon}
+    {onBack}
+    {backLabel}
+    onSubmit={submit}
+  >
+    <ol class="survey-list">
       {#each QUESTIONS as q, i (q.symptom)}
-        {@const freqKey = `${q.symptom}_freq` as AnswerKey}
-        {@const interferenceKey = `${q.symptom}_interference` as AnswerKey}
+        {@const freqKey = `${q.symptom}_freq`}
+        {@const intKey = `${q.symptom}_interference`}
         {@const freqValue = answers[freqKey] ?? null}
-        {@const interferenceValue = answers[interferenceKey] ?? null}
+        {@const intValue = answers[intKey] ?? null}
         {@const showInterference = freqValue !== null && freqValue > 0}
-        {@const flagMissingFreq = submitAttempted && freqValue === null}
-        {@const flagMissingInt = submitAttempted && showInterference && interferenceValue === null}
         {@const freqFlagged = (attentionKeys?.includes(freqKey) ?? false) && freqValue === null}
-        {@const intFlagged = (attentionKeys?.includes(interferenceKey) ?? false) && showInterference && interferenceValue === null}
-        {@const needsAttention = freqFlagged || intFlagged}
+        {@const intFlagged = (attentionKeys?.includes(intKey) ?? false) && showInterference && intValue === null}
 
-        <li class="question" class:question--flagged={needsAttention} id={`q-${q.symptom}`}>
-          <div class="question__head">
-            <span class="question__num" class:question__num--flagged={needsAttention}>{i + 1}</span>
-            <div class="question__body">
-              <h3 class="question__title">
-                How often do you experience &ldquo;{q.symptomLabel}&rdquo;?
-              </h3>
-              {#if q.description}
-                <p class="question__desc">{q.description}</p>
-              {/if}
-              {#if needsAttention}
-                <span class="question__flag">
-                  <span class="material-symbols-outlined" aria-hidden="true">error</span>
-                  Scan unclear here — please confirm from your sheet
-                </span>
-              {/if}
-            </div>
-          </div>
-
+        <QuestionItem
+          id={questionId(q.symptom)}
+          number={i + 1}
+          title={`How often do you experience “${q.symptomLabel}”?`}
+          description={q.description}
+          flagged={freqFlagged || intFlagged}
+        >
           <RatingScale
             label={`Frequency of ${q.symptomLabel}`}
             options={FREQUENCY_OPTIONS}
             value={freqValue}
-            name={freqKey}
-            onChange={(v) => setAnswer(freqKey, v)}
+            onChange={(v) => setFrequency(q.symptom, v)}
           />
-          {#if flagMissingFreq}
-            <p class="question__error">Please select an option.</p>
+          {#if submitAttempted && freqValue === null}
+            <p class="field__error">Please select an option.</p>
           {/if}
 
           {#if showInterference}
-            <div class="question__followup" class:question__followup--flagged={intFlagged}>
-              <h4 class="question__followup-title">
+            <div class="followup" class:followup--flagged={intFlagged}>
+              <h3 class="followup__title">
                 When &ldquo;{q.symptomLabel}&rdquo; occurs, how bothersome is it?
-              </h4>
+              </h3>
               <RatingScale
                 label={`Bothersomeness of ${q.symptomLabel}`}
                 options={INTERFERENCE_OPTIONS}
-                value={interferenceValue}
-                name={interferenceKey}
-                onChange={(v) => setAnswer(interferenceKey, v)}
+                value={intValue}
+                onChange={(v) => (answers[intKey] = v)}
               />
-              {#if flagMissingInt}
-                <p class="question__error">Please select an option.</p>
+              {#if submitAttempted && intValue === null}
+                <p class="field__error">Please select an option.</p>
               {/if}
             </div>
           {/if}
-        </li>
+        </QuestionItem>
       {/each}
     </ol>
-
-    <div class="comments">
-      <label for="other_comments" class="comments__label">
-        If there is anything you would like to say about these or any other symptoms, please enter below.
-      </label>
-      <textarea
-        id="other_comments"
-        class="comments__input"
-        class:field--flagged={commentsDetected}
-        rows="4"
-        bind:value={comments}
-        placeholder={commentsDetected ? 'A comment was detected on the scan — transcribe it here if relevant' : 'Optional'}
-      ></textarea>
-      {#if commentsDetected}
-        <p class="field__hint">A comment was detected on the scanned sheet — transcribe it here if relevant (optional).</p>
-      {/if}
-    </div>
-
-    <div class="actions">
-      {#if onBack}
-        <div class="actions__back">
-          <BackLink {onBack} label={backLabel} variant="button" />
-        </div>
-      {/if}
-      {#if submitAttempted && !isComplete}
-        <p class="actions__hint">
-          {missing.length} question{missing.length === 1 ? '' : 's'} still to answer.
-        </p>
-      {/if}
-      <button type="submit" class="btn btn--next actions__submit">
-        {submitLabel}
-        {#if submitIcon}
-          <span class="material-symbols-outlined" aria-hidden="true">{submitIcon}</span>
-        {/if}
-      </button>
-    </div>
-  </form>
+  </SurveyShell>
 {/if}
 
 <style>
-  .survey__progress {
-    position: sticky;
-    top: 0;
-    height: 4px;
-    background: var(--color-border);
-    border-radius: 999px;
-    overflow: hidden;
-    margin-bottom: var(--space-6);
-    z-index: 10;
-  }
-
-  .survey__progress-bar {
-    height: 100%;
-    background: var(--color-primary);
-    transition: width 0.2s ease-out;
-  }
-
-  .survey__intro {
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-6);
-    font-size: 0.95rem;
-  }
-
-  .survey__list {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 var(--space-7) 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
-  }
-
-  .question {
-    border-top: 1px solid var(--color-border);
-    padding-top: var(--space-5);
-  }
-
-  /* Highlight a question the OMR read flagged, until the user resolves it. */
-  .question--flagged {
-    background: var(--color-warning-tint);
-    box-shadow: inset 3px 0 0 var(--color-warning);
-    border-radius: var(--radius-md);
-    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
-    margin: 0 calc(-1 * var(--space-4));
-    border-top-color: transparent;
-  }
-
-  .question__num--flagged {
-    background: var(--color-warning);
-    color: #fff;
-  }
-
-  .question__flag {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    margin-top: var(--space-2);
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--color-warning);
-  }
-
-  .question__flag .material-symbols-outlined {
-    font-size: 1rem;
-  }
-
-  .question__followup--flagged {
-    box-shadow: inset 3px 0 0 var(--color-warning);
-    border-radius: var(--radius-md);
-    padding-left: var(--space-4);
-  }
-
-  .question__head {
-    display: flex;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
-  }
-
-  .question__num {
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    border-radius: 999px;
-    background: var(--color-primary-tint-ghost);
-    color: var(--color-primary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.9rem;
-  }
-
-  .question__body {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .question__title {
-    font-size: 1.02rem;
-    font-weight: 600;
-    margin: 0 0 var(--space-1) 0;
-    line-height: 1.4;
-  }
-
-  .question__desc {
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    margin: 0;
-  }
-
-  .question__error {
-    color: var(--color-danger);
-    font-size: 0.9rem;
-    margin: var(--space-2) 0 0 0;
-  }
-
-  .question__followup {
+  .followup {
     margin-top: var(--space-4);
     padding-left: var(--space-5);
     border-left: 2px solid var(--color-primary-tint);
   }
 
-  .question__followup-title {
+  .followup--flagged {
+    box-shadow: inset 3px 0 0 var(--color-warning);
+    border-radius: var(--radius-md);
+    padding-left: var(--space-4);
+  }
+
+  .followup__title {
     font-size: 0.95rem;
     font-weight: 500;
     margin: 0 0 var(--space-3) 0;
     color: var(--color-text);
-  }
-
-  .comments {
-    border-top: 1px solid var(--color-border);
-    padding-top: var(--space-5);
-    margin-bottom: var(--space-6);
-  }
-
-  .field--flagged {
-    border-color: var(--color-warning) !important;
-    background: var(--color-warning-tint);
-  }
-
-  .field__hint {
-    color: var(--color-warning);
-    font-size: 0.85rem;
-    margin: var(--space-2) 0 0 0;
-  }
-
-  .comments__label {
-    display: block;
-    font-size: 0.95rem;
-    font-weight: 500;
-    margin-bottom: var(--space-3);
-  }
-
-  .comments__input {
-    width: 100%;
-    padding: var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.95rem;
-    resize: vertical;
-    background: var(--color-bg);
-    color: var(--color-text);
-  }
-
-  .comments__input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    align-items: stretch;
-    gap: var(--space-3);
-  }
-
-  /* Push the back control to the left so the submit button stays right-aligned. */
-  .actions__back {
-    margin-right: auto;
-    align-self: center;
-  }
-
-  .actions__hint {
-    color: var(--color-danger);
-    font-size: 0.9rem;
-    margin: 0;
-    text-align: center;
-  }
-
-  .actions__submit {
-    align-self: center;
-    padding: var(--space-3) var(--space-7);
-    font-size: 1rem;
   }
 </style>

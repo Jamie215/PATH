@@ -43,4 +43,11 @@ export function ensureChartJsRegistered(): typeof Chart {
   return Chart;
 }
 
+/** Read a design token (CSS custom property) so charts share the site palette. */
+export function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
 export { Chart };

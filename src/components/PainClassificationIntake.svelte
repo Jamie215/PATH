@@ -10,6 +10,7 @@
    */
   import { set as storeSet, clearAll as storeClearAll } from '../lib/storage';
   import BackLink from './BackLink.svelte';
+  import ChoiceGroup from './intake/ChoiceGroup.svelte';
   import { KEYS, RETURN_URL, type PainType, type Role } from '../assessments/pain-classification/config';
 
   let painType = $state<PainType | null>(null);
@@ -36,12 +37,8 @@
 </script>
 
 <section class="intake">
-  <!-- This is the tool's entry page (reached from the hub), so "Go back"
-       always returns to the hub. Using history.back() here can instead send
-       the user *forward* into the questionnaire, because the collect/survey
-       pages link back here with a plain <a href> that pushes a new history
-       entry, leaving the questionnaire ahead of this page in history. -->
-  <BackLink onBack={() => { window.location.href = '/'; }} />
+  <!-- Entry page (reached from the hub): always return to the hub. -->
+  <BackLink href="/" />
   <h1 class="intake__heading">Pain Classification</h1>
   <p class="intake__lede">
     A composite assessment that combines the Symptom Index, Sensory Profile,
@@ -49,55 +46,27 @@
     presentation.
   </p>
 
-  <!-- Q1: Pain type -->
-  <div class="intake__prompt">
-    <h2 class="intake__question">What type of pain are you assessing?</h2>
-    <div class="intake__choices">
-      <button
-        type="button"
-        class="choice"
-        class:choice--selected={painType === 'acute'}
-        onclick={() => choosePainType('acute')}
-      >
-        <span class="choice__title">Acute</span>
-        <span class="choice__desc">Recent-onset pain. Ready to assess.</span>
-      </button>
-
-      <button
-        type="button"
-        class="choice"
-        class:choice--selected={painType === 'chronic'}
-        onclick={() => choosePainType('chronic')}
-      >
-        <span class="choice__title">Chronic</span>
-        <span class="choice__desc">Persistent pain. Additional configuration coming soon.</span>
-      </button>
-    </div>
-  </div>
+  <ChoiceGroup
+    question="What type of pain are you assessing?"
+    options={[
+      { value: 'acute', title: 'Acute', description: 'Recent-onset pain. Ready to assess.' },
+      { value: 'chronic', title: 'Chronic', description: 'Persistent pain. Additional configuration coming soon.' },
+    ]}
+    value={painType}
+    onSelect={choosePainType}
+  />
 
   <!-- Q2: Role (acute only, revealed after pain type) -->
   {#if painType === 'acute'}
-    <div class="intake__prompt">
-      <h2 class="intake__question">Which best describes you?</h2>
-      <div class="intake__choices">
-        <button
-          type="button"
-          class="choice"
-          class:choice--selected={role === 'patient'}
-          onclick={() => selectRole('patient')}
-        >
-          <span class="choice__title">I'm a patient</span>
-        </button>
-        <button
-          type="button"
-          class="choice"
-          class:choice--selected={role === 'professional'}
-          onclick={() => selectRole('professional')}
-        >
-          <span class="choice__title">I'm a healthcare professional</span>
-        </button>
-      </div>
-    </div>
+    <ChoiceGroup
+      question="Which best describes you?"
+      options={[
+      { value: 'patient', title: "I'm a patient" },
+      { value: 'professional', title: "I'm a healthcare professional" },
+    ]}
+      value={role}
+      onSelect={selectRole}
+    />
 
     <div class="intake__actions">
       <button type="button" class="btn btn--next intake__next" disabled={!role} onclick={proceed}>
@@ -132,53 +101,6 @@
     font-size: 1.05rem;
   }
 
-  .intake__prompt {
-    border-top: 1px solid var(--color-border);
-    padding-top: var(--space-6);
-    margin-bottom: var(--space-6);
-  }
-
-  .intake__question {
-    font-size: 1.15rem;
-    margin-bottom: var(--space-4);
-  }
-
-  .intake__choices {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
-  }
-
-  .choice {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-5);
-    text-align: left;
-    background: var(--color-bg);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, transform 0.12s, box-shadow 0.12s;
-  }
-
-  .choice:hover {
-    border-color: var(--color-primary);
-    background: var(--color-primary-tint-ghost);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-  }
-
-  .choice:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  .choice--selected {
-    border-color: var(--color-primary);
-    background: var(--color-primary-tint-ghost);
-  }
-
   .intake__actions {
     display: flex;
     justify-content: flex-end;
@@ -189,22 +111,6 @@
   .intake__next {
     padding: var(--space-3) var(--space-7);
     font-size: 1rem;
-  }
-
-  .intake__next:disabled {
-    cursor: not-allowed;
-  }
-
-  .choice__title {
-    font-weight: 600;
-    color: var(--color-primary);
-    font-size: 1rem;
-  }
-
-  .choice__desc {
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    line-height: 1.4;
   }
 
   .intake__notice {
@@ -221,11 +127,5 @@
   .intake__notice p {
     margin: 0;
     font-size: 0.95rem;
-  }
-
-  @media (max-width: 560px) {
-    .intake__choices {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

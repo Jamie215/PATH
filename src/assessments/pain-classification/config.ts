@@ -58,12 +58,6 @@ export interface ChildAssessment {
   /** sessionStorage key (sans the `path:` prefix) the child writes its scored result to. */
   resultKey: string;
   /**
-   * If set, the parent copies its chosen role into this key before launching
-   * the child, so a role-gated child survey (currently only MSI) doesn't
-   * bounce back to its own intake.
-   */
-  roleKey?: string;
-  /**
    * Manual-entry fields — the raw sub-scores the composite model consumes
    * (see ./scoring.ts): MSI somatic/central, and each screener's total.
    */
@@ -113,7 +107,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     description:
       'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
     resultKey: 'msi:result',
-    roleKey: 'msi:role',
     manualFields: [
       { key: 'somatic', label: 'Somatic score', min: 0, max: MSI_MAX.somatic },
       { key: 'nonsomatic', label: 'Central (non-somatic) score', min: 0, max: MSI_MAX.nonsomatic },

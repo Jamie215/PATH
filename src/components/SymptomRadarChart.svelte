@@ -7,7 +7,8 @@
    * place (src/styles/global.css).
    */
   import { onMount, onDestroy } from 'svelte';
-  import { ensureChartJsRegistered, Chart } from '../lib/chart-setup';
+  import { ensureChartJsRegistered, cssVar, Chart } from '../lib/chart-setup';
+  import ChartFigure from './ChartFigure.svelte';
 
   interface Props {
     labels: string[];
@@ -19,12 +20,6 @@
 
   let canvas: HTMLCanvasElement;
   let chart: Chart | null = null;
-
-  function cssVar(name: string, fallback: string): string {
-    if (typeof window === 'undefined') return fallback;
-    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return value || fallback;
-  }
 
   /** Add an alpha channel to a hex color string, e.g. #4F2683 + 0.2 -> rgba(...). */
   function rgba(hex: string, alpha: number): string {
@@ -131,42 +126,6 @@
   });
 </script>
 
-<figure class="chart-figure">
-  <figcaption class="chart-figure__caption">Per-symptom Radar Plot</figcaption>
-  <div class="chart-figure__canvas">
-    <canvas
-      bind:this={canvas}
-      id={canvasId}
-      aria-label="Radar chart showing severity scores for each of the ten MSI symptoms"
-      role="img"
-    ></canvas>
-  </div>
-</figure>
-
-<style>
-  .chart-figure {
-    margin: 0;
-    padding: var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .chart-figure__caption {
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: var(--color-text);
-    text-align: center;
-    margin-bottom: var(--space-3);
-  }
-
-  .chart-figure__canvas {
-    position: relative;
-    width: 100%;
-    max-width: 420px;
-    aspect-ratio: 1 / 1;
-  }
-</style>
+<ChartFigure caption="Per-symptom Radar Plot" description="Radar chart showing severity scores for each of the ten MSI symptoms" variant="radar">
+  <canvas bind:this={canvas} id={canvasId}></canvas>
+</ChartFigure>

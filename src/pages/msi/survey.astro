@@ -1,22 +1,15 @@
 ---
 import Base from '../../layouts/Base.astro';
 import MSISurvey from '../../components/MSISurvey.svelte';
+import BackLink from '../../components/BackLink.svelte';
 ---
 <Base title="Symptom Index · Survey" description="Symptom Index — survey" wide>
-  <a class="survey-back" href="/msi/">&larr; Go back</a>
+  <BackLink href="/msi/" />
   <h1 class="survey-heading">Symptom Index</h1>
-  <MSISurvey client:only="svelte" />
+  <MSISurvey requireRole client:only="svelte" />
 </Base>
 
 <style>
-  .survey-back {
-    display: inline-block;
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-4);
-    border-bottom: none;
-  }
-
   .survey-heading {
     margin-bottom: var(--space-3);
   }
