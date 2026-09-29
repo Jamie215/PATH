@@ -35,6 +35,11 @@
     }
     event.preventDefault();
     onChange(options[next].value);
+    // Roving tabindex: focus must follow the selection, otherwise it stays on
+    // the old (now tabindex=-1) button and the next arrow press recomputes
+    // from the stale option.
+    const group = (event.currentTarget as HTMLElement).parentElement;
+    group?.querySelectorAll<HTMLButtonElement>('.rating__option')[next]?.focus();
   }
 </script>
 

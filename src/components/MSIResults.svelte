@@ -99,8 +99,15 @@
   }
 
   // Map screening verdicts to a semantic class so we can color-code them.
-  function verdictClass(v: 'Likely' | 'Unlikely' | 'Unclear'): string {
-    return `verdict verdict--${v.toLowerCase()}`;
+  // Polarity matters: "Likely" is good news for full recovery but bad news
+  // for depression, so the caller says which outcome "Likely" represents.
+  function verdictClass(
+    v: 'Likely' | 'Unlikely' | 'Unclear',
+    likelyIsGood: boolean,
+  ): string {
+    if (v === 'Unclear') return 'verdict verdict--unclear';
+    const good = (v === 'Likely') === likelyIsGood;
+    return `verdict verdict--${good ? 'good' : 'bad'}`;
   }
 </script>
 
@@ -214,11 +221,11 @@
         <dl class="screening__list">
           <div class="screening__row">
             <dt>Full recovery predicted</dt>
-            <dd><span class={verdictClass(result.full_rec)}>{result.full_rec}</span></dd>
+            <dd><span class={verdictClass(result.full_rec, true)}>{result.full_rec}</span></dd>
           </div>
           <div class="screening__row">
             <dt>Potential Major Depressive Disorder</dt>
-            <dd><span class={verdictClass(result.mdd)}>{result.mdd}</span></dd>
+            <dd><span class={verdictClass(result.mdd, false)}>{result.mdd}</span></dd>
           </div>
         </dl>
       </section>
@@ -413,12 +420,12 @@
     letter-spacing: 0.02em;
   }
 
-  .verdict--likely {
+  .verdict--good {
     background: color-mix(in srgb, var(--color-success) 12%, transparent);
     color: var(--color-success);
   }
 
-  .verdict--unlikely {
+  .verdict--bad {
     background: color-mix(in srgb, var(--color-danger) 12%, transparent);
     color: var(--color-danger);
   }

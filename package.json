@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Pain Assessment Tools Hub (PATH)",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",

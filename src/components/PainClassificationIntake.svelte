@@ -8,7 +8,7 @@
    * Selections are stored in sessionStorage, then the user is routed to the
    * acute collection page. Chronic short-circuits to a placeholder.
    */
-  import { set as storeSet, remove as storeRemove } from '../lib/storage';
+  import { set as storeSet, clearAll as storeClearAll } from '../lib/storage';
   import BackLink from './BackLink.svelte';
   import { KEYS, RETURN_URL, type PainType, type Role } from '../assessments/pain-classification/config';
 
@@ -17,7 +17,6 @@
 
   function choosePainType(t: PainType): void {
     painType = t;
-    storeSet<PainType>(KEYS.painType, t);
     if (t !== 'acute') role = null;
   }
 
@@ -27,11 +26,11 @@
 
   function proceed(): void {
     if (painType !== 'acute' || !role) return;
+    // Start the collection fresh: a new run from the intake must not inherit
+    // any earlier run's results, responses, comments or manual entries (they
+    // all live under the same URL section, so session-clear keeps them).
+    storeClearAll();
     storeSet<Role>(KEYS.role, role);
-    // Start the collection fresh: drop any stale manual entries.
-    ['msi', 'briefslanss', 'frebaq', 'phq4'].forEach((slug) =>
-      storeRemove(KEYS.manualPrefix + slug),
-    );
     window.location.href = RETURN_URL;
   }
 </script>

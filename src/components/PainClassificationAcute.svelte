@@ -61,6 +61,9 @@
   // Bumped whenever a child's stored per-question answers change, so the card's
   // "Edit the response" label (which reads storage) re-evaluates.
   let answersVersion = $state(0);
+  // Identifies the review currently open, so async handwriting recognition
+  // started for one review can't write into the next. Not reactive.
+  let reviewSeq = 0;
 
   // The uploaded sheet awaiting the user's confirmation.
   let omrReview = $state<{
@@ -220,6 +223,13 @@
     const value = Number.isFinite(raw) ? raw : undefined;
     values = { ...values, [slug]: { ...(values[slug] ?? {}), [key]: value } };
     persistValues(slug);
+    // A hand-edited score no longer matches the questionnaire's scored result;
+    // drop it so the composite report can't chart stale values from it.
+    const child = ACUTE_CHILDREN.find((c) => c.slug === slug);
+    if (child && storeGet(child.resultKey) !== null) {
+      const fromStored = child.fromResult(storeGet(child.resultKey));
+      if (!fromStored || fromStored[key] !== value) storeRemove(child.resultKey);
+    }
   }
 
   function setComment(slug: string, text: string): void {
@@ -312,13 +322,14 @@
     pdfUrl: string,
     queueCtx: { queueRemaining: number; page: number },
   ): void {
-    if (result.text?.other_comments) setComment(child.slug, result.text.other_comments);
+    // Carried text only pre-fills the review; the embedded survey persists it
+    // on confirm, so cancelling the review leaves stored data untouched.
     const pdfArea =
       typeof result.text?.bothersome_area === 'string'
         ? sanitizeBothersomeArea(result.text.bothersome_area)
         : '';
-    if (pdfArea) setArea(child.slug, pdfArea);
     if (child.roleKey && role) storeSet(child.roleKey, role);
+    reviewSeq += 1;
     omrReview = {
       child,
       imageUrl: null,
@@ -365,6 +376,7 @@
     // the handwriting directly — the safety net when OCR of a crossed-out /
     // scribbled correction is unreliable.
     const areaCrop = crops?.find((c) => c.key === 'bothersome_area' && c.hasInk);
+    reviewSeq += 1;
     omrReview = {
       child,
       imageUrl: result.warped ? grayImageToDataURL(result.warped) : null,
@@ -385,13 +397,14 @@
       queueRemaining: queueCtx.queueRemaining,
       attention: result.attention,
     };
-    if (ocrCrops?.length) void runHandwritingOcr(ocrCrops);
+    if (ocrCrops?.length) void runHandwritingOcr(ocrCrops, reviewSeq);
   }
 
   /** Closing a review step abandons the rest of the upload's queue and frees
    *  the shared PDF (see `endCombinedReview`). */
   function closeReview(): void {
     endCombinedReview();
+    reviewSeq += 1;
     omrReview = null;
   }
 
@@ -402,11 +415,15 @@
    */
   async function runHandwritingOcr(
     crops: { key: string; image: GrayImage }[],
+    seq: number,
   ): Promise<void> {
     const { recognizeHandwriting } = await import('../lib/omr/handwriting');
+    // The review can be skipped, confirmed or closed while recognition runs;
+    // once it's been replaced, this read belongs to a stale review.
+    const stale = () => !omrReview || seq !== reviewSeq;
     for (const c of crops) {
       const { text, corrected, dominated } = await recognizeHandwriting(c.image);
-      if (!omrReview) return; // review was closed mid-recognition
+      if (stale() || !omrReview) return;
       if (c.key === 'bothersome_area') {
         // Faithful transcription: pre-fill exactly what OCR read from the
         // correction-cleaned crop — no vocabulary interpretation. When
@@ -419,7 +436,7 @@
         };
       }
     }
-    if (omrReview) omrReview = { ...omrReview, ocrBusy: false };
+    if (!stale() && omrReview) omrReview = { ...omrReview, ocrBusy: false };
   }
 
   /** Stop waiting on recognition and confirm the answers manually. */

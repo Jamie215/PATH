@@ -163,7 +163,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
 
 /** sessionStorage keys owned by the parent (sans the `path:` prefix). */
 export const KEYS = {
-  painType: 'pain-classification:painType',
   role: 'pain-classification:role',
   /** Manual entry for a child is stored at `${manualPrefix}${slug}`. */
   manualPrefix: 'pain-classification:manual:',
