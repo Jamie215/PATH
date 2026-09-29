@@ -73,6 +73,6 @@
   .omr-sheet__error {
     margin: 0;
     font-size: 0.85rem;
-    color: var(--color-danger, #b43a3a);
+    color: var(--color-danger);
   }
 </style>

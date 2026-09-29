@@ -1,6 +1,13 @@
 /**
  * PHQ-4 scoring.
  */
+import {
+  commentsOf,
+  sumItems,
+  type ScreenerResult,
+  type ScreenerScoring,
+  type Tone,
+} from '../screening';
 
 // --- Constants ---------------------------------------------------------------
 
@@ -10,58 +17,61 @@ export const SYMPTOMS = [
 
 export type Symptom = (typeof SYMPTOMS)[number];
 
+/** Four items rated 0–3. */
+export const MAX_SCORE = 12;
+
+/** Lower bound of each standard PHQ-4 distress band on the 0–12 total. */
+export const CUTOFFS = { mild: 3, moderate: 6, severe: 9 } as const;
+
 // --- Types -------------------------------------------------------------------
 
-/** Ordinal rating per item: 0=Not at all … 3=Nearly every day. Four items → total 0–12. */
+/** Ordinal rating per item: 0=Not at all … 3=Nearly every day. */
 export type Experience = 0 | 1 | 2 | 3;
-
-/** Standard PHQ-4 severity bands for the 0–12 total. */
-function interpret(total: number): string {
-  if (total >= 9) return 'Severe psychological distress';
-  if (total >= 6) return 'Moderate psychological distress';
-  if (total >= 3) return 'Mild psychological distress';
-  return 'Normal — minimal distress';
-}
 
 /**
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export type phq4Response = {
+export type PHQ4Response = {
   [K in `${Symptom}_exp`]: Experience;
 } & {
   other_comments?: string;
 };
 
-/**
- * Result shape — identical keys to the original Python return dict so it
- * remains a drop-in replacement for the existing templates.
- */
-export interface phq4Result {
-  total_score: number;
-  interpretation: string;
-  comments: string;
+export type PHQ4Result = ScreenerResult;
+
+// --- Scoring -----------------------------------------------------------------
+
+export function tone(total: number): Tone {
+  if (total >= CUTOFFS.severe) return 'severe';
+  if (total >= CUTOFFS.moderate) return 'moderate';
+  if (total >= CUTOFFS.mild) return 'mild';
+  return 'normal';
 }
 
+/** Standard PHQ-4 severity bands for the 0–12 total. */
+function interpret(total: number): string {
+  if (total >= CUTOFFS.severe) return 'Severe psychological distress';
+  if (total >= CUTOFFS.moderate) return 'Moderate psychological distress';
+  if (total >= CUTOFFS.mild) return 'Mild psychological distress';
+  return 'Normal — minimal distress';
+}
+
+export const SCORING: ScreenerScoring = {
+  maxScore: MAX_SCORE,
+  tone,
+  isElevated: (total) => total >= CUTOFFS.mild,
+};
+
 /**
- * Score an PHQ-4 survey response. Each item contributes its raw ordinal rating
+ * Score a PHQ-4 survey response. Each item contributes its raw ordinal rating
  * (0–3); the total is their sum.
  */
-export function score(response: phq4Response): phq4Result {
-  let total_score = 0;
-
-  for (const symptom of SYMPTOMS) {
-    total_score += (response[`${symptom}_exp`] ?? 0) as Experience;
-  }
-
-  const comments =
-    typeof response.other_comments === 'string' && response.other_comments.length > 0
-      ? response.other_comments
-      : 'No comment provided.';
-
+export function score(response: PHQ4Response): PHQ4Result {
+  const total_score = sumItems(response, SYMPTOMS);
   return {
     total_score,
     interpretation: interpret(total_score),
-    comments,
+    comments: commentsOf(response),
   };
 }

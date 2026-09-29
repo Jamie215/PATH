@@ -81,7 +81,7 @@ export class PdfDownload {
 }
 
 /** Save `bytes` to the user's machine via a transient object-URL anchor. */
-function triggerBlobDownload(bytes: Uint8Array, filename: string, type: string): void {
+export function triggerBlobDownload(bytes: Uint8Array, filename: string, type: string): void {
   const blob = new Blob([bytes as BlobPart], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

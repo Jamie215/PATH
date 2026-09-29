@@ -410,7 +410,7 @@
     padding: var(--space-5);
     border: 1px dashed var(--color-border-strong);
     border-radius: var(--radius-md);
-    background: var(--color-bg-subtle, #f8f8f8);
+    background: var(--color-bg-subtle);
     text-align: center;
   }
 
@@ -429,8 +429,8 @@
   }
 
   .question--flagged {
-    background: var(--color-warning-tint, #fdf6e3);
-    box-shadow: inset 3px 0 0 var(--color-warning, #b8860b);
+    background: var(--color-warning-tint);
+    box-shadow: inset 3px 0 0 var(--color-warning);
     border-radius: var(--radius-md);
     padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
     margin: 0 calc(-1 * var(--space-4));
@@ -438,7 +438,7 @@
   }
 
   .question__num--flagged {
-    background: var(--color-warning, #b8860b);
+    background: var(--color-warning);
     color: #fff;
   }
 
@@ -449,7 +449,7 @@
     margin-top: var(--space-2);
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--color-warning, #b8860b);
+    color: var(--color-warning);
   }
 
   .question__flag .material-symbols-outlined {
@@ -576,7 +576,7 @@
     padding: var(--space-2);
     border: 1px dashed var(--color-border-strong);
     border-radius: var(--radius-md);
-    background: var(--color-bg-subtle, #f8f8f8);
+    background: var(--color-bg-subtle);
   }
 
   .area__crop-label {
@@ -615,12 +615,12 @@
   }
 
   .field--flagged {
-    border-color: var(--color-warning, #b8860b) !important;
-    background: var(--color-warning-tint, #fdf6e3);
+    border-color: var(--color-warning) !important;
+    background: var(--color-warning-tint);
   }
 
   .field__hint {
-    color: var(--color-warning, #b8860b);
+    color: var(--color-warning);
     font-size: 0.85rem;
     margin: var(--space-2) 0 0 0;
   }

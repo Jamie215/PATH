@@ -9,6 +9,11 @@
   --color-primary-hover: #6B3FA0;
   --color-primary-active: #3A1C61;
 
+  /* Forward / results actions ("Next", "See results") — a lighter purple */
+  --color-next: #793CC8;
+  --color-next-hover: #8B54D1;
+  --color-next-active: #6832AB;
+
   /* Lighter tints (per request — pushed lighter) */
   --color-primary-tint: #B89FD1;
   --color-primary-tint-soft: #E8DEF2;
@@ -17,9 +22,10 @@
   /* Neutrals */
   --color-text: #1F1F1F;
   --color-text-muted: #5C5C5C;
-  --color-text-subtle: #888888;
+  --color-text-subtle: #767676; /* 4.5:1 on white (WCAG AA) */
   --color-bg: #FFFFFF;
   --color-bg-alt: #FAFAF9;
+  --color-bg-subtle: #F8F8F8;
   --color-border: #E5E5E5;
   --color-border-strong: #CFCFCF;
 
@@ -28,6 +34,15 @@
   --color-success: #2E7D5B;
   --color-warning: #B8860B;
   --color-danger: #B43A3A;
+  --color-warning-tint: #FDF6E3;
+
+  /* Amber scale for screening-score severity (results cards, PDFs) */
+  --color-amber-50: #FFFBEB;
+  --color-amber-200: #FDE68A;
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #F59E0B;
+  --color-amber-700: #B45309;
+  --color-amber-900: #78350F;
 
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -158,11 +173,11 @@ button {
    purple sets them apart from the royal-purple primary. Defined after the
    variants above so it wins on equal-specificity (including :hover). */
 .btn--next {
-  background: #793CC8;
+  background: var(--color-next);
   color: white;
 }
-.btn--next:hover { background: #8B54D1; }
-.btn--next:active { background: #6832AB; }
+.btn--next:hover { background: var(--color-next-hover); }
+.btn--next:active { background: var(--color-next-active); }
 
 /* Disabled buttons read as grey, never a faded tint of their active colour.
    Placed after every variant so it overrides their background and hover. */
@@ -182,4 +197,34 @@ button {
   padding: var(--space-2) var(--space-4);
   font-size: 0.85rem;
   width: 100%;
+}
+
+/* ----- Results views -----
+   Section typography shared by every assessment's results page. */
+.section-heading {
+  font-size: 1.15rem;
+  margin: 0 0 var(--space-2) 0;
+}
+
+.section-sub {
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  margin: 0 0 var(--space-4) 0;
+}
+
+.comments-body {
+  padding: var(--space-4);
+  background: var(--color-bg-alt);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* ----- Focus ----- */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

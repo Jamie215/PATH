@@ -11,6 +11,8 @@
    */
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
+  import ResultsHeader from './results/ResultsHeader.svelte';
+  import ResultsActions from './results/ResultsActions.svelte';
   import SomaticBarChart from './SomaticBarChart.svelte';
   import SymptomRadarChart from './SymptomRadarChart.svelte';
   import { get as storeGet } from '../lib/storage';
@@ -121,24 +123,9 @@
       <AssessmentDate />
     </div>
 
-    <section class="name-section" aria-labelledby="name-heading">
-      <label class="name-row" for="patient-name">
-        <span id="name-heading" class="name-row__label">Patient name / ID</span>
-        <input
-          id="patient-name"
-          class="name-row__input"
-          type="text"
-          placeholder="Enter name"
-          bind:value={name.input}
-          onkeydown={name.handleKey}
-          oninput={name.save}
-        />
-        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdf.busy}>
-          <span class="material-symbols-outlined" aria-hidden="true">download</span>
-          {pdf.busy ? 'Downloading…' : 'Download results'}
-        </button>
-      </label>
-    </section>
+    <div class="results__name">
+      <ResultsHeader {name} {pdf} onDownload={downloadPDF} />
+    </div>
 
     <div class="results__headline">
       <p class="results__label">Most likely presentation</p>
@@ -206,13 +193,7 @@
       {/each}
     </ul>
 
-    <div class="results__actions">
-      <a href="/" class="btn btn--secondary">Return to Home</a>
-      <a href="/pain-classification/" data-clear-session class="btn btn--primary">Redo Assessment</a>
-    </div>
-    {#if pdf.error}
-      <p class="results__pdf-error" role="alert">{pdf.error}</p>
-    {/if}
+    <ResultsActions redoHref="/pain-classification/" error={pdf.error} />
   </section>
 {/if}
 
@@ -227,7 +208,7 @@
     padding: var(--space-6);
     border-radius: var(--radius-lg);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-bg);
     margin-bottom: var(--space-5);
   }
 
@@ -394,49 +375,7 @@
     font-style: italic;
   }
 
-  .results__actions {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-  }
-
-  .results__pdf-error {
-    color: var(--color-danger);
-    font-size: 0.9rem;
-    margin: var(--space-3) 0 0 0;
-  }
-
-  .name-section {
+  .results__name {
     margin-bottom: var(--space-5);
-  }
-
-  .name-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    flex-wrap: wrap;
-  }
-
-  .name-row__label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--color-text-muted);
-  }
-
-  .name-row__input {
-    flex: 1 1 220px;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: 0.95rem;
-    background: var(--color-bg);
-    color: var(--color-text);
-  }
-
-  .name-row__input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
   }
 </style>

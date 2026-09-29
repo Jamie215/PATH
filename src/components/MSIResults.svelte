@@ -12,9 +12,16 @@
    */
   import { onMount } from 'svelte';
   import AssessmentDate from './AssessmentDate.svelte';
+  import ResultsHeader from './results/ResultsHeader.svelte';
+  import ResultsActions from './results/ResultsActions.svelte';
   import { get as storeGet } from '../lib/storage';
   import { PatientNameField, PdfDownload } from '../lib/results.svelte';
-  import type { MSIResult } from '../assessments/msi/scoring';
+  import {
+    MAX,
+    SUMMARY_MEASURES,
+    targetScore,
+    type MSIResult,
+  } from '../assessments/msi/scoring';
   import type { MSIRole } from '../assessments/msi/questions';
   import SomaticBarChart from './SomaticBarChart.svelte';
   import SymptomRadarChart from './SymptomRadarChart.svelte';
@@ -69,33 +76,12 @@
     });
   }
 
-  /**
-   * "Target score for meaningful change" — clamped at zero (a meaningful
-   * improvement on an already-low score is still zero, not negative).
-   * Thresholds match the original PythonAnywhere template exactly.
-   */
-  const TARGETS = {
-    symp_no: 1.8,
-    freq_mean: 0.9,
-    int_mean: 1.0,
-    somatic: 7.5,
-    nonsomatic: 6.1,
-  } as const;
-
-  function target(current: number, threshold: number): number {
-    return Math.max(0, current - threshold);
-  }
-
   function pct(value: number, max: number): string {
     return `${Math.round((value / max) * 100)}%`;
   }
 
-  function fmtInt(n: number): string {
-    return Math.round(n).toString();
-  }
-
-  function fmt1(n: number): string {
-    return n.toFixed(1);
+  function fmt(n: number, decimals: 0 | 1): string {
+    return decimals === 0 ? Math.round(n).toString() : n.toFixed(1);
   }
 
   // Map screening verdicts to a semantic class so we can color-code them.
@@ -115,27 +101,7 @@
   <div class="results">
     <AssessmentDate />
     <!-- Patient name -->
-    <section class="name-section" aria-labelledby="name-heading">
-      <label class="name-row" for="patient-name">
-        <span id="name-heading" class="name-row__label">Patient name / ID</span>
-        <input
-          id="patient-name"
-          class="name-row__input"
-          type="text"
-          placeholder="Enter name"
-          bind:value={name.input}
-          onkeydown={name.handleKey}
-          oninput={name.save}
-        />
-        <button type="button" class="btn btn--primary name-row__save" onclick={downloadPDF} disabled={pdf.busy}>
-          <span class="material-symbols-outlined" aria-hidden="true">download</span>
-          {pdf.busy ? 'Downloading…' : 'Download PDF'}
-        </button>
-      </label>
-      {#if name.display}
-        <h2 class="name-display">{name.display}</h2>
-      {/if}
-    </section>
+    <ResultsHeader {name} {pdf} onDownload={downloadPDF} />
 
     <!-- Summary scores -->
     <section class="summary" aria-labelledby="summary-heading">
@@ -152,60 +118,18 @@
           <span role="columnheader">Target for meaningful change</span>
         </div>
 
-        <div class="score-table__row" role="row">
-          <span role="cell" class="score-table__label">Number of symptoms</span>
-          <span role="cell" class="score-table__current">
-            <strong>{result.symp_no}</strong>
-            <span class="score-table__pct">{pct(result.symp_no, 10)}</span>
-          </span>
-          <span role="cell" class="score-table__target">
-            {fmtInt(target(result.symp_no, TARGETS.symp_no))}
-          </span>
-        </div>
-
-        <div class="score-table__row" role="row">
-          <span role="cell" class="score-table__label">Mean frequency</span>
-          <span role="cell" class="score-table__current">
-            <strong>{fmt1(result.freq_mean)}</strong>
-            <span class="score-table__pct">{pct(result.freq_mean, 3)}</span>
-          </span>
-          <span role="cell" class="score-table__target">
-            {fmt1(target(result.freq_mean, TARGETS.freq_mean))}
-          </span>
-        </div>
-
-        <div class="score-table__row" role="row">
-          <span role="cell" class="score-table__label">Mean bothersomeness</span>
-          <span role="cell" class="score-table__current">
-            <strong>{fmt1(result.int_mean)}</strong>
-            <span class="score-table__pct">{pct(result.int_mean, 4)}</span>
-          </span>
-          <span role="cell" class="score-table__target">
-            {fmt1(target(result.int_mean, TARGETS.int_mean))}
-          </span>
-        </div>
-
-        <div class="score-table__row" role="row">
-          <span role="cell" class="score-table__label">Somatic symptoms</span>
-          <span role="cell" class="score-table__current">
-            <strong>{fmtInt(result.somatic)}</strong>
-            <span class="score-table__pct">{pct(result.somatic, 60)}</span>
-          </span>
-          <span role="cell" class="score-table__target">
-            {fmtInt(target(result.somatic, TARGETS.somatic))}
-          </span>
-        </div>
-
-        <div class="score-table__row" role="row">
-          <span role="cell" class="score-table__label">Non-somatic symptoms</span>
-          <span role="cell" class="score-table__current">
-            <strong>{fmtInt(result.nonsomatic)}</strong>
-            <span class="score-table__pct">{pct(result.nonsomatic, 72)}</span>
-          </span>
-          <span role="cell" class="score-table__target">
-            {fmtInt(target(result.nonsomatic, TARGETS.nonsomatic))}
-          </span>
-        </div>
+        {#each SUMMARY_MEASURES as m (m.key)}
+          <div class="score-table__row" role="row">
+            <span role="cell" class="score-table__label">{m.label}</span>
+            <span role="cell" class="score-table__current">
+              <strong>{fmt(result[m.key], m.decimals)}</strong>
+              <span class="score-table__pct">{pct(result[m.key], MAX[m.key])}</span>
+            </span>
+            <span role="cell" class="score-table__target">
+              {fmt(targetScore(result, m.key), m.decimals)}
+            </span>
+          </div>
+        {/each}
       </div>
     </section>
 
@@ -255,13 +179,7 @@
     </section>
 
     <!-- Actions -->
-    <div class="actions">
-      <a href="/" class="btn btn--secondary">Return to Home</a>
-      <a href="/msi/" data-clear-session class="btn btn--primary">Redo Assessment</a>
-    </div>
-    {#if pdf.error}
-      <p class="pdf-error" role="alert">PDF download failed: {pdf.error}</p>
-    {/if}
+    <ResultsActions redoHref="/msi/" error={pdf.error} />
   </div>
 {/if}
 
@@ -270,60 +188,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-  }
-
-  /* ----- Patient name ----- */
-  .name-section {
-    padding-bottom: var(--space-4);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .name-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    flex-wrap: wrap;
-  }
-
-  .name-row__label {
-    font-weight: 600;
-    color: var(--color-text);
-  }
-
-  .name-row__input {
-    flex: 1;
-    min-width: 200px;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.95rem;
-    color: var(--color-text);
-    background: var(--color-bg);
-  }
-
-  .name-row__input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
-
-  .name-display {
-    margin: var(--space-4) 0 0 0;
-    color: var(--color-primary);
-    font-size: 1.4rem;
-  }
-
-  /* ----- Section heading style ----- */
-  .section-heading {
-    font-size: 1.15rem;
-    margin: 0 0 var(--space-2) 0;
-  }
-
-  .section-sub {
-    color: var(--color-text-muted);
-    font-size: 0.92rem;
-    margin: 0 0 var(--space-4) 0;
   }
 
   /* ----- Score table ----- */
@@ -435,18 +299,6 @@
     color: var(--color-warning);
   }
 
-  /* ----- Comments ----- */
-  .comments-body {
-    padding: var(--space-4);
-    background: var(--color-bg-alt);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--color-border);
-    margin: 0;
-    color: var(--color-text);
-    line-height: 1.6;
-    white-space: pre-wrap;
-  }
-
   /* ----- Charts ----- */
   .charts__grid {
     display: grid;
@@ -460,31 +312,6 @@
       grid-template-columns: 2fr 3fr;
       align-items: stretch;
     }
-  }
-
-  /* ----- Actions ----- */
-  .actions {
-    display: flex;
-    justify-content: center;
-    gap: var(--space-3);
-    flex-wrap: wrap;
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--color-border);
-  }
-
-  .actions__pdf {
-    min-width: 180px;
-  }
-
-  .actions__pdf:disabled {
-    cursor: progress;
-    opacity: 0.7;
-  }
-
-  .pdf-error {
-    color: var(--color-danger);
-    font-size: 0.9rem;
-    margin: var(--space-3) 0 0 0;
   }
 
   /* ----- Responsive ----- */

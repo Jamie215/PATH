@@ -1873,7 +1873,7 @@
 
   .mapping__note {
     font-size: 0.8rem;
-    color: var(--color-warning, #b45309);
+    color: var(--color-warning);
   }
 
   .mapping__note--dup {
@@ -1929,7 +1929,7 @@
   }
 
   .overwrite__icon {
-    color: var(--color-warning, #b45309);
+    color: var(--color-warning);
     font-size: 1.2rem;
   }
 

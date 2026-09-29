@@ -38,6 +38,60 @@ export const SYMPTOM_LABELS: Record<Symptom, string> = {
   anxiety: 'Nervousness, anxiety or sadness',
 };
 
+/**
+ * Maximum of each summary measure. `numb` counts toward both somatic and
+ * non-somatic, hence 60 + 72 from ten symptoms.
+ */
+export const MAX = {
+  symp_no: 10,
+  freq_mean: 3,
+  int_mean: 4,
+  somatic: 60,
+  nonsomatic: 72,
+} as const;
+
+/**
+ * Change needed on each summary measure for a clinically meaningful
+ * improvement — the "target score" is the current value minus this, floored at
+ * zero. Values match the original PythonAnywhere template.
+ */
+export const MEANINGFUL_CHANGE = {
+  symp_no: 1.8,
+  freq_mean: 0.9,
+  int_mean: 1.0,
+  somatic: 7.5,
+  nonsomatic: 6.1,
+} as const;
+
+export type SummaryMeasure = keyof typeof MAX;
+
+/** The summary-score table, in display order (results view and PDF). */
+export const SUMMARY_MEASURES: ReadonlyArray<{
+  key: SummaryMeasure;
+  label: string;
+  /** Decimal places when displayed (counts/totals are integers, means are 1dp). */
+  decimals: 0 | 1;
+}> = [
+  { key: 'symp_no', label: 'Number of symptoms', decimals: 0 },
+  { key: 'freq_mean', label: 'Mean frequency', decimals: 1 },
+  { key: 'int_mean', label: 'Mean bothersomeness', decimals: 1 },
+  { key: 'somatic', label: 'Somatic symptoms', decimals: 0 },
+  { key: 'nonsomatic', label: 'Non-somatic symptoms', decimals: 0 },
+];
+
+/** Target score for meaningful change (never negative). */
+export function targetScore(result: MSIResult, key: SummaryMeasure): number {
+  return Math.max(0, result[key] - MEANINGFUL_CHANGE[key]);
+}
+
+/** Screening cutoffs on the non-somatic total (match msi.py exactly). */
+export const SCREENING_CUTOFFS = {
+  /** Full recovery Likely at or below `likelyMax`, Unlikely at or above `unlikelyMin`. */
+  fullRecovery: { likelyMax: 2, unlikelyMin: 22 },
+  /** MDD Unlikely at or below `unlikelyMax`, Likely at or above `likelyMin`. */
+  mdd: { unlikelyMax: 9, likelyMin: 21 },
+} as const;
+
 const SOMATIC: ReadonlySet<Symptom> = new Set(['sharp', 'dull', 'stiff', 'weak', 'numb']);
 const NONSOMATIC: ReadonlySet<Symptom> = new Set([
   'sensitive', 'numb', 'fatigue', 'foggy', 'nausea', 'anxiety',
@@ -148,11 +202,11 @@ export function score(response: MSIResponse): MSIResult {
     if (NONSOMATIC.has(symptom)) nonsomatic += value;
   }
 
-  // Thresholds match msi.py exactly
+  const { fullRecovery: fr, mdd: md } = SCREENING_CUTOFFS;
   const full_rec: MSIResult['full_rec'] =
-    nonsomatic <= 2 ? 'Likely' : nonsomatic >= 22 ? 'Unlikely' : 'Unclear';
+    nonsomatic <= fr.likelyMax ? 'Likely' : nonsomatic >= fr.unlikelyMin ? 'Unlikely' : 'Unclear';
   const mdd: MSIResult['mdd'] =
-    nonsomatic <= 9 ? 'Unlikely' : nonsomatic >= 21 ? 'Likely' : 'Unclear';
+    nonsomatic <= md.unlikelyMax ? 'Unlikely' : nonsomatic >= md.likelyMin ? 'Likely' : 'Unclear';
 
   const comments =
     typeof response.other_comments === 'string' && response.other_comments.length > 0

@@ -1,6 +1,13 @@
 /**
  * briefSLANSS (Brief neuropathic symptoms and signs) scoring.
  */
+import {
+  commentsOf,
+  sumItems,
+  type ScreenerResult,
+  type ScreenerScoring,
+  type Tone,
+} from '../screening';
 
 // --- Constants ---------------------------------------------------------------
 
@@ -9,6 +16,15 @@ export const SYMPTOMS = [
 ] as const;
 
 export type Symptom = (typeof SYMPTOMS)[number];
+
+/** Four Yes/No items. */
+export const MAX_SCORE = 4;
+
+/**
+ * Totals at or above this are read as "predominantly neuropathic".
+ * TODO: confirm this threshold with the PI.
+ */
+export const NEUROPATHIC_CUTOFF = 3;
 
 // --- Types -------------------------------------------------------------------
 
@@ -19,41 +35,35 @@ export type Experience = 0 | 1;
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export type briefSLANSSResponse = {
+export type BriefSLANSSResponse = {
   [K in `${Symptom}_exp`]: Experience;
 } & {
   other_comments?: string;
 };
 
-/**
- * Result shape — identical keys to the original Python return dict so it
- * remains a drop-in replacement for the existing templates.
- */
-export interface briefSLANSSResult {
-  total_score: number;
-  interpretation: string;
-  comments: string;
+export type BriefSLANSSResult = ScreenerResult;
+
+// --- Scoring -----------------------------------------------------------------
+
+const isElevated = (total: number): boolean => total >= NEUROPATHIC_CUTOFF;
+
+export function tone(total: number): Tone {
+  return isElevated(total) ? 'elevated' : 'normal';
 }
 
+export const SCORING: ScreenerScoring = { maxScore: MAX_SCORE, tone, isElevated };
+
 /**
- * Score an briefSLANSS survey response. Each symptom is a Yes/No (0/1); the
+ * Score a briefSLANSS survey response. Each symptom is a Yes/No (0/1); the
  * total is the count of Yes answers.
  */
-export function score(response: briefSLANSSResponse): briefSLANSSResult {
-  let total_score = 0;
-
-  for (const symptom of SYMPTOMS) {
-    total_score += (response[`${symptom}_exp`] ?? 0) as Experience;
-  }
-
-  const comments =
-    typeof response.other_comments === 'string' && response.other_comments.length > 0
-      ? response.other_comments
-      : 'No comment provided.';
-
+export function score(response: BriefSLANSSResponse): BriefSLANSSResult {
+  const total_score = sumItems(response, SYMPTOMS);
   return {
     total_score,
-    interpretation: total_score > 2 ? 'Pain is predominantly neuropathic' : 'Pain is less likely to be neuropathic', //TODO: Confirm this threshold
-    comments,
+    interpretation: isElevated(total_score)
+      ? 'Pain is predominantly neuropathic'
+      : 'Pain is less likely to be neuropathic',
+    comments: commentsOf(response),
   };
 }

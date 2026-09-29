@@ -15,9 +15,10 @@
  *   3. A completed-tests upload — one filled/scanned/photographed packet read
  *      and routed to the children (handled by the collection page, not here).
  *
- * This file is the single source of truth shared by the collection page and
- * the scoring module (./scoring.ts), so wiring a child differently — or
- * adjusting the manual-entry fields — is a one-place change.
+ * This file is the single source of truth for how the children are wired into
+ * the composite (collection, patient flow, review and results pages), so
+ * wiring a child differently — or adjusting the manual-entry fields — is a
+ * one-place change. Score ranges come from each child's own scoring module.
  */
 
 import type { OmrTemplate } from '../omr/types';
@@ -25,6 +26,10 @@ import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
 import { BRIEFSLANSS_OMR_TEMPLATE } from '../briefslanss/omr-template';
 import { FREBAQ_OMR_TEMPLATE } from '../frebaq/omr-template';
 import { PHQ4_OMR_TEMPLATE } from '../phq4/omr-template';
+import { MAX as MSI_MAX } from '../msi/scoring';
+import { MAX_SCORE as SLANSS_MAX } from '../briefslanss/scoring';
+import { MAX_SCORE as FREBAQ_MAX } from '../frebaq/scoring';
+import { MAX_SCORE as PHQ4_MAX } from '../phq4/scoring';
 
 export type PainType = 'acute' | 'chronic';
 
@@ -89,6 +94,16 @@ function num(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
+/** `fromResult` for the single-total screeners: their result's `total_score`. */
+function totalFromResult(r: unknown): Record<string, number> | null {
+  const total = num((r as Record<string, unknown> | null)?.total_score);
+  return total === null ? null : { total_score: total };
+}
+
+const totalField = (max: number): ManualField[] => [
+  { key: 'total_score', label: 'Total score', min: 0, max },
+];
+
 /** Child assessments composing the ACUTE pain-classification pathway. */
 export const ACUTE_CHILDREN: ChildAssessment[] = [
   {
@@ -100,8 +115,8 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     resultKey: 'msi:result',
     roleKey: 'msi:role',
     manualFields: [
-      { key: 'somatic', label: 'Somatic score', min: 0, max: 60 },
-      { key: 'nonsomatic', label: 'Central (non-somatic) score', min: 0, max: 72 },
+      { key: 'somatic', label: 'Somatic score', min: 0, max: MSI_MAX.somatic },
+      { key: 'nonsomatic', label: 'Central (non-somatic) score', min: 0, max: MSI_MAX.nonsomatic },
     ],
     fromResult: (r) => {
       const o = r as Record<string, unknown> | null;
@@ -120,12 +135,9 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     description:
       'A brief screening for neuropathic pain, with four symptom questions.',
     resultKey: 'briefslanss:result',
-    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 4 }],
+    manualFields: totalField(SLANSS_MAX),
     omrTemplate: BRIEFSLANSS_OMR_TEMPLATE,
-    fromResult: (r) => {
-      const total = num((r as Record<string, unknown> | null)?.total_score);
-      return total === null ? null : { total_score: total };
-    },
+    fromResult: totalFromResult,
   },
   {
     slug: 'frebaq',
@@ -134,16 +146,13 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     description:
       'A quantitative evaluation of area-specific self-perception.',
     resultKey: 'frebaq:result',
-    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 24 }],
+    manualFields: totalField(FREBAQ_MAX),
     omrTemplate: FREBAQ_OMR_TEMPLATE,
     areaField: {
-      label: 'The part of the body that has been bothering the most is:',
+      label: 'The part of the body that has been bothering me the most is:',
       placeholder: 'e.g., right knee, left hand, neck',
     },
-    fromResult: (r) => {
-      const total = num((r as Record<string, unknown> | null)?.total_score);
-      return total === null ? null : { total_score: total };
-    },
+    fromResult: totalFromResult,
   },
   {
     slug: 'phq4',
@@ -152,12 +161,9 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     description:
       'A brief screening for depression and anxiety.',
     resultKey: 'phq4:result',
-    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: 12 }],
+    manualFields: totalField(PHQ4_MAX),
     omrTemplate: PHQ4_OMR_TEMPLATE,
-    fromResult: (r) => {
-      const total = num((r as Record<string, unknown> | null)?.total_score);
-      return total === null ? null : { total_score: total };
-    },
+    fromResult: totalFromResult,
   },
 ];
 

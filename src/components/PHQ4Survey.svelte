@@ -6,7 +6,7 @@
    */
   import SingleGroupSurvey from './SingleGroupSurvey.svelte';
   import { QUESTIONS, EXPERIENCE_OPTIONS } from '../assessments/phq4/questions';
-  import { score, type phq4Response } from '../assessments/phq4/scoring';
+  import { score, type PHQ4Response } from '../assessments/phq4/scoring';
 
   let { progress = $bindable(0), ...rest } = $props();
 </script>
@@ -17,7 +17,7 @@
   intro="For each item below, indicate whether you have experienced the symptom."
   slug="phq4"
   resultsUrl="/phq4/results/"
-  score={(r) => score(r as unknown as phq4Response)}
+  score={(r) => score(r as unknown as PHQ4Response)}
   bind:progress
   {...rest}
 />

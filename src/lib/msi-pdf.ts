@@ -7,7 +7,12 @@
  * summary-score, screening, and chart sections below are MSI-specific.
  */
 import { type PDFDocument, type PDFImage } from 'pdf-lib';
-import type { MSIResult } from '../assessments/msi/scoring';
+import {
+  MAX,
+  SUMMARY_MEASURES,
+  targetScore,
+  type MSIResult,
+} from '../assessments/msi/scoring';
 import type { MSIRole } from '../assessments/msi/questions';
 import {
   buildFilename as kitBuildFilename,
@@ -91,39 +96,15 @@ async function embedPng(doc: PDFDocument, dataUrl: string): Promise<PDFImage> {
 function drawSummaryScores(ctx: Ctx, result: MSIResult): void {
   drawSectionHeading(ctx, 'Summary scores');
 
-  const TARGETS = { symp_no: 1.8, freq_mean: 0.9, int_mean: 1.0, somatic: 7.5, nonsomatic: 6.1 };
-  const target = (current: number, threshold: number) => Math.max(0, current - threshold);
-  const fmtInt = (n: number) => Math.round(n).toString();
-  const fmt1 = (n: number) => n.toFixed(1);
+  const fmt = (n: number, decimals: 0 | 1) =>
+    decimals === 0 ? Math.round(n).toString() : n.toFixed(1);
   const pct = (v: number, max: number) => `${Math.round((v / max) * 100)}%`;
 
-  const rows: [string, string, string][] = [
-    [
-      'Number of symptoms',
-      `${result.symp_no} (${pct(result.symp_no, 10)})`,
-      fmtInt(target(result.symp_no, TARGETS.symp_no)),
-    ],
-    [
-      'Mean frequency',
-      `${fmt1(result.freq_mean)} (${pct(result.freq_mean, 3)})`,
-      fmt1(target(result.freq_mean, TARGETS.freq_mean)),
-    ],
-    [
-      'Mean bothersomeness',
-      `${fmt1(result.int_mean)} (${pct(result.int_mean, 4)})`,
-      fmt1(target(result.int_mean, TARGETS.int_mean)),
-    ],
-    [
-      'Somatic symptoms',
-      `${fmtInt(result.somatic)} (${pct(result.somatic, 60)})`,
-      fmtInt(target(result.somatic, TARGETS.somatic)),
-    ],
-    [
-      'Non-somatic symptoms',
-      `${fmtInt(result.nonsomatic)} (${pct(result.nonsomatic, 72)})`,
-      fmtInt(target(result.nonsomatic, TARGETS.nonsomatic)),
-    ],
-  ];
+  const rows: [string, string, string][] = SUMMARY_MEASURES.map(({ key, label, decimals }) => [
+    label,
+    `${fmt(result[key], decimals)} (${pct(result[key], MAX[key])})`,
+    fmt(targetScore(result, key), decimals),
+  ]);
 
   // Column layout: 240 / 130 / 130
   const colX = { label: MARGIN_X, current: MARGIN_X + 240, target: MARGIN_X + 240 + 130 };

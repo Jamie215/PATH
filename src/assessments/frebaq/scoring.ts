@@ -1,6 +1,13 @@
 /**
  * FreBAQ scoring.
  */
+import {
+  commentsOf,
+  sumItems,
+  type ScreenerResult,
+  type ScreenerScoring,
+  type Tone,
+} from '../screening';
 
 // --- Constants ---------------------------------------------------------------
 
@@ -10,16 +17,26 @@ export const SYMPTOMS = [
 
 export type Symptom = (typeof SYMPTOMS)[number];
 
+/** Six items rated 0–4. */
+export const MAX_SCORE = 24;
+
+/**
+ * FreBAQ has no firm validated cutoff; totals in the upper half of the 0–24
+ * range are flagged as elevated body-perception disruption.
+ * TODO: confirm this threshold with the PI.
+ */
+export const ELEVATED_CUTOFF = 12;
+
 // --- Types -------------------------------------------------------------------
 
-/** Ordinal rating per item: 0=Never … 4=Always. Six items → total 0–24. */
+/** Ordinal rating per item: 0=Never … 4=Always. */
 export type Experience = 0 | 1 | 2 | 3 | 4;
 
 /**
  * Shape of the survey response object as posted from the form.
  * For each symptom: `<symptom>_exp` is always present (required).
  */
-export type freBAQResponse = {
+export type FreBAQResponse = {
   [K in `${Symptom}_exp`]: Experience;
 } & {
   /** Free-text body region the respondent named as most bothersome. Context
@@ -28,35 +45,26 @@ export type freBAQResponse = {
   other_comments?: string;
 };
 
-/**
- * Result shape — identical keys to the original Python return dict so it
- * remains a drop-in replacement for the existing templates.
- */
-export interface freBAQResult {
-  total_score: number;
-  interpretation: string;
-  comments: string;
+export type FreBAQResult = ScreenerResult;
+
+// --- Scoring -----------------------------------------------------------------
+
+const isElevated = (total: number): boolean => total >= ELEVATED_CUTOFF;
+
+export function tone(total: number): Tone {
+  return isElevated(total) ? 'elevated' : 'normal';
 }
 
+export const SCORING: ScreenerScoring = { maxScore: MAX_SCORE, tone, isElevated };
+
 /**
- * Score an freBAQ survey response. Each item contributes its raw ordinal
+ * Score a FreBAQ survey response. Each item contributes its raw ordinal
  * rating (0–4); the total is their sum.
  */
-export function score(response: freBAQResponse): freBAQResult {
-  let total_score = 0;
-
-  for (const symptom of SYMPTOMS) {
-    total_score += (response[`${symptom}_exp`] ?? 0) as Experience;
-  }
-
-  const comments =
-    typeof response.other_comments === 'string' && response.other_comments.length > 0
-      ? response.other_comments
-      : 'No comment provided.';
-
+export function score(response: FreBAQResponse): FreBAQResult {
   return {
-    total_score,
+    total_score: sumItems(response, SYMPTOMS),
     interpretation: "Higher score indicates the greater disorder in the body's perception",
-    comments,
+    comments: commentsOf(response),
   };
 }
