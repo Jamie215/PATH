@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readSheet } from './reader';
 import { warpPerspective } from './image';
 import { homographyFromPoints } from './geometry';
-import { renderSyntheticSheet } from './synth';
+import { renderSyntheticSheet } from './__fixtures__/synth';
 import { MSI_OMR_TEMPLATE as T } from '../../assessments/msi/omr-template';
 import { FREBAQ_OMR_TEMPLATE } from '../../assessments/frebaq/omr-template';
 import { score } from '../../assessments/msi/scoring';

@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { routePage, scoreRead } from './route';
 import { readSheet } from './reader';
-import { renderSyntheticSheet } from './synth';
+import { renderSyntheticSheet } from './__fixtures__/synth';
 import { MSI_OMR_TEMPLATE } from '../../assessments/msi/omr-template';
 import { BRIEFSLANSS_OMR_TEMPLATE } from '../../assessments/briefslanss/omr-template';
 import { FREBAQ_OMR_TEMPLATE } from '../../assessments/frebaq/omr-template';

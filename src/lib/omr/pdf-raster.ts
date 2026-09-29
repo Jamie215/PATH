@@ -8,12 +8,14 @@
  * part of the DOM-free, unit-tested reader core.
  */
 import type { GrayImage } from './types';
+import { rgbaToGray } from './decode-image';
 
 // The `?url` import below resolves to the bundled worker asset's URL — typed by
 // Astro's global `*?url` module declaration (astro/client).
 
-/** Longest side of a rasterized page, in pixels — matches the scan pipeline's
- *  working resolution: enough to resolve bubbles, small enough to stay fast. */
+/** Longest side of a rasterized page, in pixels: enough to resolve bubbles,
+ *  small enough to stay fast. (Slightly above decode-image's 1800 for photos,
+ *  since a scanner's flat page has no perspective loss to absorb.) */
 const MAX_DIMENSION = 2000;
 
 /** Render each page of a PDF to a grayscale buffer the reader can consume. */
@@ -48,13 +50,7 @@ export async function rasterizePdfToGray(blob: Blob): Promise<GrayImage[]> {
       // its 2D context).
       await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
-      const { data: rgba } = ctx.getImageData(0, 0, width, height);
-      const gray = new Uint8Array(width * height);
-      for (let p = 0, q = 0; p < gray.length; p += 1, q += 4) {
-        // Rec. 601 luma, matching decode-image.
-        gray[p] = (rgba[q] * 299 + rgba[q + 1] * 587 + rgba[q + 2] * 114) / 1000;
-      }
-      pages.push({ width, height, data: gray });
+      pages.push(rgbaToGray(ctx.getImageData(0, 0, width, height).data, width, height));
       page.cleanup();
     }
   } finally {

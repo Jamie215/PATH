@@ -111,7 +111,7 @@ function preprocess(img: GrayImage): string {
 
 /**
  * Recognize a single line of handwriting from a cropped region. First detects
- * and removes correction marks (strike-through / X / scribble); if they
+ * and removes scribbled-out corrections (see ./correction); if they
  * dominate the crop, skips OCR entirely so the reviewer transcribes from the
  * pinned crop instead of confirming a guess. Text is '' on any failure.
  */

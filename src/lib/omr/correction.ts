@@ -26,6 +26,7 @@
  * Thresholds are first-pass defaults, to be calibrated against real sheets.
  */
 import type { GrayImage } from './types';
+import { otsuThreshold } from './image';
 
 export interface CorrectionResult {
   /** Crop with rules and detected correction regions whitened out. */
@@ -62,35 +63,6 @@ const KEEP_MIN = 0.15;
 interface Segment {
   x0: number;
   x1: number;
-}
-
-/** Otsu's method: the grayscale level that best splits ink from paper for this
- *  crop, so per-photo lighting doesn't need a hard-coded threshold. */
-function otsuThreshold(img: GrayImage): number {
-  const hist = new Array(256).fill(0);
-  for (let i = 0; i < img.data.length; i += 1) hist[img.data[i]] += 1;
-  const total = img.data.length;
-  let sum = 0;
-  for (let t = 0; t < 256; t += 1) sum += t * hist[t];
-  let sumB = 0;
-  let wB = 0;
-  let maxVar = -1;
-  let threshold = 127;
-  for (let t = 0; t < 256; t += 1) {
-    wB += hist[t];
-    if (wB === 0) continue;
-    const wF = total - wB;
-    if (wF === 0) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-    const between = wB * wF * (mB - mF) * (mB - mF);
-    if (between > maxVar) {
-      maxVar = between;
-      threshold = t;
-    }
-  }
-  return threshold;
 }
 
 /** Binary ink mask (1 = ink) at the given threshold; ink is dark (≤ threshold). */

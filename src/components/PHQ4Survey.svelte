@@ -14,7 +14,7 @@
 <SingleGroupSurvey
   questions={QUESTIONS}
   experienceOptions={EXPERIENCE_OPTIONS}
-  intro="For each item below, indicate whether you have experienced the symptom."
+  intro="Over the last 2 weeks, how often have you been bothered by the following?"
   slug="phq4"
   resultsUrl="/phq4/results/"
   score={(r) => score(r as unknown as PHQ4Response)}

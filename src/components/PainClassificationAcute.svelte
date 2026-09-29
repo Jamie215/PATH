@@ -773,7 +773,7 @@
         <div>
           <p class="bulk__title">Have completed tests from the patient?</p>
           <p class="bulk__desc">
-            Upload completed test(s), in PDF or photo (.png).
+            Upload completed test(s), as a PDF or photos.
           </p>
         </div>
       </div>

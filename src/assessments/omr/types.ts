@@ -7,7 +7,7 @@
  *
  *   1. the sheet generator (`src/lib/omr-sheet.ts`), which renders a blank
  *      printable PDF from it, and
- *   2. the reader (later phase), which — after detecting the sheet's four
+ *   2. the reader (`src/lib/omr/reader.ts`), which — after detecting the sheet's four
  *      corner fiducials and warping the photo flat — samples ink density at
  *      each bubble's coordinate to recover the marked value.
  *
@@ -122,7 +122,7 @@ export interface OmrTemplate {
   /** Side length of each square fiducial, normalized to page width. */
   fiducialSize: number;
   /**
-   * A distinct solid marker inset near the top-left corner. The four
+   * A distinct solid marker inset near the bottom-left corner. The four
    * fiducials are identical, so a sheet scanned rotated or flipped is
    * ambiguous on its own; the reader recovers "up" by finding which
    * detected corner this extra key sits next to. Kept separate from the

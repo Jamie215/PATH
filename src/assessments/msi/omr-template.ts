@@ -2,8 +2,8 @@
  * MSI optical-mark answer-sheet template.
  *
  * Produces a fully-resolved `OmrTemplate` (explicit normalized coordinates
- * for every bubble and fiducial) so the sheet generator and the future
- * reader share one geometry. The layout is authored here in PostScript
+ * for every bubble and fiducial) so the sheet generator and the reader
+ * share one geometry. The layout is authored here in PostScript
  * points on US Letter, then normalized on the way out.
  *
  * One symptom per row, with two bubble groups side by side. The group

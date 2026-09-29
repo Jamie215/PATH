@@ -261,7 +261,7 @@ function drawSquare(ctx: Ctx, center: { x: number; y: number }, sideNorm: number
 
 function drawFiducials(ctx: Ctx, template: OmrTemplate): void {
   for (const f of template.fiducials) drawSquare(ctx, f, template.fiducialSize);
-  // Orientation key: a smaller solid square inset from the top-left corner,
+  // Orientation key: a smaller solid square inset from the bottom-left corner,
   // so the reader can tell an upright scan from a rotated/flipped one.
   drawSquare(ctx, template.orientationMark.center, template.orientationMark.size);
 }

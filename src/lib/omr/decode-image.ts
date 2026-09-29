@@ -7,12 +7,19 @@
  * to a working resolution — large enough to resolve bubbles, small enough to
  * keep detection and warping fast.
  */
-import type { GrayImage, OmrReadResult } from './types';
-import type { OmrTemplate } from '../../assessments/omr/types';
-import { readSheet } from './reader';
+import type { GrayImage } from './types';
 
 /** Longest side of the working image, in pixels. */
 const MAX_DIMENSION = 1800;
+
+/** Convert canvas RGBA pixels to a grayscale buffer (Rec. 601 luma). */
+export function rgbaToGray(rgba: Uint8ClampedArray, width: number, height: number): GrayImage {
+  const gray = new Uint8Array(width * height);
+  for (let i = 0, p = 0; i < gray.length; i += 1, p += 4) {
+    gray[i] = (rgba[p] * 299 + rgba[p + 1] * 587 + rgba[p + 2] * 114) / 1000;
+  }
+  return { width, height, data: gray };
+}
 
 /** Decode a File/Blob into a grayscale buffer, downscaling if oversized. */
 export async function blobToGrayImage(blob: Blob): Promise<GrayImage> {
@@ -35,21 +42,10 @@ export async function blobToGrayImage(blob: Blob): Promise<GrayImage> {
     ctx.drawImage(bitmap, 0, 0, width, height);
     const { data } = ctx.getImageData(0, 0, width, height);
 
-    const gray = new Uint8Array(width * height);
-    for (let i = 0, p = 0; i < gray.length; i += 1, p += 4) {
-      // Rec. 601 luma.
-      gray[i] = (data[p] * 299 + data[p + 1] * 587 + data[p + 2] * 114) / 1000;
-    }
-    return { width, height, data: gray };
+    return rgbaToGray(data, width, height);
   } finally {
     bitmap.close();
   }
-}
-
-/** Convenience: decode an uploaded image and read it against a template. */
-export async function readSheetFromBlob(blob: Blob, template: OmrTemplate): Promise<OmrReadResult> {
-  const img = await blobToGrayImage(blob);
-  return readSheet(img, template);
 }
 
 /** Encode a grayscale buffer as a PNG data URL — for showing the flattened

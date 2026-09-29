@@ -18,7 +18,7 @@ export const QUESTIONS: readonly phq4Question[] = [
   },
   {
     symptom: 'worrying',
-    symptomLabel: 'Not being able to stop or control worrying.',
+    symptomLabel: 'Not being able to stop or control worrying',
   },
   {
     symptom: 'depressedOrHopeless',
