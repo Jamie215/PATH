@@ -71,14 +71,22 @@ kept in `sessionStorage` under the `path:` prefix, is wiped when the user
 leaves an assessment or returns to the hub (`src/lib/session-clear.ts`),
 and never leaves the browser.
 
-The site does fetch static assets from third parties:
+The site serves its own assets — including the icon font (a subset built by
+`scripts/fetch-icons.mjs`) and the ONNX Runtime WebAssembly (copied from
+`node_modules` by `scripts/copy-ort.mjs` before `dev`/`build`). The one
+outside request is the handwriting-recognition model
+(`Xenova/trocr-small-handwritten`, ~60–70 MB), downloaded from Hugging Face
+the first time a scanned sheet's handwriting is read and cached by the browser
+after that. Recognition runs on the device; if the model can't be fetched, the
+field is simply left for manual entry. The model version is set by
+`MODEL_REVISION` in `src/lib/omr/handwriting.ts` — change it deliberately and
+re-check recognition.
 
-- **Google Fonts** — the Material Symbols icon font, on every page.
-- **Hugging Face / jsDelivr** — the handwriting-recognition model
-  (`Xenova/trocr-small-handwritten`, tens of MB) and its ONNX runtime, the
-  first time a scanned sheet's handwriting is read (`src/lib/omr/handwriting.ts`).
-  Recognition itself runs on the device. Offline or behind a firewall that
-  blocks these hosts, the field is simply left for manual entry.
+A Content-Security-Policy (`security.csp` in `astro.config.mjs`) restricts
+every page to the site itself plus Hugging Face for the model; other response
+headers are in `public/_headers`. Adding a new icon: add its name to
+`scripts/icons.json` and run `node scripts/fetch-icons.mjs` (a test fails
+until you do).
 
 ## Open items for the project owner
 

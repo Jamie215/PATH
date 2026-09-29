@@ -20,8 +20,11 @@ const MAX_DIMENSION = 2000;
 
 /** Render each page of a PDF to a grayscale buffer the reader can consume. */
 export async function rasterizePdfToGray(blob: Blob): Promise<GrayImage[]> {
-  const pdfjs = await import('pdfjs-dist');
-  const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+  // The legacy build: pdf.js 6's modern build relies on brand-new JavaScript
+  // (e.g. Map.getOrInsertComputed) and fails on browsers a few versions old;
+  // the legacy build polyfills it.
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const workerUrl = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
   const data = new Uint8Array(await blob.arrayBuffer());

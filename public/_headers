@@ -1,0 +1,7 @@
+# Cloudflare Pages response headers. The Content-Security-Policy itself is
+# emitted as a <meta> tag by Astro (security.csp in astro.config.mjs).
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()

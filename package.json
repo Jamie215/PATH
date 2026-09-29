@@ -8,8 +8,11 @@
     "node": ">=22.13"
   },
   "scripts": {
+    "predev": "node scripts/copy-ort.mjs",
     "dev": "astro dev",
+    "prestart": "node scripts/copy-ort.mjs",
     "start": "astro dev",
+    "prebuild": "node scripts/copy-ort.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",

@@ -8,8 +8,15 @@
  * reviewer types them. The crop is contrast-stretched, padded, and upscaled
  * before recognition. Everything is best-effort: any failure resolves to ''.
  *
- * Runs entirely in the browser — the patient's handwriting never leaves the
- * device.
+ * Recognition runs entirely in the browser — the patient's handwriting never
+ * leaves the device. What is downloaded, once (then kept in the browser's
+ * cache):
+ *   - the model files, from Hugging Face at `MODEL_REVISION` (~60–70 MB, 8-bit);
+ *   - the ONNX Runtime WebAssembly, from this site's /ort/ (copied out of
+ *     node_modules by scripts/copy-ort.mjs), not from a CDN.
+ *
+ * To upgrade the model deliberately: change `MODEL_REVISION`, then re-check
+ * recognition against the real crops in ./__fixtures__ and a few scans.
  */
 import type { GrayImage } from './types';
 import { stripCorrections } from './correction';
@@ -29,25 +36,43 @@ type Recognizer = (
   options?: Record<string, unknown>,
 ) => Promise<Array<{ generated_text?: string }> | { generated_text?: string }>;
 
+const MODEL_ID = 'Xenova/trocr-small-handwritten';
+/**
+ * Model version to load: a release tag when the repo publishes one, otherwise
+ * its `main` branch. On `main`, an upstream re-export is picked up
+ * automatically; if it ever failed to load, the reviewer would simply enter
+ * the area by hand. A tag or commit here freezes the version.
+ */
+const MODEL_REVISION = 'main';
+/** Where this site serves the ONNX Runtime files (see scripts/copy-ort.mjs). */
+const ORT_PATH = '/ort/';
+
 let recognizerPromise: Promise<Recognizer> | null = null;
 
 async function loadRecognizer(options: Record<string, unknown>): Promise<Recognizer> {
-  const { pipeline } = await import('@huggingface/transformers');
-  return (await pipeline(
-    'image-to-text',
-    'Xenova/trocr-small-handwritten',
-    options,
-  )) as unknown as Recognizer;
+  const { pipeline, env } = await import('@huggingface/transformers');
+  // transformers.js points the runtime at jsDelivr by default (picking the file
+  // variant for this browser); keep its choice but serve the files ourselves.
+  const wasm = env.backends.onnx.wasm;
+  if (wasm && wasm.wasmPaths && typeof wasm.wasmPaths === 'object') {
+    const paths = wasm.wasmPaths as Record<string, string>;
+    for (const key of Object.keys(paths)) {
+      if (!paths[key].startsWith(ORT_PATH)) paths[key] = ORT_PATH + paths[key].split('/').pop();
+    }
+  }
+  return (await pipeline('image-to-text', MODEL_ID, {
+    revision: MODEL_REVISION,
+    ...options,
+  })) as unknown as Recognizer;
 }
 
 async function getRecognizer(): Promise<Recognizer> {
   if (!recognizerPromise) {
-    // Prefer the small quantized model on the GPU (fastest, smallest download),
-    // then quantized on CPU, then whatever the default is — so an unsupported
-    // option degrades to a slower path instead of failing. Reset on total
-    // failure so a later attempt can retry.
+    // The small 8-bit model on the GPU (fastest), else on the CPU. The
+    // full-precision model (~250 MB) is deliberately never tried. Reset on
+    // total failure so a later attempt can retry.
     recognizerPromise = (async () => {
-      for (const options of [{ device: 'webgpu', dtype: 'q8' }, { dtype: 'q8' }, {}]) {
+      for (const options of [{ device: 'webgpu', dtype: 'q8' }, { dtype: 'q8' }]) {
         try {
           return await loadRecognizer(options);
         } catch {
