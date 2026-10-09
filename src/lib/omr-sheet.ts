@@ -13,7 +13,18 @@
  * quiet margins, and four solid corner fiducials, all chosen to survive a
  * phone photo and re-register cleanly during reading.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFForm } from 'pdf-lib';
+import {
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFRadioGroup,
+  PDFString,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFPage,
+  type PDFForm,
+} from 'pdf-lib';
 import type { OmrTemplate, OmrSection, OmrColumnGroup } from '../assessments/omr/types';
 
 import {
@@ -107,6 +118,7 @@ export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8A
   const form = doc.getForm();
 
   renderSheet(doc, font, fontBold, form, template, {});
+  await finishRadioAppearances(doc, form);
 
   return doc.save();
 }
@@ -146,7 +158,73 @@ function renderSheet(
   drawFooterOn(ctx, ctx.page, template);
   drawCommentBox(ctx, template, gridContentBottomY);
 
-  if (options.answers) fillAnswers(form, options.answers, ctx.fieldPrefix);
+  if (options.answers) {
+    drawAnswerMarks(ctx, template, options.answers);
+    fillAnswers(form, options.answers, ctx.fieldPrefix);
+  }
+}
+
+/**
+ * Print each pre-filled answer as a solid mark in its bubble, exactly as a
+ * hand-filled sheet looks. The form field below carries the same answer, but
+ * not every PDF viewer draws pre-selected radio buttons; ink on the page shows
+ * everywhere (and prints and scans like a hand-filled sheet). The radio
+ * widget sits on top: where a viewer draws it, its opaque "off" disc hides
+ * this mark if the answer is changed on screen.
+ */
+function drawAnswerMarks(
+  ctx: Ctx,
+  template: OmrTemplate,
+  answers: Record<string, number | string>,
+): void {
+  const radiusPt = template.bubbleRadius * ctx.pageW || RADIUS_TO_CONTENT;
+  for (const section of template.sections) {
+    for (const row of section.rows) {
+      for (const field of row.fields) {
+        const value = answers[field.key];
+        if (typeof value !== 'number') continue;
+        const bubble = field.bubbles.find((b) => b.value === value);
+        if (!bubble) continue;
+        ctx.page.drawCircle({
+          x: toX(ctx, bubble.center.x),
+          y: toY(ctx, bubble.center.y),
+          size: radiusPt - 1.4,
+          color: COLOR_INK,
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Give every radio button the conventional description Acrobat writes: a
+ * ZapfDingbats bullet caption (`/MK /CA (l)`) and a matching default
+ * appearance. pdf-lib leaves a placeholder font at size 0 instead, so viewers
+ * that redraw buttons themselves (rather than using the stored appearance)
+ * draw an empty circle for a selected answer. The stored appearances are
+ * generated first, so viewers that use them are unaffected.
+ */
+async function finishRadioAppearances(doc: PDFDocument, form: PDFForm): Promise<void> {
+  form.updateFieldAppearances();
+  const zapf = await doc.embedFont(StandardFonts.ZapfDingbats);
+
+  // Register the font under the name the default appearance refers to.
+  const acroForm = form.acroForm.dict;
+  const dr = acroForm.lookupMaybe(PDFName.of('DR'), PDFDict) ?? doc.context.obj({});
+  acroForm.set(PDFName.of('DR'), dr);
+  const fonts = dr.lookupMaybe(PDFName.of('Font'), PDFDict) ?? doc.context.obj({});
+  dr.set(PDFName.of('Font'), fonts);
+  fonts.set(PDFName.of('ZaDb'), zapf.ref);
+
+  for (const field of form.getFields()) {
+    if (!(field instanceof PDFRadioGroup)) continue;
+    field.acroField.setDefaultAppearance('/ZaDb 0 Tf 0 g');
+    for (const widget of field.acroField.getWidgets()) {
+      widget.dict.delete(PDFName.of('DA'));
+      // A plain (not UTF-16) string, as viewers expect for a ZapfDingbats code.
+      widget.getOrCreateAppearanceCharacteristics().dict.set(PDFName.of('CA'), PDFString.of('l'));
+    }
+  }
 }
 
 /**
@@ -216,6 +294,7 @@ export async function generateCombinedAnswerSheets(
       fieldPrefix: `t${i}_`,
     });
   });
+  await finishRadioAppearances(doc, form);
 
   return doc.save();
 }
