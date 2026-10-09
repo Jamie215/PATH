@@ -55,3 +55,8 @@ the tokens; don't hard-code colors in components.
 
 Pushes to `main` deploy automatically to Cloudflare Pages once the repo
 is connected. See `DEPLOYMENT.md`.
+
+## Hand-off
+
+For an overview of the design, each assessment workflow and the scoring
+logic, see `HANDOFF.md`.
