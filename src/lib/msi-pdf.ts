@@ -7,13 +7,17 @@
  * summary-score, screening, and chart sections below are MSI-specific.
  */
 import { type PDFDocument, type PDFImage } from 'pdf-lib';
-import type { MSIResult } from '../assessments/msi/scoring';
+import {
+  MAX,
+  SUMMARY_MEASURES,
+  targetScore,
+  type MSIResult,
+} from '../assessments/msi/scoring';
 import type { MSIRole } from '../assessments/msi/questions';
 import {
   buildFilename as kitBuildFilename,
   createReport,
   drawComments,
-  drawHeader,
   drawRule,
   drawSectionHeading,
   drawText,
@@ -28,11 +32,7 @@ import {
   COLOR_TINT,
   COLOR_WARNING,
   CONTENT_W,
-  MARGIN_BOTTOM,
-  MARGIN_TOP,
   MARGIN_X,
-  PAGE_H,
-  PAGE_W,
   type Ctx,
 } from './pdf/report-kit';
 
@@ -91,39 +91,15 @@ async function embedPng(doc: PDFDocument, dataUrl: string): Promise<PDFImage> {
 function drawSummaryScores(ctx: Ctx, result: MSIResult): void {
   drawSectionHeading(ctx, 'Summary scores');
 
-  const TARGETS = { symp_no: 1.8, freq_mean: 0.9, int_mean: 1.0, somatic: 7.5, nonsomatic: 6.1 };
-  const target = (current: number, threshold: number) => Math.max(0, current - threshold);
-  const fmtInt = (n: number) => Math.round(n).toString();
-  const fmt1 = (n: number) => n.toFixed(1);
+  const fmt = (n: number, decimals: 0 | 1) =>
+    decimals === 0 ? Math.round(n).toString() : n.toFixed(1);
   const pct = (v: number, max: number) => `${Math.round((v / max) * 100)}%`;
 
-  const rows: [string, string, string][] = [
-    [
-      'Number of symptoms',
-      `${result.symp_no} (${pct(result.symp_no, 10)})`,
-      fmtInt(target(result.symp_no, TARGETS.symp_no)),
-    ],
-    [
-      'Mean frequency',
-      `${fmt1(result.freq_mean)} (${pct(result.freq_mean, 3)})`,
-      fmt1(target(result.freq_mean, TARGETS.freq_mean)),
-    ],
-    [
-      'Mean bothersomeness',
-      `${fmt1(result.int_mean)} (${pct(result.int_mean, 4)})`,
-      fmt1(target(result.int_mean, TARGETS.int_mean)),
-    ],
-    [
-      'Somatic symptoms',
-      `${fmtInt(result.somatic)} (${pct(result.somatic, 60)})`,
-      fmtInt(target(result.somatic, TARGETS.somatic)),
-    ],
-    [
-      'Non-somatic symptoms',
-      `${fmtInt(result.nonsomatic)} (${pct(result.nonsomatic, 72)})`,
-      fmtInt(target(result.nonsomatic, TARGETS.nonsomatic)),
-    ],
-  ];
+  const rows: [string, string, string][] = SUMMARY_MEASURES.map(({ key, label, decimals }) => [
+    label,
+    `${fmt(result[key], decimals)} (${pct(result[key], MAX[key])})`,
+    fmt(targetScore(result, key), decimals),
+  ]);
 
   // Column layout: 240 / 130 / 130
   const colX = { label: MARGIN_X, current: MARGIN_X + 240, target: MARGIN_X + 240 + 130 };
@@ -198,14 +174,8 @@ function drawScreening(ctx: Ctx, result: MSIResult): void {
 }
 
 function drawCharts(ctx: Ctx, barImg: PDFImage, radarImg: PDFImage): void {
-  // Charts together need ~ 480pt of vertical space. Force a new page
-  // if we don't have room (rather than half-chart at bottom of page).
-  if (ctx.y - 480 < MARGIN_BOTTOM) {
-    ctx.page = ctx.doc.addPage([PAGE_W, PAGE_H]);
-    ctx.pageNum += 1;
-    ctx.y = PAGE_H - MARGIN_TOP;
-    drawHeader(ctx, { compact: true });
-  }
+  // Charts together need ~480pt; start a new page rather than split them.
+  ensureSpace(ctx, 480);
 
   drawSectionHeading(ctx, 'Charts');
 
@@ -213,7 +183,6 @@ function drawCharts(ctx: Ctx, barImg: PDFImage, radarImg: PDFImage): void {
   const barTargetW = CONTENT_W;
   const barAspect = barImg.height / barImg.width;
   const barTargetH = Math.min(barTargetW * barAspect, 160);
-  moveDown(ctx, 0);
   ctx.page.drawImage(barImg, {
     x: MARGIN_X,
     y: ctx.y - barTargetH,

@@ -5,9 +5,10 @@ import type { GrayImage } from './types';
 
 /**
  * Regression tests on *real* bothersome-area crops, extracted from photographed
- * sheets (see __fixtures__/*.jpg) through the actual warp/crop pipeline and
- * frozen as compact grayscale JSON so these run with no image-decoding
- * dependency. These are the cases that drove the detector's thresholds; keeping
+ * FreBAQ sheets through the actual warp/crop pipeline and frozen as compact
+ * grayscale JSON so these run with no image-decoding dependency. The source
+ * photos were removed from the repo (they were photos of filled-in patient
+ * forms); only the anonymous handwriting crops are kept. These are the cases that drove the detector's thresholds; keeping
  * them here stops a future tweak from silently regressing real scans.
  */
 function loadCrop(name: string): GrayImage {

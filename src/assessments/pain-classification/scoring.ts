@@ -22,6 +22,11 @@
  *   - PHQ-4         0–12  (phq4.total_score)
  */
 
+import { MAX as MSI_MAX } from '../msi/scoring';
+import { MAX_SCORE as SLANSS_MAX } from '../briefslanss/scoring';
+import { MAX_SCORE as FREBAQ_MAX } from '../frebaq/scoring';
+import { MAX_SCORE as PHQ4_MAX } from '../phq4/scoring';
+
 export const CATEGORIES = [
   'Mood-Dominant',
   'Localized/Resilient',
@@ -40,12 +45,14 @@ interface ZSpec {
   zMax: number;
 }
 
+// The calibrated domains are each measure's full range, so the maxima come from
+// the child scorers rather than being restated here.
 const Z_SPECS: Record<Measure, ZSpec> = {
-  somatic: { min: 0, max: 60, zMin: -2.00415, zMax: 2.55216 },
-  central: { min: 0, max: 72, zMin: -1.18272, zMax: 3.32006 },
-  slanss: { min: 0, max: 4, zMin: -1.35666, zMax: 1.79376 },
-  frebaq: { min: 0, max: 24, zMin: -0.99064, zMax: 3.05668 },
-  phq4: { min: 0, max: 12, zMin: -1.20701, zMax: 1.87713 },
+  somatic: { min: 0, max: MSI_MAX.somatic, zMin: -2.00415, zMax: 2.55216 },
+  central: { min: 0, max: MSI_MAX.nonsomatic, zMin: -1.18272, zMax: 3.32006 },
+  slanss: { min: 0, max: SLANSS_MAX, zMin: -1.35666, zMax: 1.79376 },
+  frebaq: { min: 0, max: FREBAQ_MAX, zMin: -0.99064, zMax: 3.05668 },
+  phq4: { min: 0, max: PHQ4_MAX, zMin: -1.20701, zMax: 1.87713 },
 };
 
 function toZ(raw: number, s: ZSpec): number {
@@ -68,7 +75,6 @@ const COEFFS: Record<Category, [number, number, number, number, number, number]>
 export type PainClassificationInputs = Record<string, Record<string, number>>;
 
 export interface PainClassificationResult {
-  ready: boolean;
   /** Predicted category (argmax of the discriminants). */
   classification: Category;
   /** Raw linear discriminant score per category. */
@@ -116,5 +122,5 @@ export function scoreAcute(inputs: PainClassificationInputs): PainClassification
     if (scores[c] > scores[classification]) classification = c;
   }
 
-  return { ready: true, classification, scores, probabilities, z, inputs };
+  return { classification, scores, probabilities, z, inputs };
 }

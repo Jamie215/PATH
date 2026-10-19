@@ -58,12 +58,20 @@ function decodeField(field: OmrField, darknesses: number[]): FieldRead {
   return { key: field.key, value: field.bubbles[mi].value, darknesses, confidence, status: 'ok' };
 }
 
-/** Read a photographed sheet against its template. */
-export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult {
+/** A photo flattened to a template's canonical page, or why it couldn't be. */
+export type Rectified =
+  | { ok: true; warped: GrayImage; canonW: number; canonH: number }
+  | { ok: false; error: string };
+
+/**
+ * Detect the sheet's corner marks and warp it flat to the template's
+ * canonical page. Depends only on the template's page/fiducial geometry, so
+ * templates that share that geometry can share one rectification (see
+ * `geometryKey` and route.ts).
+ */
+export function rectify(img: GrayImage, template: OmrTemplate): Rectified {
   const corners = detectCorners(img, template);
-  if (!corners) {
-    return { ok: false, error: 'Could not locate the sheet (corner marks not found).', response: {}, fields: [], warnings: [], attention: [] };
-  }
+  if (!corners) return { ok: false, error: 'Could not locate the sheet (corner marks not found).' };
 
   const canonW = Math.round(template.page.width * SCALE);
   const canonH = Math.round(template.page.height * SCALE);
@@ -72,11 +80,28 @@ export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult 
   const src: Pt[] = template.fiducials.map((f) => ({ x: f.x * canonW, y: f.y * canonH }));
   const dst: Pt[] = [corners.TL, corners.TR, corners.BR, corners.BL];
   const H: Mat3 | null = homographyFromPoints(src, dst);
-  if (!H) {
-    return { ok: false, error: 'Corner marks are degenerate; cannot rectify the sheet.', response: {}, fields: [], warnings: [], attention: [] };
-  }
+  if (!H) return { ok: false, error: 'Corner marks are degenerate; cannot rectify the sheet.' };
 
-  const warped = warpPerspective(img, H, canonW, canonH);
+  return { ok: true, warped: warpPerspective(img, H, canonW, canonH), canonW, canonH };
+}
+
+/** Templates with equal keys rectify a photo identically. */
+export function geometryKey(template: OmrTemplate): string {
+  const { page, fiducials, fiducialSize, orientationMark } = template;
+  return JSON.stringify({ page, fiducials, fiducialSize, orientationMark });
+}
+
+/** Read a photographed sheet against its template. */
+export function readSheet(img: GrayImage, template: OmrTemplate): OmrReadResult {
+  return readRectified(rectify(img, template), template);
+}
+
+/** Read an already-rectified sheet against a template sharing its geometry. */
+export function readRectified(rect: Rectified, template: OmrTemplate): OmrReadResult {
+  if (!rect.ok) {
+    return { ok: false, error: rect.error, response: {}, fields: [], warnings: [], attention: [] };
+  }
+  const { warped, canonW, canonH } = rect;
   const fullR = template.bubbleRadius * canonW;
   const sampleR = fullR * INNER_RADIUS_FACTOR;
   const bgInner = fullR * BG_INNER_FACTOR;

@@ -13,19 +13,34 @@
  * quiet margins, and four solid corner fiducials, all chosen to survive a
  * phone photo and re-register cleanly during reading.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFForm } from 'pdf-lib';
+import {
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFRadioGroup,
+  PDFString,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFPage,
+  type PDFForm,
+} from 'pdf-lib';
 import type { OmrTemplate, OmrSection, OmrColumnGroup } from '../assessments/omr/types';
 
-const COLOR_INK = rgb(0, 0, 0);
-const COLOR_TEXT = rgb(0.12, 0.12, 0.12);
-const COLOR_PRIMARY = rgb(0.31, 0.149, 0.514); // #4F2683
-const COLOR_MUTED = rgb(0.361, 0.361, 0.361);
-const COLOR_SUBTLE = rgb(0.533, 0.533, 0.533);
-const COLOR_HAIRLINE = rgb(0.88, 0.88, 0.88); // eye-tracking separators
-const COLOR_TINT = rgb(0.961, 0.941, 0.98); // #F5F0FA callout background
-const COLOR_TINT_BORDER = rgb(0.82, 0.76, 0.9); // callout border
+import {
+  COLOR_MUTED,
+  COLOR_PRIMARY,
+  COLOR_SUBTLE,
+  COLOR_TEXT,
+  COLOR_TINT,
+  MARGIN_X,
+  wrapText,
+} from './pdf/report-kit';
 
-const MARGIN_X = 50;
+// Sheet-only colours; the shared palette comes from the report kit.
+const COLOR_INK = rgb(0, 0, 0);
+const COLOR_HAIRLINE = rgb(0.88, 0.88, 0.88); // eye-tracking separators
+const COLOR_TINT_BORDER = rgb(0.82, 0.76, 0.9); // callout border
 
 interface Ctx {
   doc: PDFDocument;
@@ -45,24 +60,6 @@ interface Ctx {
 const toX = (ctx: Ctx, xNorm: number): number => xNorm * ctx.pageW;
 /** Normalized top-left y → point y (flip to pdf-lib's bottom-left origin). */
 const toY = (ctx: Ctx, yNorm: number): number => ctx.pageH - yNorm * ctx.pageH;
-
-/** Greedy word-wrap `text` to fit `maxWidth` at the given font/size. */
-function wrapText(text: string, maxWidth: number, font: PDFFont, size: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = candidate;
-    }
-  }
-  if (current) lines.push(current);
-  return lines.length ? lines : [''];
-}
 
 /** Draw text centered horizontally on a point x. */
 function drawCentered(
@@ -87,7 +84,7 @@ function drawBubbleGlyph(
   ctx: Ctx,
   cxPt: number,
   cyPt: number,
-  kind: 'filled' | 'empty' | 'crossed',
+  kind: 'filled' | 'crossed',
   radiusPt = 5,
 ): void {
   ctx.page.drawCircle({ x: cxPt, y: cyPt, size: radiusPt, borderColor: COLOR_INK, borderWidth: 1 });
@@ -121,6 +118,7 @@ export async function generateAnswerSheet(template: OmrTemplate): Promise<Uint8A
   const form = doc.getForm();
 
   renderSheet(doc, font, fontBold, form, template, {});
+  await finishRadioAppearances(doc, form);
 
   return doc.save();
 }
@@ -157,10 +155,76 @@ function renderSheet(
   for (const section of template.sections) {
     gridContentBottomY = Math.min(gridContentBottomY, drawSection(ctx, section, template));
   }
-  drawFooter(ctx, template);
+  drawFooterOn(ctx, ctx.page, template);
   drawCommentBox(ctx, template, gridContentBottomY);
 
-  if (options.answers) fillAnswers(form, options.answers, ctx.fieldPrefix);
+  if (options.answers) {
+    drawAnswerMarks(ctx, template, options.answers);
+    fillAnswers(form, options.answers, ctx.fieldPrefix);
+  }
+}
+
+/**
+ * Print each pre-filled answer as a solid mark in its bubble, exactly as a
+ * hand-filled sheet looks. The form field below carries the same answer, but
+ * not every PDF viewer draws pre-selected radio buttons; ink on the page shows
+ * everywhere (and prints and scans like a hand-filled sheet). The radio
+ * widget sits on top: where a viewer draws it, its opaque "off" disc hides
+ * this mark if the answer is changed on screen.
+ */
+function drawAnswerMarks(
+  ctx: Ctx,
+  template: OmrTemplate,
+  answers: Record<string, number | string>,
+): void {
+  const radiusPt = template.bubbleRadius * ctx.pageW || RADIUS_TO_CONTENT;
+  for (const section of template.sections) {
+    for (const row of section.rows) {
+      for (const field of row.fields) {
+        const value = answers[field.key];
+        if (typeof value !== 'number') continue;
+        const bubble = field.bubbles.find((b) => b.value === value);
+        if (!bubble) continue;
+        ctx.page.drawCircle({
+          x: toX(ctx, bubble.center.x),
+          y: toY(ctx, bubble.center.y),
+          size: radiusPt - 1.4,
+          color: COLOR_INK,
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Give every radio button the conventional description Acrobat writes: a
+ * ZapfDingbats bullet caption (`/MK /CA (l)`) and a matching default
+ * appearance. pdf-lib leaves a placeholder font at size 0 instead, so viewers
+ * that redraw buttons themselves (rather than using the stored appearance)
+ * draw an empty circle for a selected answer. The stored appearances are
+ * generated first, so viewers that use them are unaffected.
+ */
+async function finishRadioAppearances(doc: PDFDocument, form: PDFForm): Promise<void> {
+  form.updateFieldAppearances();
+  const zapf = await doc.embedFont(StandardFonts.ZapfDingbats);
+
+  // Register the font under the name the default appearance refers to.
+  const acroForm = form.acroForm.dict;
+  const dr = acroForm.lookupMaybe(PDFName.of('DR'), PDFDict) ?? doc.context.obj({});
+  acroForm.set(PDFName.of('DR'), dr);
+  const fonts = dr.lookupMaybe(PDFName.of('Font'), PDFDict) ?? doc.context.obj({});
+  dr.set(PDFName.of('Font'), fonts);
+  fonts.set(PDFName.of('ZaDb'), zapf.ref);
+
+  for (const field of form.getFields()) {
+    if (!(field instanceof PDFRadioGroup)) continue;
+    field.acroField.setDefaultAppearance('/ZaDb 0 Tf 0 g');
+    for (const widget of field.acroField.getWidgets()) {
+      widget.dict.delete(PDFName.of('DA'));
+      // A plain (not UTF-16) string, as viewers expect for a ZapfDingbats code.
+      widget.getOrCreateAppearanceCharacteristics().dict.set(PDFName.of('CA'), PDFString.of('l'));
+    }
+  }
 }
 
 /**
@@ -230,6 +294,7 @@ export async function generateCombinedAnswerSheets(
       fieldPrefix: `t${i}_`,
     });
   });
+  await finishRadioAppearances(doc, form);
 
   return doc.save();
 }
@@ -261,7 +326,7 @@ function drawSquare(ctx: Ctx, center: { x: number; y: number }, sideNorm: number
 
 function drawFiducials(ctx: Ctx, template: OmrTemplate): void {
   for (const f of template.fiducials) drawSquare(ctx, f, template.fiducialSize);
-  // Orientation key: a smaller solid square inset from the top-left corner,
+  // Orientation key: a smaller solid square inset from the bottom-left corner,
   // so the reader can tell an upright scan from a rotated/flipped one.
   drawSquare(ctx, template.orientationMark.center, template.orientationMark.size);
 }
@@ -619,10 +684,6 @@ function drawSection(ctx: Ctx, section: OmrSection, template: OmrTemplate): numb
   });
 
   return contentBottomY;
-}
-
-function drawFooter(ctx: Ctx, template: OmrTemplate): void {
-  drawFooterOn(ctx, ctx.page, template);
 }
 
 function drawFooterOn(ctx: Ctx, page: PDFPage, template: OmrTemplate): void {

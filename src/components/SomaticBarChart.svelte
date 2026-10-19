@@ -11,7 +11,8 @@
    * place (src/styles/global.css).
    */
   import { onMount, onDestroy } from 'svelte';
-  import { ensureChartJsRegistered, Chart } from '../lib/chart-setup';
+  import { ensureChartJsRegistered, cssVar, Chart } from '../lib/chart-setup';
+  import ChartFigure from './ChartFigure.svelte';
 
   interface Props {
     somatic: number;
@@ -23,12 +24,6 @@
 
   let canvas: HTMLCanvasElement;
   let chart: Chart | null = null;
-
-  function cssVar(name: string, fallback: string): string {
-    if (typeof window === 'undefined') return fallback;
-    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return value || fallback;
-  }
 
   onMount(() => {
     if (!canvas) return;
@@ -113,40 +108,6 @@
   });
 </script>
 
-<figure class="chart-figure">
-  <figcaption class="chart-figure__caption">
-    Somatic vs Non-somatic Symptoms % Score
-  </figcaption>
-  <div class="chart-figure__canvas">
-    <canvas bind:this={canvas} id={canvasId} aria-label="Horizontal diverging bar comparing somatic and non-somatic symptom totals"
-      role="img"></canvas>
-  </div>
-</figure>
-
-<style>
-  .chart-figure {
-    margin: 0;
-    padding: var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .chart-figure__caption {
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: var(--color-text);
-    text-align: center;
-    margin-bottom: var(--space-3);
-  }
-
-  .chart-figure__canvas {
-    position: relative;
-    height: 200px;
-    width: 100%;
-    margin-top: var(--space-5);
-  }
-</style>
+<ChartFigure caption="Somatic vs Non-somatic Symptoms % Score" description="Horizontal diverging bar comparing somatic and non-somatic symptom totals" variant="bar">
+  <canvas bind:this={canvas} id={canvasId}></canvas>
+</ChartFigure>

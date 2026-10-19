@@ -5,10 +5,11 @@
    * configuration and forwards the embedding/scan-review props through.
    */
   import SingleGroupSurvey from './SingleGroupSurvey.svelte';
+  import type { EmbeddedSurveyProps } from './survey/types';
   import { QUESTIONS, EXPERIENCE_OPTIONS } from '../assessments/briefslanss/questions';
-  import { score, type briefSLANSSResponse } from '../assessments/briefslanss/scoring';
+  import { score, type BriefSLANSSResponse } from '../assessments/briefslanss/scoring';
 
-  let { progress = $bindable(0), ...rest } = $props();
+  let { progress = $bindable(0), ...rest }: EmbeddedSurveyProps = $props();
 </script>
 
 <SingleGroupSurvey
@@ -17,7 +18,7 @@
   intro="For each item below, indicate whether you have experienced the symptom."
   slug="briefslanss"
   resultsUrl="/briefslanss/results/"
-  score={(r) => score(r as unknown as briefSLANSSResponse)}
+  score={(r) => score(r as unknown as BriefSLANSSResponse)}
   bind:progress
   {...rest}
 />

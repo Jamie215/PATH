@@ -27,3 +27,6 @@ pnpm-debug.log*
 
 # cloudflare
 .wrangler/
+
+# regenerated from node_modules by scripts/copy-ort.mjs
+public/ort/

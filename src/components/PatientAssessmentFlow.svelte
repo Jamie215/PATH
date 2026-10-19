@@ -14,11 +14,10 @@
    * Patients never see a score or the composite classification.
    */
   import { onMount } from 'svelte';
+  import { PdfDownload } from '../lib/results.svelte';
+  import { buildCompletedSheets } from '../lib/completed-sheets';
   import { get as storeGet, set as storeSet } from '../lib/storage';
-  import MSISurvey from './MSISurvey.svelte';
-  import BriefSLANSSSurvey from './BriefSLANSSSurvey.svelte';
-  import FreBAQSurvey from './FreBAQSurvey.svelte';
-  import PHQ4Survey from './PHQ4Survey.svelte';
+  import ChildSurvey from './pain-classification/ChildSurvey.svelte';
   import BackLink from './BackLink.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
 
@@ -32,8 +31,7 @@
   // Completion fraction (0–1) of the current test, bound from the survey so the
   // page can render overall progress across all four tests.
   let surveyProgress = $state(0);
-  let downloadBusy = $state(false);
-  let downloadError = $state<string | null>(null);
+  const sheets = new PdfDownload();
 
   const total = ACUTE_CHILDREN.length;
   const child = $derived(ACUTE_CHILDREN[step]);
@@ -72,10 +70,6 @@
       window.location.replace('/pain-classification/');
       return;
     }
-    // MSI is role-gated: its survey redirects if no role is stored, so seed the
-    // role key(s) before any survey renders.
-    for (const c of ACUTE_CHILDREN) if (c.roleKey) storeSet(c.roleKey, role);
-
     // Deep link from the review view to edit one specific test.
     const editSlug = new URLSearchParams(window.location.search).get('edit');
     if (editSlug) {
@@ -122,43 +116,20 @@
 
   /** Compile every test into one fillable PDF (each form carrying whatever
    *  answers are stored so far), the same record offered on the review view. */
-  async function downloadAll(): Promise<void> {
-    downloadBusy = true;
-    downloadError = null;
-    try {
-      const { generateCombinedAnswerSheets, buildCombinedAnswerSheetFilename } = await import('../lib/omr-sheet');
-      const today = new Date().toLocaleDateString();
-      const entries = ACUTE_CHILDREN.filter((c) => c.omrTemplate).map((c) => {
-        const response = storeGet<Record<string, number | string>>(`${c.slug}:response`) ?? {};
-        return { template: c.omrTemplate!, answers: { ...response, patient_date: today } };
-      });
-      const bytes = await generateCombinedAnswerSheets(entries);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = buildCombinedAnswerSheetFilename();
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      downloadError = err instanceof Error ? err.message : 'Could not prepare the download.';
-    } finally {
-      downloadBusy = false;
-    }
+  function downloadAll(): Promise<void> {
+    return sheets.run(() => buildCompletedSheets());
   }
 </script>
 
 {#snippet downloadButton()}
   <button
     type="button"
-    class="btn btn--primary flow__download"
+    class="btn btn--next flow__download"
     onclick={downloadAll}
-    disabled={downloadBusy}
+    disabled={sheets.busy}
   >
     <span class="material-symbols-outlined" aria-hidden="true">download</span>
-    {downloadBusy ? 'Preparing…' : 'Download all tests'}
+    {sheets.busy ? 'Preparing…' : 'Download all tests'}
   </button>
 {/snippet}
 
@@ -167,11 +138,11 @@
     <BackLink fallback="/pain-classification/" />
 
     {#if !editingSingle}
-      <!-- Guidance for the full four-test walk-through, with the download beside it. -->
+      <!-- Guidance for the full walk-through, with the download beside it. -->
       <h1 class="flow__heading">Pain Classification</h1>
       <div class="flow__intro">
         <p class="flow__instructions">
-          Fill out all four assessments below. Once they're complete, you can review your responses.
+          Fill out all {total} assessments below. Once they're complete, you can review your responses.
           Alternatively, you can download the tests as a PDF to fill out separately and forward to
           your healthcare professional.
         </p>
@@ -210,63 +181,26 @@
       </header>
     {/if}
 
-    {#if downloadError}
-      <p class="flow__error" role="alert">{downloadError}</p>
+    {#if sheets.error}
+      <p class="flow__error" role="alert">{sheets.error}</p>
     {/if}
 
-    <h1 class="flow__title">{step + 1}. {child.shortName}</h1>
+    <svelte:element this={editingSingle ? 'h1' : 'h2'} class="flow__title">{step + 1}. {child.shortName}</svelte:element>
 
     {#key child.slug}
-      {#if child.slug === 'msi'}
-        <MSISurvey
-          initialAnswers={initial.answers}
-          initialComments={initial.comments}
-          onComplete={() => handleComplete(child)}
-          onBack={showStepBack ? back : undefined}
-          {backLabel}
-          {submitLabel}
-          {submitIcon}
-          showProgress={false}
-          bind:progress={surveyProgress}
-        />
-      {:else if child.slug === 'briefslanss'}
-        <BriefSLANSSSurvey
-          initialAnswers={initial.answers}
-          initialComments={initial.comments}
-          onComplete={() => handleComplete(child)}
-          onBack={showStepBack ? back : undefined}
-          {backLabel}
-          {submitLabel}
-          {submitIcon}
-          showProgress={false}
-          bind:progress={surveyProgress}
-        />
-      {:else if child.slug === 'frebaq'}
-        <FreBAQSurvey
-          initialAnswers={initial.answers}
-          initialArea={initial.area}
-          initialComments={initial.comments}
-          onComplete={() => handleComplete(child)}
-          onBack={showStepBack ? back : undefined}
-          {backLabel}
-          {submitLabel}
-          {submitIcon}
-          showProgress={false}
-          bind:progress={surveyProgress}
-        />
-      {:else if child.slug === 'phq4'}
-        <PHQ4Survey
-          initialAnswers={initial.answers}
-          initialComments={initial.comments}
-          onComplete={() => handleComplete(child)}
-          onBack={showStepBack ? back : undefined}
-          {backLabel}
-          {submitLabel}
-          {submitIcon}
-          showProgress={false}
-          bind:progress={surveyProgress}
-        />
-      {/if}
+      <ChildSurvey
+        slug={child.slug}
+        initialAnswers={initial.answers}
+        initialArea={initial.area}
+        initialComments={initial.comments}
+        onComplete={() => handleComplete(child)}
+        onBack={showStepBack ? back : undefined}
+        {backLabel}
+        {submitLabel}
+        {submitIcon}
+        showProgress={false}
+        bind:progress={surveyProgress}
+      />
     {/key}
   </section>
 {/if}
@@ -309,7 +243,6 @@
 
   .flow__download {
     flex-shrink: 0;
-    background: #793CC8;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
@@ -361,12 +294,12 @@
 
   .flow__step--current .flow__step-num {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-bg);
   }
 
   .flow__step--done .flow__step-num {
     background: var(--color-success);
-    color: #fff;
+    color: var(--color-bg);
   }
 
   .flow__seg {

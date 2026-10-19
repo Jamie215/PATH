@@ -5,8 +5,8 @@
  * every bubble outline, and a filled disc for each answer. Not shipped in the
  * app bundle (only imported by tests).
  */
-import type { GrayImage } from './types';
-import type { OmrTemplate } from '../../assessments/omr/types';
+import type { GrayImage } from '../types';
+import type { OmrTemplate } from '../../../assessments/omr/types';
 
 const INK = 10;
 const RING = 70;

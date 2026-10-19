@@ -16,11 +16,10 @@
     label: string;
     options: ReadonlyArray<Option>;
     value: number | null;
-    name: string;
     onChange: (value: number) => void;
   }
 
-  let { label, options, value, name, onChange }: Props = $props();
+  let { label, options, value, onChange }: Props = $props();
 
   function handleKey(event: KeyboardEvent, currentValue: number): void {
     const idx = options.findIndex((o) => o.value === currentValue);
@@ -35,6 +34,11 @@
     }
     event.preventDefault();
     onChange(options[next].value);
+    // Roving tabindex: focus must follow the selection, otherwise it stays on
+    // the old (now tabindex=-1) button and the next arrow press recomputes
+    // from the stale option.
+    const group = (event.currentTarget as HTMLElement).parentElement;
+    group?.querySelectorAll<HTMLButtonElement>('.rating__option')[next]?.focus();
   }
 </script>
 
@@ -48,7 +52,6 @@
       tabindex={selected || (value === null && opt === options[0]) ? 0 : -1}
       class="rating__option"
       class:rating__option--selected={selected}
-      data-name={name}
       onclick={() => onChange(opt.value)}
       onkeydown={(e) => handleKey(e, opt.value)}
     >
@@ -91,7 +94,7 @@
 
   .rating__option--selected {
     background: var(--color-primary);
-    color: #ffffff;
+    color: var(--color-bg);
     border-color: var(--color-primary);
   }
 

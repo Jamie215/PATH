@@ -160,14 +160,6 @@ export async function readPdfForm(
   return readFormFields(doc, template, '');
 }
 
-/** Convenience: read a filled interactive PDF straight from a File/Blob. */
-export async function readPdfFormFromBlob(
-  blob: Blob,
-  template: OmrTemplate,
-): Promise<OmrReadResult> {
-  return readPdfForm(await blob.arrayBuffer(), template);
-}
-
 /** One assessment's read within a combined "all tests" document. */
 export interface CombinedChildRead {
   /** `OmrTemplate.id` of the assessment this read belongs to. */

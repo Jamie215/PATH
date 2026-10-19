@@ -7,8 +7,9 @@
  * variety of inputs. If anything in scoring.ts diverges from the Python
  * behavior, these tests will fail.
  *
- * To regenerate fixtures (only do this if the original Python scoring
- * intentionally changes — not to mask a bug): see scripts/generate-msi-fixtures.py
+ * The generator script (scripts/generate-msi-fixtures.py, which ran msi.py)
+ * was never committed to this repo. Regenerate only if the original Python
+ * scoring intentionally changes — never to mask a bug.
  */
 import { describe, expect, it } from 'vitest';
 import { score, type MSIResponse, type MSIResult } from './scoring';

@@ -6,15 +6,16 @@
    * the area field) and forwards the embedding/scan-review props through.
    */
   import SingleGroupSurvey from './SingleGroupSurvey.svelte';
+  import type { EmbeddedSurveyProps } from './survey/types';
   import { QUESTIONS, EXPERIENCE_OPTIONS } from '../assessments/frebaq/questions';
-  import { score, type freBAQResponse } from '../assessments/frebaq/scoring';
+  import { score, type FreBAQResponse } from '../assessments/frebaq/scoring';
   import {
     sanitizeBothersomeArea,
     personalizeFreBAQItem,
     normalizeBothersomeArea,
   } from '../assessments/frebaq/area';
 
-  let { progress = $bindable(0), ...rest } = $props();
+  let { progress = $bindable(0), ...rest }: EmbeddedSurveyProps = $props();
 </script>
 
 <SingleGroupSurvey
@@ -23,7 +24,7 @@
   intro="For each item below, rate your experience in the area of interest."
   slug="frebaq"
   resultsUrl="/frebaq/results/"
-  score={(r) => score(r as unknown as freBAQResponse)}
+  score={(r) => score(r as unknown as FreBAQResponse)}
   areaField={{
     label: 'The part of my body that has been bothering me the most is:',
     placeholder: 'e.g., right knee, left hand, neck',

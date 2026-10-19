@@ -263,3 +263,20 @@ export function discDarkness(img: GrayImage, cx: number, cy: number, r: number):
   if (count === 0) return 0;
   return sum / count / 255;
 }
+
+/**
+ * Crop a full-width horizontal band (normalized top→bottom fractions) from an
+ * image — e.g. the title strip of a flattened sheet, cheap to encode as a
+ * thumbnail.
+ */
+export function cropBand(img: GrayImage, topNorm: number, bottomNorm: number): GrayImage {
+  const top = Math.round(img.height * topNorm);
+  const bottom = Math.round(img.height * bottomNorm);
+  const h = Math.max(1, bottom - top);
+  const data = new Uint8Array(img.width * h);
+  for (let row = 0; row < h; row += 1) {
+    const src = (top + row) * img.width;
+    data.set(img.data.subarray(src, src + img.width), row * img.width);
+  }
+  return { width: img.width, height: h, data };
+}

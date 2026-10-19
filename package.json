@@ -4,13 +4,19 @@
   "version": "0.1.0",
   "private": true,
   "description": "Pain Assessment Tools Hub (PATH)",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
+    "predev": "node scripts/copy-ort.mjs",
     "dev": "astro dev",
+    "prestart": "node scripts/copy-ort.mjs",
     "start": "astro dev",
+    "prebuild": "node scripts/copy-ort.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "check": "astro check",
+    "check": "astro check && svelte-check --tsconfig ./tsconfig.json --threshold error --output human",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -25,6 +31,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "svelte-check": "^4.7.6",
     "typescript": "^5.9.3",
     "vitest": "^2.1.9"
   }
