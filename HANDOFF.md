@@ -193,7 +193,7 @@ On the professional collection page, a completed packet can be uploaded instead 
 
 Four decisions are still open.
 
-- [ ] **FreBAQ cutoff.** Confirm 12 or more as the "elevated" highlight, or supply a validated cutoff. It is set in `src/components/FreBAQResults.svelte`.
-- [ ] **briefSLANSS cutoff.** Confirm a total above 2 as "predominantly neuropathic". It is set in `src/assessments/briefslanss/scoring.ts`, with the matching colour in `src/components/BriefSLANSSResults.svelte`.
+- [ ] **FreBAQ cutoff.** Confirm 12 or more as the "elevated" highlight, or supply a validated cutoff. It is set by `ELEVATED_CUTOFF` in `src/assessments/frebaq/scoring.ts`.
+- [ ] **briefSLANSS cutoff.** Confirm a total above 2 as "predominantly neuropathic". It is set by `NEUROPATHIC_CUTOFF` in `src/assessments/briefslanss/scoring.ts`, which also sets the results colour.
 - [ ] **Chronic pathway.** Decide the chronic-pain tests and model. Choosing *chronic* at intake currently stops with a placeholder message.
 - [ ] **Model file download.** Confirm that the one-time handwriting-model download from Hugging Face is acceptable for ethics or privacy review, or host the file on the PATH site instead.
