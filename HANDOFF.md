@@ -63,7 +63,7 @@ MSI turns 10 symptom ratings into a somatic score (0–60) and a non-somatic sco
 | Full recovery predicted | non-somatic ≤ 2 | 3–21 | non-somatic ≥ 22 |
 | Potential major depressive disorder | non-somatic ≥ 21 | 10–20 | non-somatic ≤ 9 |
 
-**Target for meaningful change.** The results table shows, for each measure, the current value minus a fixed change threshold (never below 0). The thresholds are 1.8 symptoms, 0.9 mean frequency, 1.0 mean bothersomeness, 7.5 somatic and 6.1 non-somatic. They live in `src/components/MSIResults.svelte`.
+**Target for meaningful change.** The results table shows, for each measure, the current value minus a fixed change threshold (never below 0). The thresholds are 1.8 symptoms, 0.9 mean frequency, 1.0 mean bothersomeness, 7.5 somatic and 6.1 non-somatic. They are `MEANINGFUL_CHANGE` in `src/assessments/msi/scoring.ts`.
 
 ## Body Awareness (FreBAQ)
 
