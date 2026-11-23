@@ -96,7 +96,7 @@
         <span class="review__name-label">Name / ID</span>
         <input
           id="patient-name"
-          class="review__name-input"
+          class="text-input review__name-input"
           type="text"
           placeholder="Enter name or ID"
           bind:value={nameInput}
@@ -245,19 +245,8 @@
   .review__name-input {
     flex: 1 1 200px;
     min-width: 0;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: 0.95rem;
-    background: var(--color-bg);
-    color: var(--color-text);
   }
 
-  .review__name-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
 
   .review__error {
     margin: 0 0 var(--space-4) 0;

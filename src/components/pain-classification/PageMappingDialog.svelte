@@ -49,7 +49,7 @@
           <label class="mapping__label" for={`map-${p.index}`}>Page {p.index + 1}</label>
           <select
             id={`map-${p.index}`}
-            class="mapping__select"
+            class="text-input mapping__select"
             class:mapping__select--dup={duplicated}
             bind:value={choices[i]}
             aria-invalid={duplicated}
@@ -151,18 +151,7 @@
   }
 
   .mapping__select {
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: 0.95rem;
-    background: var(--color-bg);
-    color: var(--color-text);
     max-width: 20rem;
-  }
-  .mapping__select:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
   }
 
   /* A page sharing its assessment with another: flag the whole card and its

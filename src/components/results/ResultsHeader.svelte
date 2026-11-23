@@ -22,7 +22,7 @@
     <label id="name-heading" class="name-row__label" for="patient-name">Patient name / ID</label>
     <input
       id="patient-name"
-      class="name-row__input"
+      class="text-input name-row__input"
       type="text"
       placeholder="Enter name"
       bind:value={name.input}
@@ -60,20 +60,8 @@
   .name-row__input {
     flex: 1;
     min-width: 200px;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.95rem;
-    color: var(--color-text);
-    background: var(--color-bg);
   }
 
-  .name-row__input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
 
   .name-display {
     margin: var(--space-4) 0 0 0;

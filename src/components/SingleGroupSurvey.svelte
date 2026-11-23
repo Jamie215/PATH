@@ -184,7 +184,7 @@
           <div class="area__row">
             <input
               id={areaId}
-              class="area__input"
+              class="text-input area__input"
               class:field--error={areaMissing}
               class:field--flagged={requireArea && !areaMissing}
               type="text"
@@ -295,19 +295,8 @@
   .area__input {
     width: 100%;
     padding: var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.95rem;
-    background: var(--color-bg);
-    color: var(--color-text);
   }
 
-  .area__input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
 
   .area__confirm {
     flex-shrink: 0;
