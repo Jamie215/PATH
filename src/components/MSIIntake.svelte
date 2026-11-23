@@ -10,6 +10,7 @@
    * (e.g. acute vs chronic for Pain Classification) will need.
    */
   import { set as storeSet, remove as storeRemove, keys } from '../lib/storage';
+  import { MSI_SURVEY } from '../lib/routes';
   import BackLink from './BackLink.svelte';
   import ChoiceGroup from './intake/ChoiceGroup.svelte';
   import type { MSIRole } from '../assessments/msi/questions';
@@ -26,7 +27,7 @@
     // Clear any stale prior result so the survey starts fresh
     storeRemove(keys.result('msi'));
     storeRemove(keys.response('msi'));
-    window.location.href = '/msi/survey/';
+    window.location.href = MSI_SURVEY;
   }
 </script>
 

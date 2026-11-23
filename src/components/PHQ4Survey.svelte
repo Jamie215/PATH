@@ -5,6 +5,7 @@
    * forwards the embedding/scan-review props through.
    */
   import SingleGroupSurvey from './SingleGroupSurvey.svelte';
+  import { resultsUrl } from '../lib/routes';
   import type { EmbeddedSurveyProps } from './survey/types';
   import { QUESTIONS, EXPERIENCE_OPTIONS } from '../assessments/phq4/questions';
   import { score, type PHQ4Response } from '../assessments/phq4/scoring';
@@ -17,7 +18,7 @@
   experienceOptions={EXPERIENCE_OPTIONS}
   intro="Over the last 2 weeks, how often have you been bothered by the following?"
   slug="phq4"
-  resultsUrl="/phq4/results/"
+  resultsUrl={resultsUrl('phq4')}
   score={(r) => score(r as unknown as PHQ4Response)}
   bind:progress
   {...rest}

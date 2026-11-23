@@ -166,5 +166,3 @@ export const KEYS = {
   /** Patient name / ID for the composite report. */
   patientName: keys.patientName('pain-classification'),
 } as const;
-
-export const RETURN_URL = '/pain-classification/acute/';

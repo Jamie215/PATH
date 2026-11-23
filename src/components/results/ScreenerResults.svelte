@@ -12,6 +12,7 @@
   import ResultsHeader from './ResultsHeader.svelte';
   import ResultsActions from './ResultsActions.svelte';
   import { get as storeGet, keys } from '../../lib/storage';
+  import { assessmentUrl } from '../../lib/routes';
   import { PatientNameField, PdfDownload } from '../../lib/results.svelte';
   import { SCREENER_REPORTS, type ScreenerSlug } from '../../assessments/screener-reports';
   import type { ScreenerResult } from '../../assessments/screening';
@@ -22,7 +23,7 @@
 
   let { slug }: Props = $props();
   const spec = $derived(SCREENER_REPORTS[slug]);
-  const homeHref = $derived(`/${slug}/`);
+  const homeHref = $derived(assessmentUrl(slug));
 
   let result = $state<ScreenerResult | null>(null);
   let bothersomeArea = $state('');

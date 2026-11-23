@@ -16,6 +16,7 @@
   import SomaticBarChart from './SomaticBarChart.svelte';
   import SymptomRadarChart from './SymptomRadarChart.svelte';
   import { get as storeGet, keys } from '../lib/storage';
+  import { PAIN_CLASSIFICATION } from '../lib/routes';
   import { PatientNameField, PdfDownload } from '../lib/results.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role } from '../assessments/pain-classification/config';
   import type { MSIResult } from '../assessments/msi/scoring';
@@ -48,7 +49,7 @@
     // The composite classification is for professionals only; a patient who
     // reaches this URL is sent to their (score-free) review view instead.
     if (storeGet<Role>(KEYS.role) === 'patient') {
-      window.location.replace('/pain-classification/review/');
+      window.location.replace(PAIN_CLASSIFICATION.review);
       return;
     }
 
@@ -58,7 +59,7 @@
     for (const child of ACUTE_CHILDREN) {
       const values = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
       if (!values) {
-        window.location.replace('/pain-classification/acute/');
+        window.location.replace(PAIN_CLASSIFICATION.acute);
         return;
       }
       inputs[child.slug] = values;
@@ -193,7 +194,7 @@
       {/each}
     </ul>
 
-    <ResultsActions redoHref="/pain-classification/" error={pdf.error} />
+    <ResultsActions redoHref={PAIN_CLASSIFICATION.intake} error={pdf.error} />
   </section>
 {/if}
 

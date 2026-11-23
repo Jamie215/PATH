@@ -15,6 +15,7 @@
   import { PdfDownload } from '../lib/results.svelte';
   import { buildCompletedSheets } from '../lib/completed-sheets';
   import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { PAIN_CLASSIFICATION } from '../lib/routes';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
   import { summarizeChild, type ChildSummary } from '../assessments/pain-classification/summary';
 
@@ -40,11 +41,11 @@
   onMount(() => {
     const role = storeGet<Role>(KEYS.role);
     if (!role) {
-      window.location.replace('/pain-classification/');
+      window.location.replace(PAIN_CLASSIFICATION.intake);
       return;
     }
     if (!ACUTE_CHILDREN.every(childComplete)) {
-      window.location.replace('/pain-classification/acute/');
+      window.location.replace(PAIN_CLASSIFICATION.acute);
       return;
     }
     summaries = ACUTE_CHILDREN.map((c) => ({
@@ -67,7 +68,7 @@
 
   /** Edit one specific test: reopen the flow on that test; saving returns here. */
   function editAssessment(slug: string): void {
-    window.location.href = `/pain-classification/acute/?edit=${slug}`;
+    window.location.href = PAIN_CLASSIFICATION.edit(slug);
   }
 
   /**

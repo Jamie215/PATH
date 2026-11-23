@@ -15,6 +15,7 @@
   import ResultsHeader from './results/ResultsHeader.svelte';
   import ResultsActions from './results/ResultsActions.svelte';
   import { get as storeGet, keys } from '../lib/storage';
+  import { assessmentUrl } from '../lib/routes';
   import { PatientNameField, PdfDownload } from '../lib/results.svelte';
   import {
     MAX,
@@ -42,7 +43,7 @@
     name.load();
     loaded = true;
     if (!result || !role) {
-      window.location.replace('/msi/');
+      window.location.replace(assessmentUrl('msi'));
     }
   });
 
@@ -179,7 +180,7 @@
     </section>
 
     <!-- Actions -->
-    <ResultsActions redoHref="/msi/" error={pdf.error} />
+    <ResultsActions redoHref={assessmentUrl('msi')} error={pdf.error} />
   </div>
 {/if}
 

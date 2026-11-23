@@ -14,6 +14,7 @@
    */
   import { onMount } from 'svelte';
   import { get as storeGet, set as storeSet, remove as storeRemove, keys } from '../../lib/storage';
+  import { PAIN_CLASSIFICATION } from '../../lib/routes';
   import { sanitizeBothersomeArea } from '../../assessments/frebaq/area';
   import { ACUTE_CHILDREN, KEYS, type ChildAssessment } from '../../assessments/pain-classification/config';
   import BackLink from '../BackLink.svelte';
@@ -146,7 +147,7 @@
 </script>
 
 <section class="collect">
-  <BackLink href="/pain-classification/" />
+  <BackLink href={PAIN_CLASSIFICATION.intake} />
   <h1 class="collect__heading">Pain Classification</h1>
   <p class="collect__lede">
     Provide a result for each of the {ACUTE_CHILDREN.length} assessments below — either enter
@@ -197,7 +198,7 @@
       type="button"
       class="btn btn--next collect__calc"
       disabled={!allDone}
-      onclick={() => (window.location.href = '/pain-classification/results/')}
+      onclick={() => (window.location.href = PAIN_CLASSIFICATION.results)}
     >
       See results
     </button>

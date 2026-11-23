@@ -24,6 +24,7 @@
   } from '../assessments/msi/questions';
   import { score, type MSIResponse } from '../assessments/msi/scoring';
   import { get as storeGet, set as storeSet, keys } from '../lib/storage';
+  import { assessmentUrl, resultsUrl } from '../lib/routes';
 
   interface Props extends EmbeddedSurveyProps {
     requireRole?: boolean;
@@ -57,7 +58,7 @@
 
   onMount(() => {
     if (requireRole && !storeGet<MSIRole>(keys.role('msi'))) {
-      window.location.replace('/msi/');
+      window.location.replace(assessmentUrl('msi'));
       return;
     }
     ready = true;
@@ -102,7 +103,7 @@
     storeSet(keys.response('msi'), response);
     storeSet(keys.result('msi'), score(response as unknown as MSIResponse));
     if (onComplete) onComplete();
-    else window.location.href = '/msi/results/';
+    else window.location.href = resultsUrl('msi');
   }
 </script>
 

@@ -6,6 +6,7 @@
    * the area field) and forwards the embedding/scan-review props through.
    */
   import SingleGroupSurvey from './SingleGroupSurvey.svelte';
+  import { resultsUrl } from '../lib/routes';
   import type { EmbeddedSurveyProps } from './survey/types';
   import { QUESTIONS, EXPERIENCE_OPTIONS, AREA_FIELD } from '../assessments/frebaq/questions';
   import { score, type FreBAQResponse } from '../assessments/frebaq/scoring';
@@ -19,7 +20,7 @@
   experienceOptions={EXPERIENCE_OPTIONS}
   intro="For each item below, rate your experience in the area of interest."
   slug="frebaq"
-  resultsUrl="/frebaq/results/"
+  resultsUrl={resultsUrl('frebaq')}
   score={(r) => score(r as unknown as FreBAQResponse)}
   areaField={AREA_FIELD}
   normalizeArea={normalizeBothersomeArea}
