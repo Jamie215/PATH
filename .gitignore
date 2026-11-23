@@ -30,3 +30,7 @@ pnpm-debug.log*
 
 # regenerated from node_modules by scripts/copy-ort.mjs
 public/ort/
+
+# Playwright output (npm run test:e2e)
+test-results/
+playwright-report/

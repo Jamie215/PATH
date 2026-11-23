@@ -17,7 +17,8 @@
     "astro": "astro",
     "check": "astro check && svelte-check --tsconfig ./tsconfig.json --threshold error --output human",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@astrojs/svelte": "^9.0.1",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@playwright/test": "1.63.0",
     "svelte-check": "^4.7.6",
     "typescript": "^5.9.3",
     "vitest": "^5.1.1"
