@@ -1,19 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ACUTE_CHILDREN, KEYS, hasAllFields, loadChildInputs } from './config';
 import { set as storeSet } from '../../lib/storage';
-
-/** A minimal in-memory sessionStorage, so storage.ts runs outside a browser. */
-function fakeSessionStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    key: (i) => [...data.keys()][i] ?? null,
-    getItem: (k) => data.get(k) ?? null,
-    setItem: (k, v) => void data.set(k, String(v)),
-    removeItem: (k) => void data.delete(k),
-    clear: () => data.clear(),
-  };
-}
+import { fakeSessionStorage } from '../../lib/__fixtures__/session-storage';
 
 const COMPLETE: Record<string, Record<string, number>> = {
   msi: { somatic: 20, nonsomatic: 10 },

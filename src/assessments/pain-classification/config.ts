@@ -25,14 +25,12 @@ import type { OmrTemplate } from '../omr/types';
 import { get as storeGet, keys } from '../../lib/storage';
 import { assessmentBySlug, type AssessmentSummary } from '../registry';
 import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
-import { BRIEFSLANSS_OMR_TEMPLATE } from '../briefslanss/omr-template';
-import { FREBAQ_OMR_TEMPLATE } from '../frebaq/omr-template';
-import { PHQ4_OMR_TEMPLATE } from '../phq4/omr-template';
-import { AREA_HINT } from '../frebaq/questions';
 import { MAX as MSI_MAX } from '../msi/scoring';
-import { MAX_SCORE as SLANSS_MAX } from '../briefslanss/scoring';
-import { MAX_SCORE as FREBAQ_MAX } from '../frebaq/scoring';
-import { MAX_SCORE as PHQ4_MAX } from '../phq4/scoring';
+import type { ScreenerDefinition } from '../screening';
+import { BRIEFSLANSS } from '../briefslanss/definition';
+import { FREBAQ } from '../frebaq/definition';
+import { PHQ4 } from '../phq4/definition';
+import { AREA_HINT } from '../frebaq/questions';
 
 export type PainType = 'acute' | 'chronic';
 
@@ -94,9 +92,22 @@ function meta(slug: string): ChildMeta {
   return { slug, title, shortName, description };
 }
 
-const totalField = (max: number): ManualField[] => [
-  { key: 'total_score', label: 'Total score', min: 0, max },
-];
+/**
+ * A screener as a composite child: its total score is the one manual field
+ * (0 to its maximum), and its answer sheet comes from its definition.
+ */
+function screenerChild(
+  def: ScreenerDefinition,
+  extra: Pick<ChildAssessment, 'areaField'> = {},
+): ChildAssessment {
+  return {
+    ...meta(def.slug),
+    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: def.scoring.maxScore }],
+    omrTemplate: def.omrTemplate,
+    fromResult: totalFromResult,
+    ...extra,
+  };
+}
 
 /** Child assessments composing the ACUTE pain-classification pathway. */
 export const ACUTE_CHILDREN: ChildAssessment[] = [
@@ -116,28 +127,15 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     },
     omrTemplate: MSI_OMR_TEMPLATE,
   },
-  {
-    ...meta('briefslanss'),
-    manualFields: totalField(SLANSS_MAX),
-    omrTemplate: BRIEFSLANSS_OMR_TEMPLATE,
-    fromResult: totalFromResult,
-  },
-  {
-    ...meta('frebaq'),
-    manualFields: totalField(FREBAQ_MAX),
-    omrTemplate: FREBAQ_OMR_TEMPLATE,
+  screenerChild(BRIEFSLANSS),
+  screenerChild(FREBAQ, {
+    // Worded for the professional filling in the card, unlike the survey's "my body".
     areaField: {
       label: 'The part of the body that has been bothering me the most is:',
       placeholder: AREA_HINT,
     },
-    fromResult: totalFromResult,
-  },
-  {
-    ...meta('phq4'),
-    manualFields: totalField(PHQ4_MAX),
-    omrTemplate: PHQ4_OMR_TEMPLATE,
-    fromResult: totalFromResult,
-  },
+  }),
+  screenerChild(PHQ4),
 ];
 
 /** sessionStorage keys owned by the parent (sans the `path:` prefix). */
