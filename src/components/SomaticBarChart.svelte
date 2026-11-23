@@ -33,10 +33,10 @@
     const somaticPct = Math.round((somatic / MAX.somatic) * 100);
     const nonsomaticPct = Math.round((nonsomatic / MAX.nonsomatic) * 100);
 
-    const somaticColor = cssVar('--color-primary', '#4F2683');
-    const nonsomaticColor = cssVar('--color-accent-warm', '#C97B4F');
-    const gridColor = cssVar('--color-border', '#E5E5E5');
-    const textColor = cssVar('--color-text-muted', '#5C5C5C');
+    const somaticColor = cssVar('--color-primary');
+    const nonsomaticColor = cssVar('--color-accent-warm');
+    const gridColor = cssVar('--color-border');
+    const textColor = cssVar('--color-text-muted');
 
     chart = new Chart(canvas, {
       type: 'bar',
