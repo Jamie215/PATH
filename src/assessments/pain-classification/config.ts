@@ -22,7 +22,7 @@
  */
 
 import type { OmrTemplate } from '../omr/types';
-import { keys } from '../../lib/storage';
+import { get as storeGet, keys } from '../../lib/storage';
 import { assessmentBySlug, type AssessmentSummary } from '../registry';
 import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
 import { BRIEFSLANSS_OMR_TEMPLATE } from '../briefslanss/omr-template';
@@ -150,3 +150,30 @@ export const KEYS = {
   /** Patient name / ID for the composite report. */
   patientName: keys.patientName('pain-classification'),
 } as const;
+
+/**
+ * True when `values` holds a finite number for every one of the child's
+ * manual fields — the rule for a child counting as "complete" everywhere
+ * (collection cards, patient review, classification results).
+ */
+export function hasAllFields(
+  child: ChildAssessment,
+  values: Record<string, number | undefined> | null | undefined,
+): boolean {
+  return !!values && child.manualFields.every((f) => Number.isFinite(values[f.key]));
+}
+
+/**
+ * Every child's stored values, keyed by slug — the composite model's inputs.
+ * Null if any child is still incomplete, so callers send the user back to the
+ * collection page instead of scoring partial data.
+ */
+export function loadChildInputs(): Record<string, Record<string, number>> | null {
+  const inputs: Record<string, Record<string, number>> = {};
+  for (const child of ACUTE_CHILDREN) {
+    const values = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
+    if (!values || !hasAllFields(child, values)) return null;
+    inputs[child.slug] = values;
+  }
+  return inputs;
+}

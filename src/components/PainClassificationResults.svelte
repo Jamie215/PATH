@@ -18,7 +18,7 @@
   import { get as storeGet, keys } from '../lib/storage';
   import { PAIN_CLASSIFICATION } from '../lib/routes';
   import { PatientNameField, PdfDownload } from '../lib/results.svelte';
-  import { ACUTE_CHILDREN, KEYS, type Role } from '../assessments/pain-classification/config';
+  import { ACUTE_CHILDREN, KEYS, loadChildInputs, type Role } from '../assessments/pain-classification/config';
   import type { MSIResult } from '../assessments/msi/scoring';
   import {
     scoreAcute,
@@ -53,16 +53,16 @@
       return;
     }
 
-    const inputs: PainClassificationInputs = {};
+    // Every child must be complete before scoring; otherwise back to collection.
+    const inputs: PainClassificationInputs | null = loadChildInputs();
+    if (!inputs) {
+      window.location.replace(PAIN_CLASSIFICATION.acute);
+      return;
+    }
     const display: typeof rows = [];
 
     for (const child of ACUTE_CHILDREN) {
-      const values = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
-      if (!values) {
-        window.location.replace(PAIN_CLASSIFICATION.acute);
-        return;
-      }
-      inputs[child.slug] = values;
+      const values = inputs[child.slug];
       display.push({
         shortName: child.shortName,
         entries: child.manualFields.map((f) => [f.label, values[f.key]] as [string, number]),

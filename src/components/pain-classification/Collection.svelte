@@ -16,7 +16,7 @@
   import { get as storeGet, set as storeSet, remove as storeRemove, keys } from '../../lib/storage';
   import { PAIN_CLASSIFICATION } from '../../lib/routes';
   import { sanitizeBothersomeArea } from '../../assessments/frebaq/area';
-  import { ACUTE_CHILDREN, KEYS, type ChildAssessment } from '../../assessments/pain-classification/config';
+  import { ACUTE_CHILDREN, KEYS, hasAllFields, type ChildAssessment } from '../../assessments/pain-classification/config';
   import BackLink from '../BackLink.svelte';
   import Modal from '../Modal.svelte';
   import ChildCard from './ChildCard.svelte';
@@ -67,10 +67,7 @@
     }
   });
 
-  function childComplete(child: ChildAssessment): boolean {
-    const v = values[child.slug];
-    return !!v && child.manualFields.every((f) => Number.isFinite(v[f.key]));
-  }
+  const childComplete = (child: ChildAssessment): boolean => hasAllFields(child, values[child.slug]);
 
   const doneCount = $derived(ACUTE_CHILDREN.filter(childComplete).length);
   const allDone = $derived(doneCount === ACUTE_CHILDREN.length);

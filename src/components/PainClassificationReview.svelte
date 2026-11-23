@@ -16,7 +16,7 @@
   import { buildCompletedSheets } from '../lib/completed-sheets';
   import { get as storeGet, set as storeSet } from '../lib/storage';
   import { PAIN_CLASSIFICATION } from '../lib/routes';
-  import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
+  import { ACUTE_CHILDREN, KEYS, loadChildInputs, type Role } from '../assessments/pain-classification/config';
   import { summarizeChild, type ChildSummary } from '../assessments/pain-classification/summary';
 
   interface AssessmentSummary extends ChildSummary {
@@ -33,18 +33,13 @@
   // round-trip and pre-fills the downloaded answer sheets.
   let nameInput = $state('');
 
-  function childComplete(child: ChildAssessment): boolean {
-    const v = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
-    return !!v && child.manualFields.every((f) => typeof v[f.key] === 'number' && Number.isFinite(v[f.key]));
-  }
-
   onMount(() => {
     const role = storeGet<Role>(KEYS.role);
     if (!role) {
       window.location.replace(PAIN_CLASSIFICATION.intake);
       return;
     }
-    if (!ACUTE_CHILDREN.every(childComplete)) {
+    if (!loadChildInputs()) {
       window.location.replace(PAIN_CLASSIFICATION.acute);
       return;
     }
