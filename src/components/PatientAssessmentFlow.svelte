@@ -16,7 +16,7 @@
   import { onMount } from 'svelte';
   import { PdfDownload } from '../lib/results.svelte';
   import { buildCompletedSheets } from '../lib/completed-sheets';
-  import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { get as storeGet, set as storeSet, keys } from '../lib/storage';
   import ChildSurvey from './pain-classification/ChildSurvey.svelte';
   import BackLink from './BackLink.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
@@ -51,7 +51,7 @@
   /** Pre-fill values for a test, pulled from any answers it already has stored
    *  (so returning to edit shows the previous responses). */
   function initialFor(c: ChildAssessment): { answers: Record<string, number>; comments?: string; area?: string } {
-    const r = storeGet<Record<string, number | string>>(`${c.slug}:response`) ?? {};
+    const r = storeGet<Record<string, number | string>>(keys.response(c.slug)) ?? {};
     const answers: Record<string, number> = {};
     let comments: string | undefined;
     let area: string | undefined;
@@ -85,7 +85,7 @@
   /** Mirror a finished survey's scored sub-scores into the composite's manual
    *  store, so completion tracking (and the review guard) see this test done. */
   function persistCompletion(c: ChildAssessment): void {
-    const extracted = c.fromResult(storeGet(c.resultKey));
+    const extracted = c.fromResult(storeGet(keys.result(c.slug)));
     if (extracted) storeSet(KEYS.manualPrefix + c.slug, extracted);
   }
 

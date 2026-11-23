@@ -18,7 +18,7 @@
   import SurveyShell from './survey/SurveyShell.svelte';
   import QuestionItem from './survey/QuestionItem.svelte';
   import type { EmbeddedSurveyProps } from './survey/types';
-  import { set as storeSet } from '../lib/storage';
+  import { set as storeSet, keys } from '../lib/storage';
 
   interface Question {
     symptom: string;
@@ -32,7 +32,7 @@
     questions: readonly Question[];
     experienceOptions: readonly { value: number; label: string }[];
     intro: string;
-    /** sessionStorage key prefix; the survey writes `${slug}:response`/`:result`. */
+    /** sessionStorage key prefix; the survey writes its response and result there. */
     slug: string;
     /** Standalone results page to navigate to when not embedded. */
     resultsUrl: string;
@@ -158,8 +158,8 @@
     }
     if (comments.trim().length > 0) response.other_comments = comments.trim();
 
-    storeSet(`${slug}:response`, response);
-    storeSet(`${slug}:result`, score(response));
+    storeSet(keys.response(slug), response);
+    storeSet(keys.result(slug), score(response));
     if (onComplete) onComplete();
     else window.location.href = resultsUrl;
   }

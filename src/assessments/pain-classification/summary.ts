@@ -7,7 +7,7 @@
  * the patient's score-free review: they see exactly what they answered, not a
  * score or classification.
  */
-import { get as storeGet } from '../../lib/storage';
+import { get as storeGet, keys } from '../../lib/storage';
 import { QUESTIONS as MSI_QUESTIONS, FREQUENCY_OPTIONS, INTERFERENCE_OPTIONS } from '../msi/questions';
 import { QUESTIONS as SLANSS_QUESTIONS, EXPERIENCE_OPTIONS as SLANSS_OPTIONS } from '../briefslanss/questions';
 import { QUESTIONS as FREBAQ_QUESTIONS, EXPERIENCE_OPTIONS as FREBAQ_OPTIONS } from '../frebaq/questions';
@@ -36,7 +36,7 @@ function labelFor(options: readonly Option[], value: unknown): string | null {
 }
 
 function readResponse(slug: string): Record<string, unknown> {
-  return storeGet<Record<string, unknown>>(`${slug}:response`) ?? {};
+  return storeGet<Record<string, unknown>>(keys.response(slug)) ?? {};
 }
 
 function stringField(response: Record<string, unknown>, key: string): string | null {

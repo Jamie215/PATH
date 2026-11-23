@@ -6,7 +6,7 @@
  *
  * omr-sheet (pdf-lib) is lazy-imported so it only loads on download.
  */
-import { get as storeGet } from './storage';
+import { get as storeGet, keys } from './storage';
 import { ACUTE_CHILDREN } from '../assessments/pain-classification/config';
 
 export async function buildCompletedSheets(
@@ -17,7 +17,7 @@ export async function buildCompletedSheets(
   const name = patientName.trim();
   const entries = ACUTE_CHILDREN.flatMap((c) => {
     if (!c.omrTemplate) return [];
-    const response = storeGet<Record<string, number | string>>(`${c.slug}:response`) ?? {};
+    const response = storeGet<Record<string, number | string>>(keys.response(c.slug)) ?? {};
     return [
       {
         template: c.omrTemplate,

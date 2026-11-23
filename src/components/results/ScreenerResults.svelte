@@ -11,7 +11,7 @@
   import AssessmentDate from '../AssessmentDate.svelte';
   import ResultsHeader from './ResultsHeader.svelte';
   import ResultsActions from './ResultsActions.svelte';
-  import { get as storeGet } from '../../lib/storage';
+  import { get as storeGet, keys } from '../../lib/storage';
   import { PatientNameField, PdfDownload } from '../../lib/results.svelte';
   import { SCREENER_REPORTS, type ScreenerSlug } from '../../assessments/screener-reports';
   import type { ScreenerResult } from '../../assessments/screening';
@@ -29,13 +29,13 @@
   let loaded = $state(false);
 
   // The slug is fixed for the page's lifetime, so the storage key is too.
-  const name = new PatientNameField(untrack(() => `${slug}:patientName`));
+  const name = new PatientNameField(untrack(() => keys.patientName(slug)));
   const pdf = new PdfDownload();
 
   onMount(() => {
-    result = storeGet<ScreenerResult>(`${slug}:result`);
+    result = storeGet<ScreenerResult>(keys.result(slug));
     if (spec.showArea) {
-      const response = storeGet<Record<string, unknown>>(`${slug}:response`);
+      const response = storeGet<Record<string, unknown>>(keys.response(slug));
       if (typeof response?.bothersome_area === 'string') bothersomeArea = response.bothersome_area;
     }
     name.load();

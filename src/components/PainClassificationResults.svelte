@@ -15,7 +15,7 @@
   import ResultsActions from './results/ResultsActions.svelte';
   import SomaticBarChart from './SomaticBarChart.svelte';
   import SymptomRadarChart from './SymptomRadarChart.svelte';
-  import { get as storeGet } from '../lib/storage';
+  import { get as storeGet, keys } from '../lib/storage';
   import { PatientNameField, PdfDownload } from '../lib/results.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role } from '../assessments/pain-classification/config';
   import type { MSIResult } from '../assessments/msi/scoring';
@@ -78,7 +78,7 @@
       if (typeof msiValues.nonsomatic === 'number') msiNonsomatic = msiValues.nonsomatic;
     }
     // Per-symptom radar data, only when a full MSI result was captured.
-    const msiResult = storeGet<MSIResult>('msi:result');
+    const msiResult = storeGet<MSIResult>(keys.result('msi'));
     if (msiResult && Array.isArray(msiResult.labels) && Array.isArray(msiResult.vals)) {
       msiRadar = { labels: msiResult.labels, values: msiResult.vals };
     }

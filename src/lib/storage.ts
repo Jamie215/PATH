@@ -57,3 +57,19 @@ export function clearAll(): void {
     /* ignore */
   }
 }
+
+/**
+ * The per-assessment storage keys (without the `path:` prefix), so every
+ * reader and writer spells them the same way. `slug` is the assessment's
+ * folder / URL name, e.g. `msi` or `frebaq`.
+ */
+export const keys = {
+  /** The raw survey answers. */
+  response: (slug: string) => `${slug}:response`,
+  /** The scored result. */
+  result: (slug: string) => `${slug}:result`,
+  /** Patient name / ID typed on the results page. */
+  patientName: (slug: string) => `${slug}:patientName`,
+  /** Patient or professional, chosen at intake. */
+  role: (slug: string) => `${slug}:role`,
+} as const;

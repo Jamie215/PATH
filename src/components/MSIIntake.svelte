@@ -9,7 +9,7 @@
    * It simplifies state flow and matches what other assessments
    * (e.g. acute vs chronic for Pain Classification) will need.
    */
-  import { set as storeSet, remove as storeRemove } from '../lib/storage';
+  import { set as storeSet, remove as storeRemove, keys } from '../lib/storage';
   import BackLink from './BackLink.svelte';
   import ChoiceGroup from './intake/ChoiceGroup.svelte';
   import type { MSIRole } from '../assessments/msi/questions';
@@ -22,10 +22,10 @@
 
   function proceed(): void {
     if (!role) return;
-    storeSet<MSIRole>('msi:role', role);
+    storeSet<MSIRole>(keys.role('msi'), role);
     // Clear any stale prior result so the survey starts fresh
-    storeRemove('msi:result');
-    storeRemove('msi:response');
+    storeRemove(keys.result('msi'));
+    storeRemove(keys.response('msi'));
     window.location.href = '/msi/survey/';
   }
 </script>

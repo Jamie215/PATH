@@ -22,6 +22,7 @@
  */
 
 import type { OmrTemplate } from '../omr/types';
+import { keys } from '../../lib/storage';
 import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
 import { BRIEFSLANSS_OMR_TEMPLATE } from '../briefslanss/omr-template';
 import { FREBAQ_OMR_TEMPLATE } from '../frebaq/omr-template';
@@ -56,8 +57,6 @@ export interface ChildAssessment {
    * itself, so the subtitle carries the description instead.
    */
   description: string;
-  /** sessionStorage key (sans the `path:` prefix) the child writes its scored result to. */
-  resultKey: string;
   /**
    * Manual-entry fields — the raw sub-scores the composite model consumes
    * (see ./scoring.ts): MSI somatic/central, and each screener's total.
@@ -80,7 +79,7 @@ export interface ChildAssessment {
    * If set, the card shows an editable free-text field for a context value the
    * child collects alongside its score — currently FreBAQ's "most bothersome
    * area", mirroring the input offered in the scan/OCR review. The typed value
-   * is stored on the child's `${slug}:response` under `bothersome_area`.
+   * is stored in the child's survey response under `bothersome_area`.
    */
   areaField?: { label: string; placeholder: string };
 }
@@ -107,7 +106,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     shortName: 'Symptom Index',
     description:
       'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
-    resultKey: 'msi:result',
     manualFields: [
       { key: 'somatic', label: 'Somatic score', min: 0, max: MSI_MAX.somatic },
       { key: 'nonsomatic', label: 'Central (non-somatic) score', min: 0, max: MSI_MAX.nonsomatic },
@@ -128,7 +126,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     shortName: 'Sensory Profile',
     description:
       'A brief screening for neuropathic pain, with four symptom questions.',
-    resultKey: 'briefslanss:result',
     manualFields: totalField(SLANSS_MAX),
     omrTemplate: BRIEFSLANSS_OMR_TEMPLATE,
     fromResult: totalFromResult,
@@ -139,7 +136,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     shortName: 'Body Awareness',
     description:
       'A quantitative evaluation of area-specific self-perception.',
-    resultKey: 'frebaq:result',
     manualFields: totalField(FREBAQ_MAX),
     omrTemplate: FREBAQ_OMR_TEMPLATE,
     areaField: {
@@ -154,7 +150,6 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     shortName: 'Anxiety & Depression',
     description:
       'A brief screening for depression and anxiety.',
-    resultKey: 'phq4:result',
     manualFields: totalField(PHQ4_MAX),
     omrTemplate: PHQ4_OMR_TEMPLATE,
     fromResult: totalFromResult,
@@ -163,13 +158,13 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
 
 /** sessionStorage keys owned by the parent (sans the `path:` prefix). */
 export const KEYS = {
-  role: 'pain-classification:role',
+  role: keys.role('pain-classification'),
   /** Manual entry for a child is stored at `${manualPrefix}${slug}`. */
   manualPrefix: 'pain-classification:manual:',
   /** Optional per-child comment is stored at `${commentPrefix}${slug}`. */
   commentPrefix: 'pain-classification:comment:',
   /** Patient name / ID for the composite report. */
-  patientName: 'pain-classification:patientName',
+  patientName: keys.patientName('pain-classification'),
 } as const;
 
 export const RETURN_URL = '/pain-classification/acute/';
