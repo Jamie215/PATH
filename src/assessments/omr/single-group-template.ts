@@ -9,12 +9,7 @@
  * which the renderer wraps.
  */
 import type { OmrTemplate, OmrRow, OmrScanTextField } from './types';
-
-const PAGE_W = 612;
-const PAGE_H = 792;
-const BUBBLE_RADIUS_PT = 5;
-const FIDUCIAL_SIZE_PT = 16;
-const FIDUCIAL_INSET = 30;
+import { nx, ny, sheetFrame } from './sheet-geometry';
 
 export interface SingleGroupItem {
   /** Response key the scorer expects, e.g. `numb_exp`. */
@@ -60,9 +55,6 @@ export interface SingleGroupConfig {
   rowSpacing?: number;
 }
 
-const nx = (pt: number): number => pt / PAGE_W;
-const ny = (pt: number): number => pt / PAGE_H;
-
 export function buildSingleGroupTemplate(cfg: SingleGroupConfig): OmrTemplate {
   const colSpacing = cfg.colSpacing ?? 40;
   const lastCol = cfg.lastColRightPt ?? 540;
@@ -95,19 +87,7 @@ export function buildSingleGroupTemplate(cfg: SingleGroupConfig): OmrTemplate {
     title: cfg.title,
     subtitle: cfg.subtitle,
     instructions: cfg.instructions,
-    page: { width: PAGE_W, height: PAGE_H },
-    bubbleRadius: nx(BUBBLE_RADIUS_PT),
-    fiducialSize: nx(FIDUCIAL_SIZE_PT),
-    fiducials: [
-      { x: nx(FIDUCIAL_INSET), y: ny(FIDUCIAL_INSET) },
-      { x: nx(PAGE_W - FIDUCIAL_INSET), y: ny(FIDUCIAL_INSET) },
-      { x: nx(PAGE_W - FIDUCIAL_INSET), y: ny(PAGE_H - FIDUCIAL_INSET) },
-      { x: nx(FIDUCIAL_INSET), y: ny(PAGE_H - FIDUCIAL_INSET) },
-    ],
-    orientationMark: {
-      center: { x: nx(FIDUCIAL_INSET + 24), y: ny(PAGE_H - FIDUCIAL_INSET - 24) },
-      size: nx(8),
-    },
+    ...sheetFrame(),
     sections: [
       {
         title: cfg.sectionTitle,
