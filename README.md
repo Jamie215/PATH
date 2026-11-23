@@ -28,7 +28,7 @@ Prerequisites: Node.js 22.13+ (see `.nvmrc`; required by Astro 7 and
 pdf.js 6) and npm.
 
 ```bash
-npm install
+npm ci           # install the exact versions in package-lock.json
 npm run dev      # dev server at http://localhost:4321
 npm test         # unit tests (vitest)
 npm run check    # type-check .astro (astro check) and .svelte (svelte-check)
@@ -107,8 +107,6 @@ the tokens; don't hard-code colors in components.
 
 Pushes to `main` deploy automatically to Cloudflare Pages. See
 `DEPLOYMENT.md`.
-Pushes to `main` deploy automatically to Cloudflare Pages once the repo
-is connected. See `DEPLOYMENT.md`.
 
 ## Hand-off
 
