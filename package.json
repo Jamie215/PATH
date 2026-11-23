@@ -10,8 +10,7 @@
   "scripts": {
     "predev": "node scripts/copy-ort.mjs",
     "dev": "astro dev",
-    "prestart": "node scripts/copy-ort.mjs",
-    "start": "astro dev",
+    "start": "npm run dev",
     "prebuild": "node scripts/copy-ort.mjs",
     "build": "astro build",
     "preview": "astro preview",
