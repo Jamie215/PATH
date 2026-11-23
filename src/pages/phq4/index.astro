@@ -1,11 +1,14 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { assessmentBySlug } from '../../assessments/registry';
 import PHQ4Survey from '../../components/PHQ4Survey.svelte';
 import BackLink from '../../components/BackLink.svelte';
+
+const { title } = assessmentBySlug('phq4');
 ---
-<Base title="Anxiety & Depression · Survey" description="Anxiety & Depression — survey" wide>
+<Base title={`${title} · Survey`} description={`${title} — survey`} wide>
   <BackLink client:only="svelte" />
-  <h1 class="survey-heading">Anxiety &amp; Depression</h1>
+  <h1 class="survey-heading">{title}</h1>
   <PHQ4Survey client:only="svelte" />
 </Base>
 

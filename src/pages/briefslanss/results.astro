@@ -1,8 +1,11 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { assessmentBySlug } from '../../assessments/registry';
 import ScreenerResults from '../../components/results/ScreenerResults.svelte';
+
+const { title } = assessmentBySlug('briefslanss');
 ---
-<Base title="Sensory Profile · Results" description="Sensory Profile — results" wide>
-  <h1>Results for Sensory Profile</h1>
+<Base title={`${title} · Results`} description={`${title} — results`} wide>
+  <h1>Results for {title}</h1>
   <ScreenerResults slug="briefslanss" client:only="svelte" />
 </Base>

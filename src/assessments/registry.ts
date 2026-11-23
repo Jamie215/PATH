@@ -1,6 +1,10 @@
 /**
  * Registry of all assessments available on the hub.
  *
+ * This is the one place an assessment's name and description are written;
+ * the composite's cards, the reports and the page titles read them from here
+ * via `assessmentBySlug`.
+ *
  * To add a new assessment:
  *   1. Create a folder under src/assessments/<slug>/ with its config/scoring
  *   2. Add an entry to this registry
@@ -12,6 +16,10 @@
  * `icon` is the name of a Google Material Symbols Outlined icon.
  * Browse names at https://fonts.google.com/icons
  */
+
+/** Who is filling in an assessment, chosen at intake. Patients never see
+ *  scores; professionals see scores, flags and the classification. */
+export type Role = 'patient' | 'professional';
 
 export interface AssessmentSummary {
   slug: string;
@@ -84,3 +92,11 @@ export const assessments: AssessmentSummary[] = [
     estimatedMinutes: 30,
   },
 ];
+
+/** The registry entry for `slug`. Throws on an unknown slug, so a typo fails
+ *  the build or tests instead of showing a blank name. */
+export function assessmentBySlug(slug: string): AssessmentSummary {
+  const found = assessments.find((a) => a.slug === slug);
+  if (!found) throw new Error(`Unknown assessment slug: ${slug}`);
+  return found;
+}

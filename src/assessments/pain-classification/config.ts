@@ -23,6 +23,7 @@
 
 import type { OmrTemplate } from '../omr/types';
 import { keys } from '../../lib/storage';
+import { assessmentBySlug, type AssessmentSummary } from '../registry';
 import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
 import { BRIEFSLANSS_OMR_TEMPLATE } from '../briefslanss/omr-template';
 import { FREBAQ_OMR_TEMPLATE } from '../frebaq/omr-template';
@@ -35,8 +36,7 @@ import { MAX_SCORE as PHQ4_MAX } from '../phq4/scoring';
 
 export type PainType = 'acute' | 'chronic';
 
-/** Kept as 'professional' to match the child assessments' stored role values. */
-export type Role = 'patient' | 'professional';
+export type { Role } from '../registry';
 
 export interface ManualField {
   /** Key within the child's per-slug manual record. */
@@ -47,16 +47,8 @@ export interface ManualField {
   step?: number;
 }
 
-export interface ChildAssessment {
-  slug: string;
-  title: string;
-  shortName: string;
-  /**
-   * One-line explanation of what the assessment measures. Shown as the card
-   * and modal subtitle — the friendly title alone would otherwise just repeat
-   * itself, so the subtitle carries the description instead.
-   */
-  description: string;
+/** Name and description come from the hub registry (`assessmentBySlug`). */
+export interface ChildAssessment extends ChildMeta {
   /**
    * Manual-entry fields — the raw sub-scores the composite model consumes
    * (see ./scoring.ts): MSI somatic/central, and each screener's total.
@@ -94,6 +86,14 @@ function totalFromResult(r: unknown): Record<string, number> | null {
   return total === null ? null : { total_score: total };
 }
 
+type ChildMeta = Pick<AssessmentSummary, 'slug' | 'title' | 'shortName' | 'description'>;
+
+/** A child's name, short name and description, from the hub registry. */
+function meta(slug: string): ChildMeta {
+  const { title, shortName, description } = assessmentBySlug(slug);
+  return { slug, title, shortName, description };
+}
+
 const totalField = (max: number): ManualField[] => [
   { key: 'total_score', label: 'Total score', min: 0, max },
 ];
@@ -101,11 +101,7 @@ const totalField = (max: number): ManualField[] => [
 /** Child assessments composing the ACUTE pain-classification pathway. */
 export const ACUTE_CHILDREN: ChildAssessment[] = [
   {
-    slug: 'msi',
-    title: 'Symptom Index',
-    shortName: 'Symptom Index',
-    description:
-      'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
+    ...meta('msi'),
     manualFields: [
       { key: 'somatic', label: 'Somatic score', min: 0, max: MSI_MAX.somatic },
       { key: 'nonsomatic', label: 'Central (non-somatic) score', min: 0, max: MSI_MAX.nonsomatic },
@@ -121,21 +117,13 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     omrTemplate: MSI_OMR_TEMPLATE,
   },
   {
-    slug: 'briefslanss',
-    title: 'Sensory Profile',
-    shortName: 'Sensory Profile',
-    description:
-      'A brief screening for neuropathic pain, with four symptom questions.',
+    ...meta('briefslanss'),
     manualFields: totalField(SLANSS_MAX),
     omrTemplate: BRIEFSLANSS_OMR_TEMPLATE,
     fromResult: totalFromResult,
   },
   {
-    slug: 'frebaq',
-    title: 'Body Awareness',
-    shortName: 'Body Awareness',
-    description:
-      'A quantitative evaluation of area-specific self-perception.',
+    ...meta('frebaq'),
     manualFields: totalField(FREBAQ_MAX),
     omrTemplate: FREBAQ_OMR_TEMPLATE,
     areaField: {
@@ -145,11 +133,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     fromResult: totalFromResult,
   },
   {
-    slug: 'phq4',
-    title: 'Anxiety & Depression',
-    shortName: 'Anxiety & Depression',
-    description:
-      'A brief screening for depression and anxiety.',
+    ...meta('phq4'),
     manualFields: totalField(PHQ4_MAX),
     omrTemplate: PHQ4_OMR_TEMPLATE,
     fromResult: totalFromResult,

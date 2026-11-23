@@ -20,8 +20,8 @@
     QUESTIONS,
     FREQUENCY_OPTIONS,
     INTERFERENCE_OPTIONS,
-    type MSIRole,
   } from '../assessments/msi/questions';
+  import type { Role } from '../assessments/registry';
   import { score, type MSIResponse } from '../assessments/msi/scoring';
   import { get as storeGet, set as storeSet, keys } from '../lib/storage';
   import { assessmentUrl, resultsUrl } from '../lib/routes';
@@ -57,7 +57,7 @@
   let ready = $state(false);
 
   onMount(() => {
-    if (requireRole && !storeGet<MSIRole>(keys.role('msi'))) {
+    if (requireRole && !storeGet<Role>(keys.role('msi'))) {
       window.location.replace(assessmentUrl('msi'));
       return;
     }

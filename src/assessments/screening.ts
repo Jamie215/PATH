@@ -15,6 +15,16 @@
  */
 export type Tone = 'normal' | 'elevated' | 'mild' | 'moderate' | 'severe';
 
+/** One rated item of a single-total screener, as the survey shows it. */
+export interface ScreenerQuestion<S extends string = string> {
+  /** Item key; the answer is stored as `<symptom>_exp`. */
+  symptom: S;
+  /** The item's wording, shown as the question title. */
+  symptomLabel: string;
+  /** Optional clarifying text shown beneath the title. */
+  description?: string;
+}
+
 export interface ScreenerResult {
   total_score: number;
   interpretation: string;

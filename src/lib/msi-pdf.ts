@@ -13,7 +13,7 @@ import {
   targetScore,
   type MSIResult,
 } from '../assessments/msi/scoring';
-import type { MSIRole } from '../assessments/msi/questions';
+import type { Role } from '../assessments/registry';
 import {
   buildFilename as kitBuildFilename,
   createReport,
@@ -38,7 +38,7 @@ import {
 
 export interface PDFInput {
   result: MSIResult;
-  role: MSIRole;
+  role: Role;
   patientName: string;
   chartImages: {
     somaticBar: string; // data URL

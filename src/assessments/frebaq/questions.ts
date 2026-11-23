@@ -2,14 +2,7 @@
  * FreBAQ survey question configuration.
  */
 import type { Symptom } from './scoring';
-
-export interface freBAQQuestion {
-  symptom: Symptom;
-  /** Short symptom name shown as the question title. */
-  symptomLabel: string;
-  /** Optional clarifying text shown beneath the title. */
-  description?: string;
-}
+import type { ScreenerQuestion } from '../screening';
 
 // Item wording carries placeholders expanded by `personalizeFreBAQItem`:
 //   {Area}/{area} — the bothersome region ("My right knee" / "my right knee"),
@@ -18,7 +11,7 @@ export interface freBAQQuestion {
 //                   reads as singular, the plural form otherwise ("{is|are}",
 //                   "{it|they}", "{its|their}", and "feel{s|}" for the verb -s).
 // So a plural region reads with agreement ("My hands feel … they are …").
-export const QUESTIONS: readonly freBAQQuestion[] = [
+export const QUESTIONS: readonly ScreenerQuestion<Symptom>[] = [
   {
     symptom: 'notPart',
     symptomLabel: '{Area} feel{s|} as though {it|they} {is|are} not part of the rest of my body.',

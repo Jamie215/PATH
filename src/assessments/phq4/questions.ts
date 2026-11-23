@@ -2,16 +2,9 @@
  * PHQ-4 survey question configuration.
  */
 import type { Symptom } from './scoring';
+import type { ScreenerQuestion } from '../screening';
 
-export interface phq4Question {
-  symptom: Symptom;
-  /** Short symptom name shown as the question title. */
-  symptomLabel: string;
-  /** Optional clarifying text shown beneath the title. */
-  description?: string;
-}
-
-export const QUESTIONS: readonly phq4Question[] = [
+export const QUESTIONS: readonly ScreenerQuestion<Symptom>[] = [
   {
     symptom: 'nervousOrAnxious',
     symptomLabel: 'Feeling nervous, anxious, or on edge',

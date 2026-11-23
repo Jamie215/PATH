@@ -23,12 +23,12 @@
     targetScore,
     type MSIResult,
   } from '../assessments/msi/scoring';
-  import type { MSIRole } from '../assessments/msi/questions';
+  import type { Role } from '../assessments/registry';
   import SomaticBarChart from './SomaticBarChart.svelte';
   import SymptomRadarChart from './SymptomRadarChart.svelte';
 
   let result = $state<MSIResult | null>(null);
-  let role = $state<MSIRole | null>(null);
+  let role = $state<Role | null>(null);
   let loaded = $state(false);
 
   const name = new PatientNameField(keys.patientName('msi'));
@@ -39,7 +39,7 @@
 
   onMount(() => {
     result = storeGet<MSIResult>(keys.result('msi'));
-    role = storeGet<MSIRole>(keys.role('msi'));
+    role = storeGet<Role>(keys.role('msi'));
     name.load();
     loaded = true;
     if (!result || !role) {

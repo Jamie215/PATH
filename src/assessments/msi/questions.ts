@@ -42,6 +42,3 @@ export const INTERFERENCE_OPTIONS = [
   { value: 3, label: 'Quite Bothersome' },
   { value: 4, label: 'Extremely Bothersome' },
 ] as const;
-
-/** Roles a user can identify as on the MSI intake. */
-export type MSIRole = 'patient' | 'professional';

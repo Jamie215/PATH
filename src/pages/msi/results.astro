@@ -1,8 +1,11 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { assessmentBySlug } from '../../assessments/registry';
 import MSIResults from '../../components/MSIResults.svelte';
+
+const { title } = assessmentBySlug('msi');
 ---
-<Base title="Symptom Index · Results" description="Symptom Index — results" wide>
-  <h1>Results for Symptom Index</h1>
+<Base title={`${title} · Results`} description={`${title} — results`} wide>
+  <h1>Results for {title}</h1>
   <MSIResults client:only="svelte" />
 </Base>

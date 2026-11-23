@@ -18,18 +18,11 @@
   import SurveyShell from './survey/SurveyShell.svelte';
   import QuestionItem from './survey/QuestionItem.svelte';
   import type { EmbeddedSurveyProps } from './survey/types';
+  import type { ScreenerQuestion } from '../assessments/screening';
   import { set as storeSet, keys } from '../lib/storage';
 
-  interface Question {
-    symptom: string;
-    /** Short symptom name shown as the question title. */
-    symptomLabel: string;
-    /** Optional clarifying text shown beneath the title. */
-    description?: string;
-  }
-
   interface Props extends EmbeddedSurveyProps {
-    questions: readonly Question[];
+    questions: readonly ScreenerQuestion[];
     experienceOptions: readonly { value: number; label: string }[];
     intro: string;
     /** sessionStorage key prefix; the survey writes its response and result there. */

@@ -5,6 +5,7 @@
  * without pulling in the PDF bundle (lib/screening-pdf.ts is lazy-loaded).
  */
 import type { ScreenerScoring } from './screening';
+import { assessmentBySlug } from './registry';
 import { SCORING as PHQ4_SCORING, CUTOFFS as PHQ4_CUTOFFS } from './phq4/scoring';
 import {
   SCORING as SLANSS_SCORING,
@@ -21,7 +22,7 @@ export type ScreenerSlug = 'phq4' | 'briefslanss' | 'frebaq';
 export interface ScreenerReport {
   slug: ScreenerSlug;
   scoring: ScreenerScoring;
-  /** Friendly name shown in the UI and the PDF metadata. */
+  /** Friendly name shown in the UI and the PDF metadata (from the registry). */
   name: string;
   /** PDF title-block heading and subtitle. */
   pdfHeading: string;
@@ -40,7 +41,7 @@ export const SCREENER_REPORTS: Record<ScreenerSlug, ScreenerReport> = {
   phq4: {
     slug: 'phq4',
     scoring: PHQ4_SCORING,
-    name: 'Anxiety & Depression',
+    name: assessmentBySlug('phq4').title,
     pdfHeading: 'PHQ-4',
     pdfSubtitle: 'Anxiety & Depression — results report',
     note:
@@ -54,7 +55,7 @@ export const SCREENER_REPORTS: Record<ScreenerSlug, ScreenerReport> = {
   briefslanss: {
     slug: 'briefslanss',
     scoring: SLANSS_SCORING,
-    name: 'Sensory Profile',
+    name: assessmentBySlug('briefslanss').title,
     pdfHeading: 'Sensory Profile',
     pdfSubtitle: 'Brief neuropathic symptoms and signs — results report',
     note:
@@ -65,7 +66,7 @@ export const SCREENER_REPORTS: Record<ScreenerSlug, ScreenerReport> = {
   frebaq: {
     slug: 'frebaq',
     scoring: FREBAQ_SCORING,
-    name: 'Body Awareness',
+    name: assessmentBySlug('frebaq').title,
     pdfHeading: 'FreBAQ',
     pdfSubtitle: 'Body Awareness — results report',
     note:

@@ -13,17 +13,17 @@
   import { MSI_SURVEY } from '../lib/routes';
   import BackLink from './BackLink.svelte';
   import ChoiceGroup from './intake/ChoiceGroup.svelte';
-  import type { MSIRole } from '../assessments/msi/questions';
+  import type { Role } from '../assessments/registry';
 
-  let role = $state<MSIRole | null>(null);
+  let role = $state<Role | null>(null);
 
-  function selectRole(r: MSIRole): void {
+  function selectRole(r: Role): void {
     role = r;
   }
 
   function proceed(): void {
     if (!role) return;
-    storeSet<MSIRole>(keys.role('msi'), role);
+    storeSet<Role>(keys.role('msi'), role);
     // Clear any stale prior result so the survey starts fresh
     storeRemove(keys.result('msi'));
     storeRemove(keys.response('msi'));
