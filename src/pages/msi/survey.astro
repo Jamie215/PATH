@@ -1,11 +1,15 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { assessmentBySlug } from '../../assessments/registry';
 import MSISurvey from '../../components/MSISurvey.svelte';
 import BackLink from '../../components/BackLink.svelte';
+import { assessmentUrl } from '../../lib/routes';
+
+const { title } = assessmentBySlug('msi');
 ---
-<Base title="Symptom Index · Survey" description="Symptom Index — survey" wide>
-  <BackLink href="/msi/" />
-  <h1 class="survey-heading">Symptom Index</h1>
+<Base title={`${title} · Survey`} description={`${title} — survey`} wide>
+  <BackLink href={assessmentUrl('msi')} />
+  <h1 class="survey-heading">{title}</h1>
   <MSISurvey requireRole client:only="svelte" />
 </Base>
 

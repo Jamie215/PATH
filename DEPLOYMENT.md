@@ -37,5 +37,8 @@ Cloudflare only runs the build. Type errors and failing tests are caught by
 the GitHub Actions CI workflow on each pull request, or locally with:
 
 ```bash
-npm run check && npm test && npm run build
+npm run check && npm test && npm run build && npm run test:e2e
 ```
+
+The last step opens the built site in a browser and takes each test
+through to its PDF.

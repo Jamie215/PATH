@@ -7,6 +7,7 @@
    */
   import { onMount } from 'svelte';
   import { get as storeGet } from '../lib/storage';
+  import { PAIN_CLASSIFICATION } from '../lib/routes';
   import { KEYS, type Role } from '../assessments/pain-classification/config';
   import PatientAssessmentFlow from './PatientAssessmentFlow.svelte';
   import Collection from './pain-classification/Collection.svelte';
@@ -15,7 +16,7 @@
 
   onMount(() => {
     role = storeGet<Role>(KEYS.role);
-    if (!role) window.location.replace('/pain-classification/');
+    if (!role) window.location.replace(PAIN_CLASSIFICATION.intake);
   });
 </script>
 

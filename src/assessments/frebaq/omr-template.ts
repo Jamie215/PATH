@@ -4,13 +4,14 @@
  * answer columns can carry their word labels (Never…Always) directly under
  * each bubble, no decode legend needed.
  */
-import { QUESTIONS, EXPERIENCE_OPTIONS } from './questions';
+import { QUESTIONS, EXPERIENCE_OPTIONS, AREA_HINT } from './questions';
 import { personalizeFreBAQItem } from './area';
 import { buildSingleGroupTemplate } from '../omr/single-group-template';
+import { assessmentBySlug } from '../registry';
 
 export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   id: 'frebaq-v1',
-  title: 'Body Awareness',
+  title: assessmentBySlug('frebaq').title,
   subtitle: 'Scannable Form',
   instructions: [
     'Each statement is about your body (the affected area). Fill in ONE bubble for how often each is true.',
@@ -19,7 +20,7 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   ],
   sectionTitle: 'With your bothersome area in mind, how often do you experience the following?',
   preamble: 'The part of my body that has been bothering me the most is my:',
-  preambleField: { key: 'bothersome_area', hint: 'e.g., right knee, left hand, neck' },
+  preambleField: { key: 'bothersome_area', hint: AREA_HINT },
   groupLabel: '',
   // Word labels sit directly under each bubble (a self-describing radio group),
   // so no separate 0–4 decode legend is needed.
@@ -48,7 +49,7 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   rowSpacing: 45,
   // Regions to crop from a scan for handwriting recognition. Rects (pt,
   // top-left) must track where the generator draws these fields — see the
-  // preamble blank and comment box in omr-sheet.ts.
+  // preamble blank and comment box in lib/omr/sheet.ts.
   scanTextFields: [
     // The fill-in blank's baseline (and printed rule) sit at ~y=303–307pt, so
     // the crop must reach well below the rule to keep descenders (g, y, p, q, j)

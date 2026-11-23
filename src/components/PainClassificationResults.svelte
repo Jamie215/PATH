@@ -15,9 +15,10 @@
   import ResultsActions from './results/ResultsActions.svelte';
   import SomaticBarChart from './SomaticBarChart.svelte';
   import SymptomRadarChart from './SymptomRadarChart.svelte';
-  import { get as storeGet } from '../lib/storage';
+  import { get as storeGet, keys } from '../lib/storage';
+  import { PAIN_CLASSIFICATION } from '../lib/routes';
   import { PatientNameField, PdfDownload } from '../lib/results.svelte';
-  import { ACUTE_CHILDREN, KEYS, type Role } from '../assessments/pain-classification/config';
+  import { ACUTE_CHILDREN, KEYS, loadChildInputs, type Role } from '../assessments/pain-classification/config';
   import type { MSIResult } from '../assessments/msi/scoring';
   import {
     scoreAcute,
@@ -48,20 +49,20 @@
     // The composite classification is for professionals only; a patient who
     // reaches this URL is sent to their (score-free) review view instead.
     if (storeGet<Role>(KEYS.role) === 'patient') {
-      window.location.replace('/pain-classification/review/');
+      window.location.replace(PAIN_CLASSIFICATION.review);
       return;
     }
 
-    const inputs: PainClassificationInputs = {};
+    // Every child must be complete before scoring; otherwise back to collection.
+    const inputs: PainClassificationInputs | null = loadChildInputs();
+    if (!inputs) {
+      window.location.replace(PAIN_CLASSIFICATION.acute);
+      return;
+    }
     const display: typeof rows = [];
 
     for (const child of ACUTE_CHILDREN) {
-      const values = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
-      if (!values) {
-        window.location.replace('/pain-classification/acute/');
-        return;
-      }
-      inputs[child.slug] = values;
+      const values = inputs[child.slug];
       display.push({
         shortName: child.shortName,
         entries: child.manualFields.map((f) => [f.label, values[f.key]] as [string, number]),
@@ -78,7 +79,7 @@
       if (typeof msiValues.nonsomatic === 'number') msiNonsomatic = msiValues.nonsomatic;
     }
     // Per-symptom radar data, only when a full MSI result was captured.
-    const msiResult = storeGet<MSIResult>('msi:result');
+    const msiResult = storeGet<MSIResult>(keys.result('msi'));
     if (msiResult && Array.isArray(msiResult.labels) && Array.isArray(msiResult.vals)) {
       msiRadar = { labels: msiResult.labels, values: msiResult.vals };
     }
@@ -104,7 +105,7 @@
     const r = result;
     await pdf.run(async () => {
       const { generatePainClassificationReport, buildFilename } = await import(
-        '../lib/pain-classification-pdf'
+        '../lib/pdf/pain-classification'
       );
       const bytes = await generatePainClassificationReport({
         classification: r.classification,
@@ -193,7 +194,7 @@
       {/each}
     </ul>
 
-    <ResultsActions redoHref="/pain-classification/" error={pdf.error} />
+    <ResultsActions redoHref={PAIN_CLASSIFICATION.intake} error={pdf.error} />
   </section>
 {/if}
 

@@ -5,7 +5,7 @@
  * question is always asked; the interference (bothersomeness) question
  * is asked only when frequency > 0.
  */
-import type { Symptom } from './scoring';
+import { SYMPTOMS, SYMPTOM_LABELS, type Symptom } from './scoring';
 
 export interface MSIQuestion {
   symptom: Symptom;
@@ -15,27 +15,19 @@ export interface MSIQuestion {
   description?: string;
 }
 
-export const QUESTIONS: readonly MSIQuestion[] = [
-  { symptom: 'sharp', symptomLabel: 'Sharp or shooting pain' },
-  { symptom: 'dull', symptomLabel: 'General dull achiness' },
-  { symptom: 'stiff', symptomLabel: 'Stiffness or restricted movement' },
-  { symptom: 'weak', symptomLabel: 'Weakness, clumsiness, or giving way' },
-  {
-    symptom: 'sensitive',
-    symptomLabel: 'Increased sensitivity',
-    description:
-      'Sensitivity to your environment, e.g. bothered by certain types of light, noise, odor, or temperature.',
-  },
-  { symptom: 'numb', symptomLabel: 'Numbness or pins & needles' },
-  { symptom: 'fatigue', symptomLabel: 'Fatigue' },
-  {
-    symptom: 'foggy',
-    symptomLabel: 'Fogginess',
-    description: 'Difficulty concentrating or remembering things.',
-  },
-  { symptom: 'nausea', symptomLabel: 'Poor appetite or nausea' },
-  { symptom: 'anxiety', symptomLabel: 'Nervousness, anxiety or sadness' },
-] as const;
+/** Clarifying text shown beneath the two questions that need it. */
+const DESCRIPTIONS: Partial<Record<Symptom, string>> = {
+  sensitive:
+    'Sensitivity to your environment, e.g. bothered by certain types of light, noise, odor, or temperature.',
+  foggy: 'Difficulty concentrating or remembering things.',
+};
+
+/** One question per symptom, in scoring order; labels come from scoring.ts. */
+export const QUESTIONS: readonly MSIQuestion[] = SYMPTOMS.map((symptom) => ({
+  symptom,
+  symptomLabel: SYMPTOM_LABELS[symptom],
+  description: DESCRIPTIONS[symptom],
+}));
 
 export const FREQUENCY_OPTIONS = [
   { value: 0, label: 'Never' },
@@ -50,6 +42,3 @@ export const INTERFERENCE_OPTIONS = [
   { value: 3, label: 'Quite Bothersome' },
   { value: 4, label: 'Extremely Bothersome' },
 ] as const;
-
-/** Roles a user can identify as on the MSI intake. */
-export type MSIRole = 'patient' | 'professional';

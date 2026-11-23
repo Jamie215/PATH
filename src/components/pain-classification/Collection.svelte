@@ -13,9 +13,10 @@
    * results" unlocks once every child is complete.
    */
   import { onMount } from 'svelte';
-  import { get as storeGet, set as storeSet, remove as storeRemove } from '../../lib/storage';
+  import { get as storeGet, set as storeSet, remove as storeRemove, keys } from '../../lib/storage';
+  import { PAIN_CLASSIFICATION } from '../../lib/routes';
   import { sanitizeBothersomeArea } from '../../assessments/frebaq/area';
-  import { ACUTE_CHILDREN, KEYS, type ChildAssessment } from '../../assessments/pain-classification/config';
+  import { ACUTE_CHILDREN, KEYS, hasAllFields, type ChildAssessment } from '../../assessments/pain-classification/config';
   import BackLink from '../BackLink.svelte';
   import Modal from '../Modal.svelte';
   import ChildCard from './ChildCard.svelte';
@@ -45,11 +46,10 @@
     onConfirmed: (child) => absorbResult(child),
   });
 
-  const responseKey = (slug: string) => `${slug}:response`;
 
   /** Numeric per-question answers from a child's stored response. */
   function readAnswers(slug: string): Record<string, number> {
-    const r = storeGet<Record<string, unknown>>(responseKey(slug)) ?? {};
+    const r = storeGet<Record<string, unknown>>(keys.response(slug)) ?? {};
     const out: Record<string, number> = {};
     for (const [k, v] of Object.entries(r)) if (typeof v === 'number') out[k] = v;
     return out;
@@ -61,16 +61,13 @@
       if (saved) values[child.slug] = { ...saved };
       const comment = storeGet<string>(KEYS.commentPrefix + child.slug);
       if (comment) comments[child.slug] = comment;
-      const response = storeGet<Record<string, unknown>>(responseKey(child.slug));
+      const response = storeGet<Record<string, unknown>>(keys.response(child.slug));
       if (typeof response?.bothersome_area === 'string') areas[child.slug] = response.bothersome_area;
       answers[child.slug] = readAnswers(child.slug);
     }
   });
 
-  function childComplete(child: ChildAssessment): boolean {
-    const v = values[child.slug];
-    return !!v && child.manualFields.every((f) => Number.isFinite(v[f.key]));
-  }
+  const childComplete = (child: ChildAssessment): boolean => hasAllFields(child, values[child.slug]);
 
   const doneCount = $derived(ACUTE_CHILDREN.filter(childComplete).length);
   const allDone = $derived(doneCount === ACUTE_CHILDREN.length);
@@ -91,8 +88,8 @@
     persistValues(child.slug);
     // A hand-edited score no longer matches the questionnaire's scored result;
     // drop it so the composite report can't chart stale values from it.
-    const stored = storeGet(child.resultKey);
-    if (stored !== null && child.fromResult(stored)?.[key] !== value) storeRemove(child.resultKey);
+    const stored = storeGet(keys.result(child.slug));
+    if (stored !== null && child.fromResult(stored)?.[key] !== value) storeRemove(keys.result(child.slug));
   }
 
   function setComment(slug: string, text: string): void {
@@ -107,11 +104,11 @@
   function setArea(slug: string, text: string): void {
     areas[slug] = text;
     const trimmed = sanitizeBothersomeArea(text);
-    const response = storeGet<Record<string, unknown>>(responseKey(slug)) ?? {};
+    const response = storeGet<Record<string, unknown>>(keys.response(slug)) ?? {};
     if (trimmed) response.bothersome_area = trimmed;
     else delete response.bothersome_area;
-    if (Object.keys(response).length > 0) storeSet(responseKey(slug), response);
-    else storeRemove(responseKey(slug));
+    if (Object.keys(response).length > 0) storeSet(keys.response(slug), response);
+    else storeRemove(keys.response(slug));
   }
 
   /**
@@ -120,12 +117,12 @@
    * comment and area.
    */
   function absorbResult(child: ChildAssessment): void {
-    const extracted = child.fromResult(storeGet(child.resultKey));
+    const extracted = child.fromResult(storeGet(keys.result(child.slug)));
     if (extracted) {
       values[child.slug] = { ...extracted };
       persistValues(child.slug);
     }
-    const response = storeGet<Record<string, unknown>>(responseKey(child.slug));
+    const response = storeGet<Record<string, unknown>>(keys.response(child.slug));
     if (typeof response?.other_comments === 'string' && response.other_comments) {
       setComment(child.slug, response.other_comments);
     }
@@ -147,7 +144,7 @@
 </script>
 
 <section class="collect">
-  <BackLink href="/pain-classification/" />
+  <BackLink href={PAIN_CLASSIFICATION.intake} />
   <h1 class="collect__heading">Pain Classification</h1>
   <p class="collect__lede">
     Provide a result for each of the {ACUTE_CHILDREN.length} assessments below — either enter
@@ -198,7 +195,7 @@
       type="button"
       class="btn btn--next collect__calc"
       disabled={!allDone}
-      onclick={() => (window.location.href = '/pain-classification/results/')}
+      onclick={() => (window.location.href = PAIN_CLASSIFICATION.results)}
     >
       See results
     </button>

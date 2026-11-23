@@ -16,12 +16,12 @@
   import { onMount } from 'svelte';
   import { PdfDownload } from '../lib/results.svelte';
   import { buildCompletedSheets } from '../lib/completed-sheets';
-  import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { get as storeGet, set as storeSet, keys } from '../lib/storage';
+  import { PAIN_CLASSIFICATION } from '../lib/routes';
   import ChildSurvey from './pain-classification/ChildSurvey.svelte';
   import BackLink from './BackLink.svelte';
   import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
 
-  const REVIEW_URL = '/pain-classification/review/';
 
   let ready = $state(false);
   let step = $state(0);
@@ -51,7 +51,7 @@
   /** Pre-fill values for a test, pulled from any answers it already has stored
    *  (so returning to edit shows the previous responses). */
   function initialFor(c: ChildAssessment): { answers: Record<string, number>; comments?: string; area?: string } {
-    const r = storeGet<Record<string, number | string>>(`${c.slug}:response`) ?? {};
+    const r = storeGet<Record<string, number | string>>(keys.response(c.slug)) ?? {};
     const answers: Record<string, number> = {};
     let comments: string | undefined;
     let area: string | undefined;
@@ -67,7 +67,7 @@
   onMount(() => {
     const role = storeGet<Role>(KEYS.role);
     if (!role) {
-      window.location.replace('/pain-classification/');
+      window.location.replace(PAIN_CLASSIFICATION.intake);
       return;
     }
     // Deep link from the review view to edit one specific test.
@@ -85,14 +85,14 @@
   /** Mirror a finished survey's scored sub-scores into the composite's manual
    *  store, so completion tracking (and the review guard) see this test done. */
   function persistCompletion(c: ChildAssessment): void {
-    const extracted = c.fromResult(storeGet(c.resultKey));
+    const extracted = c.fromResult(storeGet(keys.result(c.slug)));
     if (extracted) storeSet(KEYS.manualPrefix + c.slug, extracted);
   }
 
   function handleComplete(c: ChildAssessment): void {
     persistCompletion(c);
     if (editingSingle || isLast) {
-      window.location.href = REVIEW_URL;
+      window.location.href = PAIN_CLASSIFICATION.review;
       return;
     }
     step += 1;
@@ -102,11 +102,11 @@
 
   function back(): void {
     if (editingSingle) {
-      window.location.href = REVIEW_URL;
+      window.location.href = PAIN_CLASSIFICATION.review;
       return;
     }
     if (step === 0) {
-      window.location.href = '/pain-classification/';
+      window.location.href = PAIN_CLASSIFICATION.intake;
       return;
     }
     step -= 1;
@@ -135,7 +135,7 @@
 
 {#if ready}
   <section class="flow">
-    <BackLink fallback="/pain-classification/" />
+    <BackLink fallback={PAIN_CLASSIFICATION.intake} />
 
     {#if !editingSingle}
       <!-- Guidance for the full walk-through, with the download beside it. -->

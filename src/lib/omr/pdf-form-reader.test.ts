@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { generateAnswerSheet, generateCombinedAnswerSheets } from '../omr-sheet';
+import { generateAnswerSheet, generateCombinedAnswerSheets } from './sheet';
 import { readPdfForm, readCombinedPdfForm } from './pdf-form-reader';
 import { FREBAQ_OMR_TEMPLATE } from '../../assessments/frebaq/omr-template';
 import { MSI_OMR_TEMPLATE } from '../../assessments/msi/omr-template';

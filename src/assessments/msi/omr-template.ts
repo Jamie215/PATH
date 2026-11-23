@@ -26,11 +26,10 @@ import type {
   OmrBubble,
   OmrColumnGroup,
 } from '../omr/types';
+import { nx, ny, sheetFrame } from '../omr/sheet-geometry';
+import { assessmentBySlug } from '../registry';
 
-// --- Page + layout constants (US Letter, PostScript points) -----------------
-
-const PAGE_W = 612;
-const PAGE_H = 792;
+// --- Layout constants (US Letter, PostScript points) -----------------------
 
 /** Bubble columns. Pushed right and spread wide so the grid text can be
  *  larger while the long symptom labels still clear the first column and the
@@ -49,23 +48,13 @@ const INT_X = [426, 463, 500, 537];
 const FIRST_ROW_Y = 308;
 const ROW_SPACING = 36;
 
-// Smaller bubble: a thin pen fills a larger fraction of a small circle, so a
-// quick firm mark registers without edge-to-edge inking.
-const BUBBLE_RADIUS_PT = 5;
-const FIDUCIAL_SIZE_PT = 16;
-/** Fiducial center inset from each page edge. */
-const FIDUCIAL_INSET = 30;
-
 /** Short clarifications for the two symptoms the survey elaborates on. */
 const DESCRIPTIONS: Partial<Record<(typeof SYMPTOMS)[number], string>> = {
   sensitive: 'Bothered by light, noise, odor, or temperature',
   foggy: 'Difficulty concentrating or remembering things',
 };
 
-// --- Normalization helpers --------------------------------------------------
-
-const nx = (pt: number): number => pt / PAGE_W;
-const ny = (pt: number): number => pt / PAGE_H;
+// --- Helpers ----------------------------------------------------------------
 
 function bubbles(columnX: number[], values: number[], rowY: number): OmrBubble[] {
   return values.map((value, i) => ({
@@ -117,7 +106,7 @@ const INT_GROUP: OmrColumnGroup = {
 
 export const MSI_OMR_TEMPLATE: OmrTemplate = {
   id: 'msi-v1',
-  title: 'Symptom Index',
+  title: assessmentBySlug('msi').title,
   // Shown right-aligned in the brand row (not as a title subtitle), so it
   // labels the sheet without costing the vertical space MSI needs for its
   // single-page grid.
@@ -127,22 +116,7 @@ export const MSI_OMR_TEMPLATE: OmrTemplate = {
     'If it occurs (more than "Never"), also fill in ONE bubble for how BOTHERSOME it is.',
     'To change an answer, cross out the wrong bubble with an X and fill the correct one.',
   ],
-  page: { width: PAGE_W, height: PAGE_H },
-  bubbleRadius: nx(BUBBLE_RADIUS_PT),
-  fiducialSize: nx(FIDUCIAL_SIZE_PT),
-  fiducials: [
-    { x: nx(FIDUCIAL_INSET), y: ny(FIDUCIAL_INSET) }, // TL
-    { x: nx(PAGE_W - FIDUCIAL_INSET), y: ny(FIDUCIAL_INSET) }, // TR
-    { x: nx(PAGE_W - FIDUCIAL_INSET), y: ny(PAGE_H - FIDUCIAL_INSET) }, // BR
-    { x: nx(FIDUCIAL_INSET), y: ny(PAGE_H - FIDUCIAL_INSET) }, // BL
-  ],
-  orientationMark: {
-    // Inset diagonally from the bottom-left corner — empty space clear of
-    // any header/footer text, adjacent to exactly one fiducial so the reader
-    // can name that corner and recover the sheet's orientation.
-    center: { x: nx(FIDUCIAL_INSET + 24), y: ny(PAGE_H - FIDUCIAL_INSET - 24) },
-    size: nx(8),
-  },
+  ...sheetFrame(),
   sections: [
     {
       title: '',

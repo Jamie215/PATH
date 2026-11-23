@@ -25,7 +25,7 @@ import {
   type PDFPage,
   type PDFForm,
 } from 'pdf-lib';
-import type { OmrTemplate, OmrSection, OmrColumnGroup } from '../assessments/omr/types';
+import type { OmrTemplate, OmrSection, OmrColumnGroup } from '../../assessments/omr/types';
 
 import {
   COLOR_MUTED,
@@ -35,7 +35,7 @@ import {
   COLOR_TINT,
   MARGIN_X,
   wrapText,
-} from './pdf/report-kit';
+} from '../pdf/report-kit';
 
 // Sheet-only colours; the shared palette comes from the report kit.
 const COLOR_INK = rgb(0, 0, 0);

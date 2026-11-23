@@ -20,10 +20,11 @@
     QUESTIONS,
     FREQUENCY_OPTIONS,
     INTERFERENCE_OPTIONS,
-    type MSIRole,
   } from '../assessments/msi/questions';
+  import type { Role } from '../assessments/registry';
   import { score, type MSIResponse } from '../assessments/msi/scoring';
-  import { get as storeGet, set as storeSet } from '../lib/storage';
+  import { get as storeGet, set as storeSet, keys } from '../lib/storage';
+  import { assessmentUrl, resultsUrl } from '../lib/routes';
 
   interface Props extends EmbeddedSurveyProps {
     requireRole?: boolean;
@@ -56,8 +57,8 @@
   let ready = $state(false);
 
   onMount(() => {
-    if (requireRole && !storeGet<MSIRole>('msi:role')) {
-      window.location.replace('/msi/');
+    if (requireRole && !storeGet<Role>(keys.role('msi'))) {
+      window.location.replace(assessmentUrl('msi'));
       return;
     }
     ready = true;
@@ -99,10 +100,10 @@
     const response: Record<string, number | string> = { ...answers };
     if (comments.trim().length > 0) response.other_comments = comments.trim();
 
-    storeSet('msi:response', response);
-    storeSet('msi:result', score(response as unknown as MSIResponse));
+    storeSet(keys.response('msi'), response);
+    storeSet(keys.result('msi'), score(response as unknown as MSIResponse));
     if (onComplete) onComplete();
-    else window.location.href = '/msi/results/';
+    else window.location.href = resultsUrl('msi');
   }
 </script>
 

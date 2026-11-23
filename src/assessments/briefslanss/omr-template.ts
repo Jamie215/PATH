@@ -5,10 +5,11 @@
  */
 import { QUESTIONS, EXPERIENCE_OPTIONS } from './questions';
 import { buildSingleGroupTemplate } from '../omr/single-group-template';
+import { assessmentBySlug } from '../registry';
 
 export const BRIEFSLANSS_OMR_TEMPLATE = buildSingleGroupTemplate({
   id: 'briefslanss-v1',
-  title: 'Sensory Profile',
+  title: assessmentBySlug('briefslanss').title,
   subtitle: 'Scannable Form',
   instructions: [
     'For each item, fill in ONE bubble — Yes or No — for the painful area.',

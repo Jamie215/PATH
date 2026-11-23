@@ -14,7 +14,8 @@
   import AssessmentDate from './AssessmentDate.svelte';
   import ResultsHeader from './results/ResultsHeader.svelte';
   import ResultsActions from './results/ResultsActions.svelte';
-  import { get as storeGet } from '../lib/storage';
+  import { get as storeGet, keys } from '../lib/storage';
+  import { assessmentUrl } from '../lib/routes';
   import { PatientNameField, PdfDownload } from '../lib/results.svelte';
   import {
     MAX,
@@ -22,27 +23,27 @@
     targetScore,
     type MSIResult,
   } from '../assessments/msi/scoring';
-  import type { MSIRole } from '../assessments/msi/questions';
+  import type { Role } from '../assessments/registry';
   import SomaticBarChart from './SomaticBarChart.svelte';
   import SymptomRadarChart from './SymptomRadarChart.svelte';
 
   let result = $state<MSIResult | null>(null);
-  let role = $state<MSIRole | null>(null);
+  let role = $state<Role | null>(null);
   let loaded = $state(false);
 
-  const name = new PatientNameField('msi:patientName');
+  const name = new PatientNameField(keys.patientName('msi'));
   const pdf = new PdfDownload();
 
   const BAR_CANVAS_ID = 'msi-pdf-bar-chart';
   const RADAR_CANVAS_ID = 'msi-pdf-radar-chart';
 
   onMount(() => {
-    result = storeGet<MSIResult>('msi:result');
-    role = storeGet<MSIRole>('msi:role');
+    result = storeGet<MSIResult>(keys.result('msi'));
+    role = storeGet<Role>(keys.role('msi'));
     name.load();
     loaded = true;
     if (!result || !role) {
-      window.location.replace('/msi/');
+      window.location.replace(assessmentUrl('msi'));
     }
   });
 
@@ -65,7 +66,7 @@
       const somaticBar = barCanvas.toDataURL('image/png');
       const radar = radarCanvas.toDataURL('image/png');
 
-      const { generateMSIReport, buildFilename } = await import('../lib/msi-pdf');
+      const { generateMSIReport, buildFilename } = await import('../lib/pdf/msi');
       const bytes = await generateMSIReport({
         result: r,
         role: activeRole,
@@ -179,7 +180,7 @@
     </section>
 
     <!-- Actions -->
-    <ResultsActions redoHref="/msi/" error={pdf.error} />
+    <ResultsActions redoHref={assessmentUrl('msi')} error={pdf.error} />
   </div>
 {/if}
 

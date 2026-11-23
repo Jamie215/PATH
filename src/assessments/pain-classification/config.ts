@@ -22,19 +22,19 @@
  */
 
 import type { OmrTemplate } from '../omr/types';
+import { get as storeGet, keys } from '../../lib/storage';
+import { assessmentBySlug, type AssessmentSummary } from '../registry';
 import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
-import { BRIEFSLANSS_OMR_TEMPLATE } from '../briefslanss/omr-template';
-import { FREBAQ_OMR_TEMPLATE } from '../frebaq/omr-template';
-import { PHQ4_OMR_TEMPLATE } from '../phq4/omr-template';
 import { MAX as MSI_MAX } from '../msi/scoring';
-import { MAX_SCORE as SLANSS_MAX } from '../briefslanss/scoring';
-import { MAX_SCORE as FREBAQ_MAX } from '../frebaq/scoring';
-import { MAX_SCORE as PHQ4_MAX } from '../phq4/scoring';
+import type { ScreenerDefinition } from '../screening';
+import { BRIEFSLANSS } from '../briefslanss/definition';
+import { FREBAQ } from '../frebaq/definition';
+import { PHQ4 } from '../phq4/definition';
+import { AREA_HINT } from '../frebaq/questions';
 
 export type PainType = 'acute' | 'chronic';
 
-/** Kept as 'professional' to match the child assessments' stored role values. */
-export type Role = 'patient' | 'professional';
+export type { Role } from '../registry';
 
 export interface ManualField {
   /** Key within the child's per-slug manual record. */
@@ -45,18 +45,8 @@ export interface ManualField {
   step?: number;
 }
 
-export interface ChildAssessment {
-  slug: string;
-  title: string;
-  shortName: string;
-  /**
-   * One-line explanation of what the assessment measures. Shown as the card
-   * and modal subtitle — the friendly title alone would otherwise just repeat
-   * itself, so the subtitle carries the description instead.
-   */
-  description: string;
-  /** sessionStorage key (sans the `path:` prefix) the child writes its scored result to. */
-  resultKey: string;
+/** Name and description come from the hub registry (`assessmentBySlug`). */
+export interface ChildAssessment extends ChildMeta {
   /**
    * Manual-entry fields — the raw sub-scores the composite model consumes
    * (see ./scoring.ts): MSI somatic/central, and each screener's total.
@@ -79,7 +69,7 @@ export interface ChildAssessment {
    * If set, the card shows an editable free-text field for a context value the
    * child collects alongside its score — currently FreBAQ's "most bothersome
    * area", mirroring the input offered in the scan/OCR review. The typed value
-   * is stored on the child's `${slug}:response` under `bothersome_area`.
+   * is stored in the child's survey response under `bothersome_area`.
    */
   areaField?: { label: string; placeholder: string };
 }
@@ -94,19 +84,35 @@ function totalFromResult(r: unknown): Record<string, number> | null {
   return total === null ? null : { total_score: total };
 }
 
-const totalField = (max: number): ManualField[] => [
-  { key: 'total_score', label: 'Total score', min: 0, max },
-];
+type ChildMeta = Pick<AssessmentSummary, 'slug' | 'title' | 'shortName' | 'description'>;
+
+/** A child's name, short name and description, from the hub registry. */
+function meta(slug: string): ChildMeta {
+  const { title, shortName, description } = assessmentBySlug(slug);
+  return { slug, title, shortName, description };
+}
+
+/**
+ * A screener as a composite child: its total score is the one manual field
+ * (0 to its maximum), and its answer sheet comes from its definition.
+ */
+function screenerChild(
+  def: ScreenerDefinition,
+  extra: Pick<ChildAssessment, 'areaField'> = {},
+): ChildAssessment {
+  return {
+    ...meta(def.slug),
+    manualFields: [{ key: 'total_score', label: 'Total score', min: 0, max: def.scoring.maxScore }],
+    omrTemplate: def.omrTemplate,
+    fromResult: totalFromResult,
+    ...extra,
+  };
+}
 
 /** Child assessments composing the ACUTE pain-classification pathway. */
 export const ACUTE_CHILDREN: ChildAssessment[] = [
   {
-    slug: 'msi',
-    title: 'Symptom Index',
-    shortName: 'Symptom Index',
-    description:
-      'A ten-symptom screening that gathers frequency and bothersomeness ratings.',
-    resultKey: 'msi:result',
+    ...meta('msi'),
     manualFields: [
       { key: 'somatic', label: 'Somatic score', min: 0, max: MSI_MAX.somatic },
       { key: 'nonsomatic', label: 'Central (non-somatic) score', min: 0, max: MSI_MAX.nonsomatic },
@@ -121,54 +127,51 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     },
     omrTemplate: MSI_OMR_TEMPLATE,
   },
-  {
-    slug: 'briefslanss',
-    title: 'Sensory Profile',
-    shortName: 'Sensory Profile',
-    description:
-      'A brief screening for neuropathic pain, with four symptom questions.',
-    resultKey: 'briefslanss:result',
-    manualFields: totalField(SLANSS_MAX),
-    omrTemplate: BRIEFSLANSS_OMR_TEMPLATE,
-    fromResult: totalFromResult,
-  },
-  {
-    slug: 'frebaq',
-    title: 'Body Awareness',
-    shortName: 'Body Awareness',
-    description:
-      'A quantitative evaluation of area-specific self-perception.',
-    resultKey: 'frebaq:result',
-    manualFields: totalField(FREBAQ_MAX),
-    omrTemplate: FREBAQ_OMR_TEMPLATE,
+  screenerChild(BRIEFSLANSS),
+  screenerChild(FREBAQ, {
+    // Worded for the professional filling in the card, unlike the survey's "my body".
     areaField: {
       label: 'The part of the body that has been bothering me the most is:',
-      placeholder: 'e.g., right knee, left hand, neck',
+      placeholder: AREA_HINT,
     },
-    fromResult: totalFromResult,
-  },
-  {
-    slug: 'phq4',
-    title: 'Anxiety & Depression',
-    shortName: 'Anxiety & Depression',
-    description:
-      'A brief screening for depression and anxiety.',
-    resultKey: 'phq4:result',
-    manualFields: totalField(PHQ4_MAX),
-    omrTemplate: PHQ4_OMR_TEMPLATE,
-    fromResult: totalFromResult,
-  },
+  }),
+  screenerChild(PHQ4),
 ];
 
 /** sessionStorage keys owned by the parent (sans the `path:` prefix). */
 export const KEYS = {
-  role: 'pain-classification:role',
+  role: keys.role('pain-classification'),
   /** Manual entry for a child is stored at `${manualPrefix}${slug}`. */
   manualPrefix: 'pain-classification:manual:',
   /** Optional per-child comment is stored at `${commentPrefix}${slug}`. */
   commentPrefix: 'pain-classification:comment:',
   /** Patient name / ID for the composite report. */
-  patientName: 'pain-classification:patientName',
+  patientName: keys.patientName('pain-classification'),
 } as const;
 
-export const RETURN_URL = '/pain-classification/acute/';
+/**
+ * True when `values` holds a finite number for every one of the child's
+ * manual fields — the rule for a child counting as "complete" everywhere
+ * (collection cards, patient review, classification results).
+ */
+export function hasAllFields(
+  child: ChildAssessment,
+  values: Record<string, number | undefined> | null | undefined,
+): boolean {
+  return !!values && child.manualFields.every((f) => Number.isFinite(values[f.key]));
+}
+
+/**
+ * Every child's stored values, keyed by slug — the composite model's inputs.
+ * Null if any child is still incomplete, so callers send the user back to the
+ * collection page instead of scoring partial data.
+ */
+export function loadChildInputs(): Record<string, Record<string, number>> | null {
+  const inputs: Record<string, Record<string, number>> = {};
+  for (const child of ACUTE_CHILDREN) {
+    const values = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
+    if (!values || !hasAllFields(child, values)) return null;
+    inputs[child.slug] = values;
+  }
+  return inputs;
+}

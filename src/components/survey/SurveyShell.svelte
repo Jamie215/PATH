@@ -78,7 +78,7 @@
       </label>
       <textarea
         id={commentsId}
-        class="comments__input"
+        class="text-input comments__input"
         class:field--flagged={commentsDetected}
         rows="4"
         bind:value={comments}
@@ -150,20 +150,9 @@
   .comments__input {
     width: 100%;
     padding: var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.95rem;
     resize: vertical;
-    background: var(--color-bg);
-    color: var(--color-text);
   }
 
-  .comments__input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
 
   .actions {
     display: flex;

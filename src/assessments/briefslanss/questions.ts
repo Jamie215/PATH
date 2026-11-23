@@ -2,16 +2,9 @@
  * briefSLANSS survey question configuration.
  */
 import type { Symptom } from './scoring';
+import type { ScreenerQuestion } from '../screening';
 
-export interface briefSLANSSQuestion {
-  symptom: Symptom;
-  /** Short symptom name shown as the question title. */
-  symptomLabel: string;
-  /** Optional clarifying text shown beneath the title. */
-  description?: string;
-}
-
-export const QUESTIONS: readonly briefSLANSSQuestion[] = [
+export const QUESTIONS: readonly ScreenerQuestion<Symptom>[] = [
   {
     symptom: 'numb',
     symptomLabel: 'Numbness, tingling, or prickling sensations',

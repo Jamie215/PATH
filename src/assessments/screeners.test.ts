@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as phq4 from './phq4/scoring';
 import * as slanss from './briefslanss/scoring';
 import * as frebaq from './frebaq/scoring';
-import { SCREENER_REPORTS } from './screener-reports';
+import { SCREENERS, screenerBySlug } from './screeners';
+import { assessmentBySlug } from './registry';
 
 /** Build a response with every item rated `value`, or per-item via an array. */
 function respond(symptoms: readonly string[], values: number | number[], extra = {}) {
@@ -94,11 +95,47 @@ describe('shared screener behaviour', () => {
     expect(frebaq.score(r as frebaq.FreBAQResponse).total_score).toBe(10);
   });
 
-  it('report specs agree with the scorers they wrap', () => {
-    expect(SCREENER_REPORTS.phq4.scoring.maxScore).toBe(phq4.MAX_SCORE);
-    expect(SCREENER_REPORTS.briefslanss.scoring.maxScore).toBe(slanss.MAX_SCORE);
-    expect(SCREENER_REPORTS.frebaq.scoring.maxScore).toBe(frebaq.MAX_SCORE);
-    expect(SCREENER_REPORTS.phq4.note).toContain('0–2 normal, 3–5 mild, 6–8 moderate, 9–12 severe');
+  it('definitions agree with the scorers they wrap', () => {
+    expect(screenerBySlug('phq4').scoring.maxScore).toBe(phq4.MAX_SCORE);
+    expect(screenerBySlug('briefslanss').scoring.maxScore).toBe(slanss.MAX_SCORE);
+    expect(screenerBySlug('frebaq').scoring.maxScore).toBe(frebaq.MAX_SCORE);
+    expect(screenerBySlug('phq4').report.note).toContain('0–2 normal, 3–5 mild, 6–8 moderate, 9–12 severe');
   });
 
+});
+
+/**
+ * Checks every screener definition is wired consistently, so a new screener
+ * that is half set up fails here rather than in the browser.
+ */
+describe.each(SCREENERS.map((d) => [d.slug, d] as const))('%s definition', (_slug, def) => {
+  const itemKeys = def.questions.map((q) => `${q.symptom}_exp`);
+
+  it('has a registry entry (name, description, hub card)', () => {
+    expect(() => assessmentBySlug(def.slug)).not.toThrow();
+  });
+
+  it('prints one answer-sheet row per question, with the same keys', () => {
+    const sheetKeys = def.omrTemplate.sections.flatMap((s) => s.rows.flatMap((r) => r.fields.map((f) => f.key)));
+    expect(sheetKeys).toEqual(itemKeys);
+  });
+
+  it('prints the same answer values the survey offers', () => {
+    const values = def.options.map((o) => o.value);
+    for (const row of def.omrTemplate.sections.flatMap((s) => s.rows)) {
+      expect(row.fields[0].bubbles.map((b) => b.value)).toEqual(values);
+    }
+  });
+
+  it('scores the top answer on every item as the maximum score', () => {
+    const top = Math.max(...def.options.map((o) => o.value));
+    const response = Object.fromEntries(itemKeys.map((k) => [k, top]));
+    expect(def.score(response).total_score).toBe(def.scoring.maxScore);
+  });
+
+  it('scores the bottom answer on every item as 0', () => {
+    const bottom = Math.min(...def.options.map((o) => o.value));
+    const response = Object.fromEntries(itemKeys.map((k) => [k, bottom]));
+    expect(def.score(response).total_score).toBe(0);
+  });
 });

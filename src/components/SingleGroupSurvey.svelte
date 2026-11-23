@@ -1,66 +1,31 @@
 <script lang="ts">
   /**
-   * Generic single-group survey: one row per item, one mutually-exclusive
-   * rating per row. Backs the Brief S-LANSS, FreBAQ, and PHQ-4 surveys (which
-   * are structurally identical, unlike MSI's paired frequency/bothersomeness
-   * layout), so each of those is a thin wrapper that supplies this component
-   * its questions, options, scorer, and storage slug.
-   *
-   * An optional `areaField` renders a free-text "most bothersome area" input
-   * above the questions (currently only FreBAQ); when absent that block and all
-   * its area-* props are simply unused.
+   * The survey for any single-total screener (Brief S-LANSS, FreBAQ, PHQ-4):
+   * one row per item, one rating per row. Everything specific to a screener —
+   * questions, scale, intro, scoring and the optional "most bothersome area"
+   * field — comes from its definition (assessments/<slug>/definition.ts), found
+   * by `slug`. MSI has its own survey because of its paired follow-up ratings.
    *
    * When `onComplete` is supplied (the survey is embedded in a parent flow), it
    * is called after scoring instead of navigating to the standalone results
    * page. The scored result is persisted to sessionStorage either way.
    */
+  import { untrack } from 'svelte';
   import RatingScale from './RatingScale.svelte';
   import SurveyShell from './survey/SurveyShell.svelte';
   import QuestionItem from './survey/QuestionItem.svelte';
   import type { EmbeddedSurveyProps } from './survey/types';
-  import { set as storeSet } from '../lib/storage';
-
-  interface Question {
-    symptom: string;
-    /** Short symptom name shown as the question title. */
-    symptomLabel: string;
-    /** Optional clarifying text shown beneath the title. */
-    description?: string;
-  }
+  import { set as storeSet, keys } from '../lib/storage';
+  import { resultsUrl } from '../lib/routes';
+  import { screenerBySlug } from '../assessments/screeners';
 
   interface Props extends EmbeddedSurveyProps {
-    questions: readonly Question[];
-    experienceOptions: readonly { value: number; label: string }[];
-    intro: string;
-    /** sessionStorage key prefix; the survey writes `${slug}:response`/`:result`. */
+    /** Which screener, e.g. `phq4` (see assessments/screeners.ts). */
     slug: string;
-    /** Standalone results page to navigate to when not embedded. */
-    resultsUrl: string;
-    /** Scores a built response record into the assessment's result object. */
-    score: (response: Record<string, number | string>) => unknown;
-    /** Enables the free-text "most bothersome area" field above the questions. */
-    areaField?: { label: string; placeholder: string };
-    /** Normalizes the area text before it is stored (e.g. FreBAQ's sanitizer). */
-    sanitizeArea?: (text: string) => string;
-    /** Fully normalizes a confirmed area (punctuation + leading "my"/"the"
-     *  strip). Falls back to sanitizeArea when absent. */
-    normalizeArea?: (text: string) => string;
-    /** Rewrites a question label to reference the confirmed area (e.g. FreBAQ's
-     *  "the area" → "my right knee"). */
-    personalizeArea?: (label: string, area: string) => string;
   }
 
   let {
-    questions,
-    experienceOptions,
-    intro,
     slug,
-    resultsUrl,
-    score,
-    areaField,
-    sanitizeArea,
-    normalizeArea,
-    personalizeArea,
     onComplete,
     onBack,
     backLabel,
@@ -79,12 +44,15 @@
     attentionKeys,
   }: Props = $props();
 
+  // The slug is fixed for the survey's lifetime, so its definition is too.
+  const def = untrack(() => screenerBySlug(slug));
+  const { questions, areaField } = def;
+
   const uid = $props.id();
   const areaId = `${uid}-area`;
   const questionId = (symptom: string) => `${uid}-q-${symptom}`;
 
-  const normalize = (text: string): string =>
-    normalizeArea ? normalizeArea(text) : sanitizeArea ? sanitizeArea(text) : text.trim();
+  const normalize = (text: string): string => (areaField ? areaField.normalize(text) : text.trim());
 
   // Seed from the initial props once; afterwards the form owns its state.
   // svelte-ignore state_referenced_locally
@@ -161,15 +129,15 @@
     }
     if (comments.trim().length > 0) response.other_comments = comments.trim();
 
-    storeSet(`${slug}:response`, response);
-    storeSet(`${slug}:result`, score(response));
+    storeSet(keys.response(def.slug), response);
+    storeSet(keys.result(def.slug), def.score(response));
     if (onComplete) onComplete();
-    else window.location.href = resultsUrl;
+    else window.location.href = resultsUrl(def.slug);
   }
 </script>
 
 <SurveyShell
-  {intro}
+  intro={def.intro}
   {progress}
   {showProgress}
   bind:comments
@@ -194,7 +162,7 @@
           <div class="area__row">
             <input
               id={areaId}
-              class="area__input"
+              class="text-input area__input"
               class:field--error={areaMissing}
               class:field--flagged={requireArea && !areaMissing}
               type="text"
@@ -251,7 +219,7 @@
       {#each questions as q, i (q.symptom)}
         {@const expKey = `${q.symptom}_exp`}
         {@const expValue = answers[expKey] ?? null}
-        {@const title = personalizeArea ? personalizeArea(q.symptomLabel, activeArea) : q.symptomLabel}
+        {@const title = areaField ? areaField.personalize(q.symptomLabel, activeArea) : q.symptomLabel}
         <QuestionItem
           id={questionId(q.symptom)}
           number={i + 1}
@@ -261,7 +229,7 @@
         >
           <RatingScale
             label={`Experience of ${title}`}
-            options={experienceOptions}
+            options={def.options}
             value={expValue}
             onChange={(v) => (answers[expKey] = v)}
           />
@@ -305,19 +273,8 @@
   .area__input {
     width: 100%;
     padding: var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.95rem;
-    background: var(--color-bg);
-    color: var(--color-text);
   }
 
-  .area__input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
 
   .area__confirm {
     flex-shrink: 0;

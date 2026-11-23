@@ -59,10 +59,11 @@
     if (!canvas) return;
     ensureChartJsRegistered();
 
-    const primary = cssVar('--color-primary', '#4F2683');
-    const gridColor = cssVar('--color-border', '#E5E5E5');
-    const textColor = cssVar('--color-text', '#1F1F1F');
-    const mutedColor = cssVar('--color-text-muted', '#5C5C5C');
+    const primary = cssVar('--color-primary');
+    const gridColor = cssVar('--color-border');
+    const textColor = cssVar('--color-text');
+    const mutedColor = cssVar('--color-text-muted');
+    const background = cssVar('--color-bg');
 
     chart = new Chart(canvas, {
       type: 'radar',
@@ -78,7 +79,7 @@
             borderColor: primary,
             borderWidth: 2,
             pointBackgroundColor: primary,
-            pointBorderColor: '#ffffff',
+            pointBorderColor: background,
             pointBorderWidth: 1.5,
             pointRadius: 4,
             pointHoverRadius: 5,

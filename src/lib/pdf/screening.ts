@@ -1,12 +1,12 @@
 /**
  * PDF report generator for the single-total screeners (PHQ-4, Brief S-LANSS,
- * FreBAQ). The three reports share one layout; everything that differs comes
- * from their `ScreenerReport` spec (assessments/screener-reports.ts).
+ * FreBAQ). The reports share one layout; everything that differs comes from
+ * the screener's definition (`report` in assessments/<slug>/definition.ts).
  *
  * Lazy-imported by the results view so pdf-lib only loads on download.
  */
-import type { ScreenerReport } from '../assessments/screener-reports';
-import type { ScreenerResult } from '../assessments/screening';
+import type { ScreenerDefinition, ScreenerResult } from '../../assessments/screening';
+import { assessmentBySlug } from '../../assessments/registry';
 import {
   buildFilename as kitBuildFilename,
   createReport,
@@ -15,20 +15,21 @@ import {
   drawScoreCard,
   drawTitle,
   finalizeReport,
-} from './pdf/report-kit';
+} from './report-kit';
 
 export async function generateScreeningReport(
-  spec: ScreenerReport,
+  spec: ScreenerDefinition,
   input: { result: ScreenerResult; patientName: string },
 ): Promise<Uint8Array> {
+  const name = assessmentBySlug(spec.slug).title;
   const ctx = await createReport({
-    title: `${spec.name} Results`,
-    subject: `${spec.name} — clinical screening results`,
+    title: `${name} Results`,
+    subject: `${name} — clinical screening results`,
   });
 
   drawTitle(ctx, {
-    title: spec.pdfHeading,
-    subtitle: spec.pdfSubtitle,
+    title: spec.report.heading,
+    subtitle: spec.report.subtitle,
     patientName: input.patientName,
   });
   drawScoreCard(ctx, {
@@ -36,13 +37,13 @@ export async function generateScreeningReport(
     interpretation: input.result.interpretation,
     elevated: spec.scoring.isElevated(input.result.total_score),
   });
-  drawNote(ctx, spec.note, { trailing: 12 });
+  drawNote(ctx, spec.report.note, { trailing: 12 });
   drawComments(ctx, input.result.comments);
 
   return finalizeReport(ctx);
 }
 
 /** Filename suggestion — sanitized for filesystem safety. */
-export function buildFilename(spec: ScreenerReport, patientName: string): string {
-  return kitBuildFilename(spec.filenamePrefix, patientName);
+export function buildFilename(spec: ScreenerDefinition, patientName: string): string {
+  return kitBuildFilename(spec.report.filenamePrefix, patientName);
 }

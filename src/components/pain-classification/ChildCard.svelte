@@ -62,7 +62,7 @@
       <label class="field field--area">
         <span class="field__label">{child.areaField.label}</span>
         <input
-          class="field__input field__input--area"
+          class="text-input field__input field__input--area"
           type="text"
           placeholder={child.areaField.placeholder}
           value={area}
@@ -77,7 +77,7 @@
             {f.label} <span class="field__range">({f.min}–{f.max})</span>
           </span>
           <input
-            class="field__input"
+            class="text-input field__input"
             type="number"
             min={f.min}
             max={f.max}
@@ -91,7 +91,7 @@
       <label class="field field--comment">
         <span class="field__label">Comments (optional)</span>
         <textarea
-          class="field__textarea"
+          class="text-input field__textarea"
           rows="2"
           placeholder="Any notes about this assessment…"
           value={comment}
@@ -230,32 +230,13 @@
 
   .field__input {
     width: 8rem;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: 0.95rem;
-    background: var(--color-bg);
-    color: var(--color-text);
   }
 
   .field__textarea {
     width: 100%;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 0.95rem;
     resize: vertical;
-    background: var(--color-bg);
-    color: var(--color-text);
   }
 
-  .field__input:focus,
-  .field__textarea:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
 
   .btn--success {
     background: var(--color-success);

@@ -20,7 +20,7 @@
 
   function download(): Promise<void> {
     return sheet.run(async () => {
-      const { generateAnswerSheet, buildAnswerSheetFilename } = await import('../lib/omr-sheet');
+      const { generateAnswerSheet, buildAnswerSheetFilename } = await import('../lib/omr/sheet');
       return { bytes: await generateAnswerSheet(template), filename: buildAnswerSheetFilename(template) };
     });
   }

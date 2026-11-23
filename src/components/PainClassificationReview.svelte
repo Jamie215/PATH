@@ -15,7 +15,8 @@
   import { PdfDownload } from '../lib/results.svelte';
   import { buildCompletedSheets } from '../lib/completed-sheets';
   import { get as storeGet, set as storeSet } from '../lib/storage';
-  import { ACUTE_CHILDREN, KEYS, type Role, type ChildAssessment } from '../assessments/pain-classification/config';
+  import { PAIN_CLASSIFICATION } from '../lib/routes';
+  import { ACUTE_CHILDREN, KEYS, loadChildInputs, type Role } from '../assessments/pain-classification/config';
   import { summarizeChild, type ChildSummary } from '../assessments/pain-classification/summary';
 
   interface AssessmentSummary extends ChildSummary {
@@ -32,19 +33,14 @@
   // round-trip and pre-fills the downloaded answer sheets.
   let nameInput = $state('');
 
-  function childComplete(child: ChildAssessment): boolean {
-    const v = storeGet<Record<string, number>>(KEYS.manualPrefix + child.slug);
-    return !!v && child.manualFields.every((f) => typeof v[f.key] === 'number' && Number.isFinite(v[f.key]));
-  }
-
   onMount(() => {
     const role = storeGet<Role>(KEYS.role);
     if (!role) {
-      window.location.replace('/pain-classification/');
+      window.location.replace(PAIN_CLASSIFICATION.intake);
       return;
     }
-    if (!ACUTE_CHILDREN.every(childComplete)) {
-      window.location.replace('/pain-classification/acute/');
+    if (!loadChildInputs()) {
+      window.location.replace(PAIN_CLASSIFICATION.acute);
       return;
     }
     summaries = ACUTE_CHILDREN.map((c) => ({
@@ -67,7 +63,7 @@
 
   /** Edit one specific test: reopen the flow on that test; saving returns here. */
   function editAssessment(slug: string): void {
-    window.location.href = `/pain-classification/acute/?edit=${slug}`;
+    window.location.href = PAIN_CLASSIFICATION.edit(slug);
   }
 
   /**
@@ -100,7 +96,7 @@
         <span class="review__name-label">Name / ID</span>
         <input
           id="patient-name"
-          class="review__name-input"
+          class="text-input review__name-input"
           type="text"
           placeholder="Enter name or ID"
           bind:value={nameInput}
@@ -249,19 +245,8 @@
   .review__name-input {
     flex: 1 1 200px;
     min-width: 0;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: 0.95rem;
-    background: var(--color-bg);
-    color: var(--color-text);
   }
 
-  .review__name-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-tint-soft);
-  }
 
   .review__error {
     margin: 0 0 var(--space-4) 0;

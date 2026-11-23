@@ -1,7 +1,10 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { assessmentBySlug } from '../../assessments/registry';
 import MSIIntake from '../../components/MSIIntake.svelte';
+
+const { title } = assessmentBySlug('msi');
 ---
-<Base title="Symptom Index" description="Symptom Index" wide>
+<Base title={title} description={title} wide>
   <MSIIntake client:only="svelte" />
 </Base>

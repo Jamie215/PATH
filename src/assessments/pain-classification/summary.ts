@@ -7,12 +7,9 @@
  * the patient's score-free review: they see exactly what they answered, not a
  * score or classification.
  */
-import { get as storeGet } from '../../lib/storage';
+import { get as storeGet, keys } from '../../lib/storage';
 import { QUESTIONS as MSI_QUESTIONS, FREQUENCY_OPTIONS, INTERFERENCE_OPTIONS } from '../msi/questions';
-import { QUESTIONS as SLANSS_QUESTIONS, EXPERIENCE_OPTIONS as SLANSS_OPTIONS } from '../briefslanss/questions';
-import { QUESTIONS as FREBAQ_QUESTIONS, EXPERIENCE_OPTIONS as FREBAQ_OPTIONS } from '../frebaq/questions';
-import { personalizeFreBAQItem } from '../frebaq/area';
-import { QUESTIONS as PHQ4_QUESTIONS, EXPERIENCE_OPTIONS as PHQ4_OPTIONS } from '../phq4/questions';
+import { findScreener } from '../screeners';
 
 export interface SummaryRow {
   question: string;
@@ -36,7 +33,7 @@ function labelFor(options: readonly Option[], value: unknown): string | null {
 }
 
 function readResponse(slug: string): Record<string, unknown> {
-  return storeGet<Record<string, unknown>>(`${slug}:response`) ?? {};
+  return storeGet<Record<string, unknown>>(keys.response(slug)) ?? {};
 }
 
 function stringField(response: Record<string, unknown>, key: string): string | null {
@@ -63,29 +60,15 @@ export function summarizeChild(slug: string): ChildSummary {
     return { area: null, rows, comments };
   }
 
-  if (slug === 'briefslanss') {
-    const rows = SLANSS_QUESTIONS.map((q): SummaryRow => ({
-      question: q.symptomLabel,
-      answer: labelFor(SLANSS_OPTIONS, r[`${q.symptom}_exp`]),
-    }));
-    return { area: null, rows, comments };
-  }
-
-  if (slug === 'frebaq') {
-    const area = stringField(r, 'bothersome_area');
-    const rows = FREBAQ_QUESTIONS.map((q): SummaryRow => ({
-      question: personalizeFreBAQItem(q.symptomLabel, area ?? ''),
-      answer: labelFor(FREBAQ_OPTIONS, r[`${q.symptom}_exp`]),
+  // Every screener: its items in order, worded around the area when it has one.
+  const screener = findScreener(slug);
+  if (screener) {
+    const area = screener.areaField ? stringField(r, 'bothersome_area') : null;
+    const rows = screener.questions.map((q): SummaryRow => ({
+      question: screener.areaField ? screener.areaField.personalize(q.symptomLabel, area ?? '') : q.symptomLabel,
+      answer: labelFor(screener.options, r[`${q.symptom}_exp`]),
     }));
     return { area, rows, comments };
-  }
-
-  if (slug === 'phq4') {
-    const rows = PHQ4_QUESTIONS.map((q): SummaryRow => ({
-      question: q.symptomLabel,
-      answer: labelFor(PHQ4_OPTIONS, r[`${q.symptom}_exp`]),
-    }));
-    return { area: null, rows, comments };
   }
 
   return { area: null, rows: [], comments };

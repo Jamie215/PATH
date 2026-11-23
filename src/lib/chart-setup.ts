@@ -43,11 +43,14 @@ export function ensureChartJsRegistered(): typeof Chart {
   return Chart;
 }
 
-/** Read a design token (CSS custom property) so charts share the site palette. */
-export function cssVar(name: string, fallback: string): string {
-  if (typeof window === 'undefined') return fallback;
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return value || fallback;
+/**
+ * Read a design token (CSS custom property) so charts share the site palette.
+ * Every page loads global.css, so the token is always defined; colors are
+ * never restated here or in the chart components.
+ */
+export function cssVar(name: string): string {
+  if (typeof window === 'undefined') return '';
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 export { Chart };

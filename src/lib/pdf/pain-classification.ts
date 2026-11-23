@@ -28,7 +28,7 @@ import {
   CONTENT_W,
   MARGIN_X,
   type Ctx,
-} from './pdf/report-kit';
+} from './report-kit';
 import { rgb } from 'pdf-lib';
 
 export interface PDFProb {

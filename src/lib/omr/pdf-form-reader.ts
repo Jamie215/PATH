@@ -3,7 +3,7 @@
  *
  * The scannable answer sheets carry interactive AcroForm radio groups, one
  * per response field, each named by the field's scorer key (see
- * `src/lib/omr-sheet.ts`). When someone fills the PDF on a computer instead
+ * `src/lib/omr/sheet.ts`). When someone fills the PDF on a computer instead
  * of printing it, the answers are already structured data: this reads those
  * radio selections straight back — no image, no fiducials, no recognition.
  *

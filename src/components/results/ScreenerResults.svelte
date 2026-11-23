@@ -5,37 +5,39 @@
    * Reads the scored result from sessionStorage and shows the patient name
    * field, the score card (coloured by the screener's band), the optional
    * "most bothersome area", and comments. Cutoffs, bands and report copy all
-   * come from the screener's spec — nothing clinical is defined here.
+   * come from the screener's definition — nothing clinical is defined here.
    */
   import { onMount, untrack } from 'svelte';
   import AssessmentDate from '../AssessmentDate.svelte';
   import ResultsHeader from './ResultsHeader.svelte';
   import ResultsActions from './ResultsActions.svelte';
-  import { get as storeGet } from '../../lib/storage';
+  import { get as storeGet, keys } from '../../lib/storage';
+  import { assessmentUrl } from '../../lib/routes';
   import { PatientNameField, PdfDownload } from '../../lib/results.svelte';
-  import { SCREENER_REPORTS, type ScreenerSlug } from '../../assessments/screener-reports';
+  import { screenerBySlug } from '../../assessments/screeners';
   import type { ScreenerResult } from '../../assessments/screening';
 
   interface Props {
-    slug: ScreenerSlug;
+    /** Which screener, e.g. `phq4` (see assessments/screeners.ts). */
+    slug: string;
   }
 
   let { slug }: Props = $props();
-  const spec = $derived(SCREENER_REPORTS[slug]);
-  const homeHref = $derived(`/${slug}/`);
+  const spec = $derived(screenerBySlug(slug));
+  const homeHref = $derived(assessmentUrl(slug));
 
   let result = $state<ScreenerResult | null>(null);
   let bothersomeArea = $state('');
   let loaded = $state(false);
 
   // The slug is fixed for the page's lifetime, so the storage key is too.
-  const name = new PatientNameField(untrack(() => `${slug}:patientName`));
+  const name = new PatientNameField(untrack(() => keys.patientName(slug)));
   const pdf = new PdfDownload();
 
   onMount(() => {
-    result = storeGet<ScreenerResult>(`${slug}:result`);
-    if (spec.showArea) {
-      const response = storeGet<Record<string, unknown>>(`${slug}:response`);
+    result = storeGet<ScreenerResult>(keys.result(slug));
+    if (spec.areaField) {
+      const response = storeGet<Record<string, unknown>>(keys.response(slug));
       if (typeof response?.bothersome_area === 'string') bothersomeArea = response.bothersome_area;
     }
     name.load();
@@ -48,7 +50,7 @@
     if (!result) return;
     const r = result;
     await pdf.run(async () => {
-      const { generateScreeningReport, buildFilename } = await import('../../lib/screening-pdf');
+      const { generateScreeningReport, buildFilename } = await import('../../lib/pdf/screening');
       const bytes = await generateScreeningReport(spec, { result: r, patientName: name.value });
       return { bytes, filename: buildFilename(spec, name.value) };
     });

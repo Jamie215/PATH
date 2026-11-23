@@ -9,9 +9,10 @@
    * acute collection page. Chronic short-circuits to a placeholder.
    */
   import { set as storeSet, clearAll as storeClearAll } from '../lib/storage';
+  import { PAIN_CLASSIFICATION } from '../lib/routes';
   import BackLink from './BackLink.svelte';
   import ChoiceGroup from './intake/ChoiceGroup.svelte';
-  import { KEYS, RETURN_URL, type PainType, type Role } from '../assessments/pain-classification/config';
+  import { KEYS, type PainType, type Role } from '../assessments/pain-classification/config';
 
   let painType = $state<PainType | null>(null);
   let role = $state<Role | null>(null);
@@ -32,7 +33,7 @@
     // all live under the same URL section, so session-clear keeps them).
     storeClearAll();
     storeSet<Role>(KEYS.role, role);
-    window.location.href = RETURN_URL;
+    window.location.href = PAIN_CLASSIFICATION.acute;
   }
 </script>
 
