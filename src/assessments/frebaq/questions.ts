@@ -54,3 +54,13 @@ export const EXPERIENCE_OPTIONS = [
   { value: 3, label: 'Often' },
   { value: 4, label: 'Always' },
 ] as const;
+
+/** Example text shown in every "most bothersome area" field (survey, card,
+ *  printed sheet). */
+export const AREA_HINT = 'e.g., right knee, left hand, neck';
+
+/** The on-screen survey's "most bothersome area" field. */
+export const AREA_FIELD = {
+  label: 'The part of my body that has been bothering me the most is:',
+  placeholder: AREA_HINT,
+} as const;

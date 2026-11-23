@@ -26,6 +26,7 @@ import { MSI_OMR_TEMPLATE } from '../msi/omr-template';
 import { BRIEFSLANSS_OMR_TEMPLATE } from '../briefslanss/omr-template';
 import { FREBAQ_OMR_TEMPLATE } from '../frebaq/omr-template';
 import { PHQ4_OMR_TEMPLATE } from '../phq4/omr-template';
+import { AREA_HINT } from '../frebaq/questions';
 import { MAX as MSI_MAX } from '../msi/scoring';
 import { MAX_SCORE as SLANSS_MAX } from '../briefslanss/scoring';
 import { MAX_SCORE as FREBAQ_MAX } from '../frebaq/scoring';
@@ -143,7 +144,7 @@ export const ACUTE_CHILDREN: ChildAssessment[] = [
     omrTemplate: FREBAQ_OMR_TEMPLATE,
     areaField: {
       label: 'The part of the body that has been bothering me the most is:',
-      placeholder: 'e.g., right knee, left hand, neck',
+      placeholder: AREA_HINT,
     },
     fromResult: totalFromResult,
   },

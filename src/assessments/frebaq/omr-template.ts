@@ -4,7 +4,7 @@
  * answer columns can carry their word labels (Never…Always) directly under
  * each bubble, no decode legend needed.
  */
-import { QUESTIONS, EXPERIENCE_OPTIONS } from './questions';
+import { QUESTIONS, EXPERIENCE_OPTIONS, AREA_HINT } from './questions';
 import { personalizeFreBAQItem } from './area';
 import { buildSingleGroupTemplate } from '../omr/single-group-template';
 
@@ -19,7 +19,7 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   ],
   sectionTitle: 'With your bothersome area in mind, how often do you experience the following?',
   preamble: 'The part of my body that has been bothering me the most is my:',
-  preambleField: { key: 'bothersome_area', hint: 'e.g., right knee, left hand, neck' },
+  preambleField: { key: 'bothersome_area', hint: AREA_HINT },
   groupLabel: '',
   // Word labels sit directly under each bubble (a self-describing radio group),
   // so no separate 0–4 decode legend is needed.
