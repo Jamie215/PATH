@@ -1,0 +1,18 @@
+---
+/** Results page for every single-total screener, e.g. /phq4/results/. */
+import Base from '../../layouts/Base.astro';
+import ScreenerResults from '../../components/results/ScreenerResults.svelte';
+import { SCREENERS } from '../../assessments/screeners';
+import { assessmentBySlug } from '../../assessments/registry';
+
+export function getStaticPaths() {
+  return SCREENERS.map(({ slug }) => ({ params: { screener: slug } }));
+}
+
+const slug = Astro.params.screener;
+const { title } = assessmentBySlug(slug);
+---
+<Base title={`${title} · Results`} description={`${title} — results`} wide>
+  <h1>Results for {title}</h1>
+  <ScreenerResults {slug} client:only="svelte" />
+</Base>

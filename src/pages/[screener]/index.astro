@@ -1,0 +1,30 @@
+---
+/**
+ * Survey page for every single-total screener (one page per entry in
+ * assessments/screeners.ts, e.g. /phq4/). MSI and Pain Classification have
+ * their own folders under src/pages, which take priority over this route.
+ */
+import Base from '../../layouts/Base.astro';
+import SingleGroupSurvey from '../../components/SingleGroupSurvey.svelte';
+import BackLink from '../../components/BackLink.svelte';
+import { SCREENERS } from '../../assessments/screeners';
+import { assessmentBySlug } from '../../assessments/registry';
+
+export function getStaticPaths() {
+  return SCREENERS.map(({ slug }) => ({ params: { screener: slug } }));
+}
+
+const slug = Astro.params.screener;
+const { title } = assessmentBySlug(slug);
+---
+<Base title={`${title} · Survey`} description={`${title} — survey`} wide>
+  <BackLink client:only="svelte" />
+  <h1 class="survey-heading">{title}</h1>
+  <SingleGroupSurvey {slug} client:only="svelte" />
+</Base>
+
+<style>
+  .survey-heading {
+    margin-bottom: var(--space-3);
+  }
+</style>
