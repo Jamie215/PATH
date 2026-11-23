@@ -8,6 +8,7 @@
  * only 10 unique symptoms).
  */
 import { MATRIX } from './matrix';
+import { commentsOf } from '../screening';
 
 // --- Constants ---------------------------------------------------------------
 
@@ -208,10 +209,7 @@ export function score(response: MSIResponse): MSIResult {
   const mdd: MSIResult['mdd'] =
     nonsomatic <= md.unlikelyMax ? 'Unlikely' : nonsomatic >= md.likelyMin ? 'Likely' : 'Unclear';
 
-  const comments =
-    typeof response.other_comments === 'string' && response.other_comments.length > 0
-      ? response.other_comments
-      : 'No comment provided.';
+  const comments = commentsOf(response);
 
   // frequency_no in the Python is always 10 (one freq per symptom)
   const freq_mean = freqSum / SYMPTOMS.length;
