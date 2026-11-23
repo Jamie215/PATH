@@ -48,7 +48,7 @@ export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   rowSpacing: 45,
   // Regions to crop from a scan for handwriting recognition. Rects (pt,
   // top-left) must track where the generator draws these fields — see the
-  // preamble blank and comment box in omr-sheet.ts.
+  // preamble blank and comment box in lib/omr/sheet.ts.
   scanTextFields: [
     // The fill-in blank's baseline (and printed rule) sit at ~y=303–307pt, so
     // the crop must reach well below the rule to keep descenders (g, y, p, q, j)

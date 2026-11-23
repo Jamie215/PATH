@@ -105,7 +105,7 @@
     const r = result;
     await pdf.run(async () => {
       const { generatePainClassificationReport, buildFilename } = await import(
-        '../lib/pain-classification-pdf'
+        '../lib/pdf/pain-classification'
       );
       const bytes = await generatePainClassificationReport({
         classification: r.classification,

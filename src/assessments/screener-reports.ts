@@ -2,7 +2,7 @@
  * Per-screener report copy for the single-total screeners (PHQ-4, Brief
  * S-LANSS, FreBAQ): everything their results view and PDF report need beyond
  * the scoring itself. Kept free of pdf-lib so results views can import it
- * without pulling in the PDF bundle (lib/screening-pdf.ts is lazy-loaded).
+ * without pulling in the PDF bundle (lib/pdf/screening.ts is lazy-loaded).
  */
 import type { ScreenerScoring } from './screening';
 import { assessmentBySlug } from './registry';

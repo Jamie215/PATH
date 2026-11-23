@@ -12,8 +12,8 @@ import {
   SUMMARY_MEASURES,
   targetScore,
   type MSIResult,
-} from '../assessments/msi/scoring';
-import type { Role } from '../assessments/registry';
+} from '../../assessments/msi/scoring';
+import type { Role } from '../../assessments/registry';
 import {
   buildFilename as kitBuildFilename,
   createReport,
@@ -34,7 +34,7 @@ import {
   CONTENT_W,
   MARGIN_X,
   type Ctx,
-} from './pdf/report-kit';
+} from './report-kit';
 
 export interface PDFInput {
   result: MSIResult;

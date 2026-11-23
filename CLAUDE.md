@@ -11,7 +11,7 @@ browser. See README.md for the full picture.
 - `src/assessments/registry.ts`: cards on the hub home
 - `src/assessments/pain-classification/`: the composite (child wiring in `config.ts`)
 - `src/components/`: Svelte UI (shared `survey/`, `results/`; composite pages in `pain-classification/`)
-- `src/lib/`: storage, session clearing, PDF reports (`pdf/report-kit.ts`), charts, `omr/` (reading uploaded sheets)
+- `src/lib/`: storage and key names (`storage.ts`), page URLs (`routes.ts`), session clearing, charts, `pdf/` (results reports; shared layout in `report-kit.ts`), `omr/` (printing answer sheets in `sheet.ts`, reading uploaded ones)
 - `src/pages/`: file-based routes
 - `src/styles/global.css`: design tokens
 - `scripts/`: `copy-ort.mjs` (runs before dev/build), `fetch-icons.mjs` + `icons.json`

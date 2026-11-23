@@ -2,7 +2,7 @@
  * Print ↔ read alignment for the free-text regions.
  *
  * Each template's `scanTextFields` rects are hand-placed to cover where
- * `omr-sheet.ts` draws the matching fill-in blank / comment box, and nothing
+ * `sheet.ts` draws the matching fill-in blank / comment box, and nothing
  * else ties the two together. This generates every sheet and checks each crop
  * rect against the AcroForm widget the generator actually placed, so a layout
  * change that moves a field without updating its crop fails here instead of
@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { PDFDocument, PDFTextField } from 'pdf-lib';
-import { generateAnswerSheet } from '../omr-sheet';
+import { generateAnswerSheet } from './sheet';
 import { MSI_OMR_TEMPLATE } from '../../assessments/msi/omr-template';
 import { BRIEFSLANSS_OMR_TEMPLATE } from '../../assessments/briefslanss/omr-template';
 import { FREBAQ_OMR_TEMPLATE } from '../../assessments/frebaq/omr-template';

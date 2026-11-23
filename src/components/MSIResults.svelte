@@ -66,7 +66,7 @@
       const somaticBar = barCanvas.toDataURL('image/png');
       const radar = radarCanvas.toDataURL('image/png');
 
-      const { generateMSIReport, buildFilename } = await import('../lib/msi-pdf');
+      const { generateMSIReport, buildFilename } = await import('../lib/pdf/msi');
       const bytes = await generateMSIReport({
         result: r,
         role: activeRole,

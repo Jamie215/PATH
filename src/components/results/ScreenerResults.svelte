@@ -49,7 +49,7 @@
     if (!result) return;
     const r = result;
     await pdf.run(async () => {
-      const { generateScreeningReport, buildFilename } = await import('../../lib/screening-pdf');
+      const { generateScreeningReport, buildFilename } = await import('../../lib/pdf/screening');
       const bytes = await generateScreeningReport(spec, { result: r, patientName: name.value });
       return { bytes, filename: buildFilename(spec, name.value) };
     });

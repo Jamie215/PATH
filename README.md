@@ -52,9 +52,11 @@ src/
     results/          Shared results header/actions + screener results view
     pain-classification/  Professional collection page, upload flow + dialogs
     intake/           Intake choice cards
-  lib/                Storage, session clearing, PDF reports, charts
-    omr/              Reading uploaded sheets: filled PDFs, scans and photos
-    pdf/report-kit.ts Shared PDF layout for every results report
+  lib/                Storage and key names, page URLs (routes.ts), session
+                      clearing, charts
+    omr/              Answer sheets: printing them (sheet.ts) and reading
+                      uploaded ones (filled PDFs, scans and photos)
+    pdf/              PDF results reports; report-kit.ts is the shared layout
   layouts/            Shared Astro layout
   pages/              File-based routes
   styles/global.css   Design tokens and shared styles

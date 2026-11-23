@@ -5,8 +5,8 @@
  *
  * Lazy-imported by the results view so pdf-lib only loads on download.
  */
-import type { ScreenerReport } from '../assessments/screener-reports';
-import type { ScreenerResult } from '../assessments/screening';
+import type { ScreenerReport } from '../../assessments/screener-reports';
+import type { ScreenerResult } from '../../assessments/screening';
 import {
   buildFilename as kitBuildFilename,
   createReport,
@@ -15,7 +15,7 @@ import {
   drawScoreCard,
   drawTitle,
   finalizeReport,
-} from './pdf/report-kit';
+} from './report-kit';
 
 export async function generateScreeningReport(
   spec: ScreenerReport,

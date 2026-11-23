@@ -4,7 +4,7 @@
  * far (no scores). Offered from the patient flow and its review page; the same
  * document can later be uploaded on the professional collection page.
  *
- * omr-sheet (pdf-lib) is lazy-imported so it only loads on download.
+ * lib/omr/sheet (pdf-lib) is lazy-imported so it only loads on download.
  */
 import { get as storeGet, keys } from './storage';
 import { ACUTE_CHILDREN } from '../assessments/pain-classification/config';
@@ -12,7 +12,7 @@ import { ACUTE_CHILDREN } from '../assessments/pain-classification/config';
 export async function buildCompletedSheets(
   patientName = '',
 ): Promise<{ bytes: Uint8Array; filename: string }> {
-  const { generateCombinedAnswerSheets, buildCombinedAnswerSheetFilename } = await import('./omr-sheet');
+  const { generateCombinedAnswerSheets, buildCombinedAnswerSheetFilename } = await import('./omr/sheet');
   const today = new Date().toLocaleDateString();
   const name = patientName.trim();
   const entries = ACUTE_CHILDREN.flatMap((c) => {

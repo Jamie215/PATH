@@ -5,7 +5,7 @@
  * scannable form. It is consumed by two sides that must never drift
  * apart:
  *
- *   1. the sheet generator (`src/lib/omr-sheet.ts`), which renders a blank
+ *   1. the sheet generator (`src/lib/omr/sheet.ts`), which renders a blank
  *      printable PDF from it, and
  *   2. the reader (`src/lib/omr/reader.ts`), which — after detecting the sheet's four
  *      corner fiducials and warping the photo flat — samples ink density at

@@ -14,11 +14,11 @@ import {
   type PDFRawStream,
   decodePDFRawStream,
 } from 'pdf-lib';
-import { generateAnswerSheet, generateCombinedAnswerSheets } from './omr-sheet';
-import { readCombinedPdfForm } from './omr/pdf-form-reader';
-import { PHQ4_OMR_TEMPLATE } from '../assessments/phq4/omr-template';
-import { MSI_OMR_TEMPLATE } from '../assessments/msi/omr-template';
-import type { OmrTemplate } from '../assessments/omr/types';
+import { generateAnswerSheet, generateCombinedAnswerSheets } from './sheet';
+import { readCombinedPdfForm } from './pdf-form-reader';
+import { PHQ4_OMR_TEMPLATE } from '../../assessments/phq4/omr-template';
+import { MSI_OMR_TEMPLATE } from '../../assessments/msi/omr-template';
+import type { OmrTemplate } from '../../assessments/omr/types';
 
 /** Decoded content of one page. */
 function pageContent(doc: PDFDocument, index: number): string {
