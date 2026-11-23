@@ -197,3 +197,17 @@ Four decisions are still open.
 - [ ] **briefSLANSS cutoff.** Confirm a total above 2 as "predominantly neuropathic". It is set by `NEUROPATHIC_CUTOFF` in `src/assessments/briefslanss/scoring.ts`, which also sets the results colour.
 - [ ] **Chronic pathway.** Decide the chronic-pain tests and model. Choosing *chronic* at intake currently stops with a placeholder message.
 - [ ] **Model file download.** Confirm that the one-time handwriting-model download from Hugging Face is acceptable for ethics or privacy review, or host the file on the PATH site instead.
+
+## Open items for the developer
+
+These are technical, not clinical, and none blocks using the site.
+
+- [ ] **Freeze the handwriting model version.** `MODEL_REVISION` in `src/lib/omr/handwriting.ts` is `main`. That means the app loads whatever version Hugging Face currently publishes, so an upstream update could change how handwriting is read without anyone noticing. Setting it to a fixed commit hash freezes it. Do this only after checking recognition on real scanned sheets.
+- [ ] **Production address.** `site` in `astro.config.mjs` is `https://path.pages.dev`. Replace it with the real production URL once it is known.
+- [ ] **PDF grey.** The PDF reports use a light grey (`#888`, `COLOR_SUBTLE` in `src/lib/pdf/report-kit.ts`) that is not one of the site's colours. The site's nearest colour is `--color-text-subtle` (`#767676`), which is darker and easier to read. Decide whether the PDFs should switch to it.
+
+## Making new questionnaires easier to add
+
+Adding a new single-score questionnaire (like PHQ-4) currently means editing about ten files: its questions, scoring and answer sheet, the hub list (`registry.ts`), the report text (`screener-reports.ts`), a small survey wrapper component, the survey list in `ChildSurvey.svelte`, two page files, the Pain Classification setup (`config.ts`) and the review summary (`summary.ts`).
+
+A suggested next step is to give each questionnaire one *definition* file that holds all of this in one place: its name, questions, answer options, scoring, answer sheet and report text. The hub list, report text, survey list and pages would then be built from those definitions. One page template would serve every questionnaire. A new questionnaire would then need about three files. The same change is a good moment to add an automated browser test that takes each survey, opens its results and downloads the PDF, since no test exercises the pages themselves yet.
