@@ -13,6 +13,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { ensureChartJsRegistered, cssVar, Chart } from '../lib/chart-setup';
   import ChartFigure from './ChartFigure.svelte';
+  import { MAX } from '../assessments/msi/scoring';
 
   interface Props {
     somatic: number;
@@ -29,8 +30,8 @@
     if (!canvas) return;
     ensureChartJsRegistered();
 
-    const somaticPct = Math.round((somatic / 60) * 100);
-    const nonsomaticPct = Math.round((nonsomatic / 72) * 100);
+    const somaticPct = Math.round((somatic / MAX.somatic) * 100);
+    const nonsomaticPct = Math.round((nonsomatic / MAX.nonsomatic) * 100);
 
     const somaticColor = cssVar('--color-primary', '#4F2683');
     const nonsomaticColor = cssVar('--color-accent-warm', '#C97B4F');
