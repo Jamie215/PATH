@@ -9,11 +9,7 @@
   import type { EmbeddedSurveyProps } from './survey/types';
   import { QUESTIONS, EXPERIENCE_OPTIONS } from '../assessments/frebaq/questions';
   import { score, type FreBAQResponse } from '../assessments/frebaq/scoring';
-  import {
-    sanitizeBothersomeArea,
-    personalizeFreBAQItem,
-    normalizeBothersomeArea,
-  } from '../assessments/frebaq/area';
+  import { personalizeFreBAQItem, normalizeBothersomeArea } from '../assessments/frebaq/area';
 
   let { progress = $bindable(0), ...rest }: EmbeddedSurveyProps = $props();
 </script>
@@ -29,7 +25,6 @@
     label: 'The part of my body that has been bothering me the most is:',
     placeholder: 'e.g., right knee, left hand, neck',
   }}
-  sanitizeArea={sanitizeBothersomeArea}
   normalizeArea={normalizeBothersomeArea}
   personalizeArea={personalizeFreBAQItem}
   bind:progress

@@ -40,10 +40,9 @@
     score: (response: Record<string, number | string>) => unknown;
     /** Enables the free-text "most bothersome area" field above the questions. */
     areaField?: { label: string; placeholder: string };
-    /** Normalizes the area text before it is stored (e.g. FreBAQ's sanitizer). */
-    sanitizeArea?: (text: string) => string;
-    /** Fully normalizes a confirmed area (punctuation + leading "my"/"the"
-     *  strip). Falls back to sanitizeArea when absent. */
+    /** Normalizes a confirmed area before it is stored or woven into the
+     *  questions (e.g. FreBAQ's punctuation + leading "my"/"the" strip).
+     *  Defaults to trimming. */
     normalizeArea?: (text: string) => string;
     /** Rewrites a question label to reference the confirmed area (e.g. FreBAQ's
      *  "the area" → "my right knee"). */
@@ -58,7 +57,6 @@
     resultsUrl,
     score,
     areaField,
-    sanitizeArea,
     normalizeArea,
     personalizeArea,
     onComplete,
@@ -83,8 +81,7 @@
   const areaId = `${uid}-area`;
   const questionId = (symptom: string) => `${uid}-q-${symptom}`;
 
-  const normalize = (text: string): string =>
-    normalizeArea ? normalizeArea(text) : sanitizeArea ? sanitizeArea(text) : text.trim();
+  const normalize = (text: string): string => (normalizeArea ? normalizeArea(text) : text.trim());
 
   // Seed from the initial props once; afterwards the form owns its state.
   // svelte-ignore state_referenced_locally
