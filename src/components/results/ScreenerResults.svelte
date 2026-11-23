@@ -5,7 +5,7 @@
    * Reads the scored result from sessionStorage and shows the patient name
    * field, the score card (coloured by the screener's band), the optional
    * "most bothersome area", and comments. Cutoffs, bands and report copy all
-   * come from the screener's spec — nothing clinical is defined here.
+   * come from the screener's definition — nothing clinical is defined here.
    */
   import { onMount, untrack } from 'svelte';
   import AssessmentDate from '../AssessmentDate.svelte';
@@ -14,15 +14,16 @@
   import { get as storeGet, keys } from '../../lib/storage';
   import { assessmentUrl } from '../../lib/routes';
   import { PatientNameField, PdfDownload } from '../../lib/results.svelte';
-  import { SCREENER_REPORTS, type ScreenerSlug } from '../../assessments/screener-reports';
+  import { screenerBySlug } from '../../assessments/screeners';
   import type { ScreenerResult } from '../../assessments/screening';
 
   interface Props {
-    slug: ScreenerSlug;
+    /** Which screener, e.g. `phq4` (see assessments/screeners.ts). */
+    slug: string;
   }
 
   let { slug }: Props = $props();
-  const spec = $derived(SCREENER_REPORTS[slug]);
+  const spec = $derived(screenerBySlug(slug));
   const homeHref = $derived(assessmentUrl(slug));
 
   let result = $state<ScreenerResult | null>(null);
@@ -35,7 +36,7 @@
 
   onMount(() => {
     result = storeGet<ScreenerResult>(keys.result(slug));
-    if (spec.showArea) {
+    if (spec.areaField) {
       const response = storeGet<Record<string, unknown>>(keys.response(slug));
       if (typeof response?.bothersome_area === 'string') bothersomeArea = response.bothersome_area;
     }
