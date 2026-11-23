@@ -27,6 +27,7 @@ import type {
   OmrColumnGroup,
 } from '../omr/types';
 import { nx, ny, sheetFrame } from '../omr/sheet-geometry';
+import { assessmentBySlug } from '../registry';
 
 // --- Layout constants (US Letter, PostScript points) -----------------------
 
@@ -105,7 +106,7 @@ const INT_GROUP: OmrColumnGroup = {
 
 export const MSI_OMR_TEMPLATE: OmrTemplate = {
   id: 'msi-v1',
-  title: 'Symptom Index',
+  title: assessmentBySlug('msi').title,
   // Shown right-aligned in the brand row (not as a title subtitle), so it
   // labels the sheet without costing the vertical space MSI needs for its
   // single-page grid.

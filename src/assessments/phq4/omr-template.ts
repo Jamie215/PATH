@@ -7,10 +7,11 @@
  */
 import { QUESTIONS, EXPERIENCE_OPTIONS } from './questions';
 import { buildSingleGroupTemplate } from '../omr/single-group-template';
+import { assessmentBySlug } from '../registry';
 
 export const PHQ4_OMR_TEMPLATE = buildSingleGroupTemplate({
   id: 'phq4-v1',
-  title: 'Anxiety & Depression',
+  title: assessmentBySlug('phq4').title,
   subtitle: 'Scannable Form',
   instructions: [
     'For each item, fill in ONE bubble for how often it has bothered you over the last 2 weeks.',

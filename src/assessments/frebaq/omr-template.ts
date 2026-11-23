@@ -7,10 +7,11 @@
 import { QUESTIONS, EXPERIENCE_OPTIONS, AREA_HINT } from './questions';
 import { personalizeFreBAQItem } from './area';
 import { buildSingleGroupTemplate } from '../omr/single-group-template';
+import { assessmentBySlug } from '../registry';
 
 export const FREBAQ_OMR_TEMPLATE = buildSingleGroupTemplate({
   id: 'frebaq-v1',
-  title: 'Body Awareness',
+  title: assessmentBySlug('frebaq').title,
   subtitle: 'Scannable Form',
   instructions: [
     'Each statement is about your body (the affected area). Fill in ONE bubble for how often each is true.',
