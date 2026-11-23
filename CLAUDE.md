@@ -7,12 +7,13 @@ browser. See README.md for the full picture.
 
 ## Layout
 
-- `src/assessments/<tool>/`: `questions.ts`, `scoring.ts`, `omr-template.ts` for each assessment
+- `src/assessments/<tool>/`: `questions.ts`, `scoring.ts`, `omr-template.ts` for each assessment; screeners also have `definition.ts`, listed in `screeners.ts` (README "Adding a screener")
 - `src/assessments/registry.ts`: cards on the hub home
 - `src/assessments/pain-classification/`: the composite (child wiring in `config.ts`)
 - `src/components/`: Svelte UI (shared `survey/`, `results/`; composite pages in `pain-classification/`)
 - `src/lib/`: storage and key names (`storage.ts`), page URLs (`routes.ts`), session clearing, charts, `pdf/` (results reports; shared layout in `report-kit.ts`), `omr/` (printing answer sheets in `sheet.ts`, reading uploaded ones)
-- `src/pages/`: file-based routes
+- `src/pages/`: file-based routes; `[screener]/` builds every screener's survey and results pages
+- `e2e/`: Playwright browser smoke tests (`*.e2e.ts`)
 - `src/styles/global.css`: design tokens
 - `scripts/`: `copy-ort.mjs` (runs before dev/build), `fetch-icons.mjs` + `icons.json`
 
@@ -24,6 +25,7 @@ Use Node 22 (`.nvmrc`; needs 22.13 or later).
 npm ci
 npm run dev                                  # http://localhost:4321
 npm run check && npm test && npm run build   # must all pass before a change is done (same as CI)
+npm run test:e2e                             # browser tests against dist/; CI runs these too
 ```
 
 ## Rules

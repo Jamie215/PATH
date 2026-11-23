@@ -33,19 +33,22 @@ npm run dev      # dev server at http://localhost:4321
 npm test         # unit tests (vitest)
 npm run check    # type-check .astro (astro check) and .svelte (svelte-check)
 npm run build    # static build into dist/
+npm run test:e2e # browser smoke tests against dist/ (run after build)
 ```
 
-CI (`.github/workflows/ci.yml`) runs `check`, `test` and `build` on every
-pull request and on `main`.
+CI (`.github/workflows/ci.yml`) runs `check`, `test`, `build` and `test:e2e`
+on every pull request and on `main`. The browser tests (`e2e/`) use
+Playwright: they take each survey, open its results and download the PDF.
+On a new machine, run `npx playwright install chromium` once first.
 
 ## Project structure
 
 ```
 src/
   assessments/        Per-assessment questions, scoring, OMR sheet templates
-    registry.ts       Cards shown on the hub home
+    registry.ts       Names, descriptions and hub cards for every assessment
     screening.ts      Shared shape of the single-total screeners
-    screener-reports.ts  Report copy for PHQ-4 / Brief S-LANSS / FreBAQ
+    screeners.ts      List of screeners; each has a <slug>/definition.ts
     pain-classification/  Composite: child wiring (config.ts) + model (scoring.ts)
   components/         Svelte UI
     survey/           Shared survey shell + question frame
@@ -58,13 +61,35 @@ src/
                       uploaded ones (filled PDFs, scans and photos)
     pdf/              PDF results reports; report-kit.ts is the shared layout
   layouts/            Shared Astro layout
-  pages/              File-based routes
+  pages/              File-based routes; [screener]/ serves every screener
+e2e/                  Browser smoke tests (Playwright)
   styles/global.css   Design tokens and shared styles
 ```
 
 Clinical constants (maximum scores, cutoffs, bands) live only in each
 assessment's `scoring.ts`; the results views, PDFs and composite model
 import them from there.
+
+## Adding a screener
+
+A *screener* here is a questionnaire with one rating per item and a single
+total score, like PHQ-4. To add one, say with the slug `newtool`:
+
+1. `src/assessments/newtool/questions.ts`: the items and the rating scale.
+2. `src/assessments/newtool/scoring.ts`: maximum score, cutoffs and `score()`.
+3. `src/assessments/newtool/omr-template.ts`: the printable answer sheet
+   (copy a sibling's and adjust the layout).
+4. `src/assessments/newtool/definition.ts`: ties the three together, with
+   the survey intro and the PDF report text.
+5. Add it to `SCREENERS` in `src/assessments/screeners.ts`, and give it a
+   name, description and icon in `src/assessments/registry.ts`.
+
+That gives it a survey page (`/newtool/`), a results page and a PDF
+report. To feed it into Pain Classification, also add
+`screenerChild(NEWTOOL)` to `ACUTE_CHILDREN` in
+`src/assessments/pain-classification/config.ts`; the model in its
+`scoring.ts` would need new coefficients for it. `npm test` checks the
+pieces agree, for example that the answer sheet has one row per question.
 
 ## Privacy and network use
 

@@ -5,10 +5,9 @@
  * the composite's cards, the reports and the page titles read them from here
  * via `assessmentBySlug`.
  *
- * To add a new assessment:
- *   1. Create a folder under src/assessments/<slug>/ with its config/scoring
- *   2. Add an entry to this registry
- *   3. Add the assessment's pages/results components
+ * To add a single-total screener, see "Adding a screener" in README.md: its
+ * folder, a definition, an entry in screeners.ts and an entry here. Other
+ * kinds of assessment (like MSI) need their own pages and components too.
  *
  * `status: 'available'` means the assessment is fully implemented and
  * navigable from the hub. `status: 'planned'` shows a "coming soon" card.

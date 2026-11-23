@@ -39,7 +39,7 @@ Every assessment follows the same pattern: a short intake, the questionnaire, th
 
 **Look and feel.** The primary colour is purple `#4F2683`. Colours, spacing and type are defined once in `src/styles/global.css`.
 
-**Where the logic lives.** Each test has its own folder under `src/assessments/` holding the question wording (`questions.ts`) and the scoring (`scoring.ts`). A change to wording or cutoffs is normally a one-file edit there. The list of hub cards is `src/assessments/registry.ts`.
+**Where the logic lives.** Each test has its own folder under `src/assessments/` holding the question wording (`questions.ts`) and the scoring (`scoring.ts`). A change to wording or cutoffs is normally a one-file edit there. Each test's name, description and hub card are in `src/assessments/registry.ts`.
 
 ## Symptom Index (MSI)
 
@@ -206,8 +206,12 @@ These are technical, not clinical, and none blocks using the site.
 - [ ] **Production address.** `site` in `astro.config.mjs` is `https://path.pages.dev`. Replace it with the real production URL once it is known.
 - [ ] **PDF grey.** The PDF reports use a light grey (`#888`, `COLOR_SUBTLE` in `src/lib/pdf/report-kit.ts`) that is not one of the site's colours. The site's nearest colour is `--color-text-subtle` (`#767676`), which is darker and easier to read. Decide whether the PDFs should switch to it.
 
-## Making new questionnaires easier to add
+## Adding a questionnaire
 
-Adding a new single-score questionnaire (like PHQ-4) currently means editing about ten files: its questions, scoring and answer sheet, the hub list (`registry.ts`), the report text (`screener-reports.ts`), a small survey wrapper component, the survey list in `ChildSurvey.svelte`, two page files, the Pain Classification setup (`config.ts`) and the review summary (`summary.ts`).
+Each single-score questionnaire (Sensory Profile, Body Awareness, Anxiety & Depression) has a *definition* file, `src/assessments/<name>/definition.ts`. It gathers the questionnaire's questions, answer options, scoring, printable answer sheet and PDF report text in one place. The site builds each questionnaire's survey page, results page, report, patient review and Pain Classification card from these definitions.
 
-A suggested next step is to give each questionnaire one *definition* file that holds all of this in one place: its name, questions, answer options, scoring, answer sheet and report text. The hub list, report text, survey list and pages would then be built from those definitions. One page template would serve every questionnaire. A new questionnaire would then need about three files. The same change is a good moment to add an automated browser test that takes each survey, opens its results and downloads the PDF, since no test exercises the pages themselves yet.
+A new questionnaire of this kind therefore needs four files in its own folder (questions, scoring, answer sheet and definition), plus two list entries: one in `screeners.ts` and one in `registry.ts` for its name and hub card. The steps are in the README under "Adding a screener". Automated checks then confirm the pieces agree, for example that the printed sheet has one row per question.
+
+Adding it to the Pain Classification model is a separate, clinical step: the model's coefficients in `pain-classification/scoring.ts` come from the source workbook and would need new values.
+
+**Automated browser tests.** `npm run test:e2e` opens the built site in a real browser. It takes each survey, checks the score on the results page and downloads the PDF. It also walks Pain Classification as a patient and as a professional. CI runs these on every pull request.
